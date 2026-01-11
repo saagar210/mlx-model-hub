@@ -23,7 +23,17 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git branch:*)",
+      "Bash(git stash:*)",
+      "Bash(git stash pop:*)",
+      "Bash(brew upgrade:*)",
+      "Bash(claude --version)",
+      "Bash(git -C /Users/d/claude-code log --oneline -5)",
+      "Skill(brainstorming)",
+      "Bash(npm show:*)",
+      "Bash(npm update:*)"
     ]
   }
 }

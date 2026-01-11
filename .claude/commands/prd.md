@@ -1,29 +1,23 @@
-# PRD Interview
+# Generate PRD
 
-Start the PRD development workflow for a new project or major feature.
+Use the prd-taskmaster skill to generate a comprehensive Product Requirements Document.
 
-## Interview Phase 1: Core Understanding
-Ask clarifying questions about:
-1. **Goals**: What problem are we solving? What does success look like?
-2. **Users**: Who will use this? What are their skill levels?
-3. **Scope**: What's in scope vs explicitly out of scope?
-4. **Constraints**: Timeline, budget, technical limitations?
+**Invoke skill:** prd-taskmaster
 
-## Interview Phase 2: Deep Dive
-After initial answers, probe deeper:
-1. **Edge cases**: What happens when things go wrong?
-2. **Integration**: How does this connect to existing systems?
-3. **Data**: What data flows in/out? Storage needs?
-4. **Security**: Any sensitive data or access control needs?
+This skill will:
+1. Ask 12+ smart discovery questions to understand your idea
+2. Generate a comprehensive PRD with 11 sections
+3. Validate quality with 13 automated checks
+4. Auto-initialize Task Master and create `.taskmaster/` structure
+5. Parse PRD into tasks with complexity estimates
+6. Expand tasks into subtasks
+7. Offer autonomous execution or handoff
 
-## Interview Phase 3: Validation
-Ask the critical questions:
-1. "What am I missing?"
-2. "What could go wrong?"
-3. "What would make this a failure?"
-4. "Any assumptions I should challenge?"
+**Activation phrases that work:**
+- "I want a PRD for [idea]"
+- "Create requirements for [feature]"
+- "Build me a [product]"
 
-## Output
-After 2+ interview rounds, create the PRD and save to `.taskmaster/docs/prd.txt`
-
-Then offer to parse the PRD with Task Master to generate tasks.
+**After PRD is generated:**
+- Use `/next-task` to start implementation
+- Or choose autonomous execution mode
