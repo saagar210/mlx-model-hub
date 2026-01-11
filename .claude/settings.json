@@ -4,7 +4,25 @@
     "PostToolUse": [],
     "Stop": [],
     "SubagentStop": [],
-    "SessionStart": [],
-    "UserPromptSubmit": []
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Project instructions loaded from CLAUDE.md]'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Skill Suggestion] Consider using:' $(echo $CLAUDE_USER_PROMPT | grep -qiE 'review|check|audit' && echo 'requesting-code-review') $(echo $CLAUDE_USER_PROMPT | grep -qiE 'optimize|performance|slow' && echo 'performance-optimization') $(echo $CLAUDE_USER_PROMPT | grep -qiE 'create|build|add|implement|new' && echo 'brainstorming') $(echo $CLAUDE_USER_PROMPT | grep -qiE 'plan|design|architect' && echo 'writing-plans') 2>/dev/null | grep -v 'Consider using: $' || true"
+          }
+        ]
+      }
+    ]
   }
 }
