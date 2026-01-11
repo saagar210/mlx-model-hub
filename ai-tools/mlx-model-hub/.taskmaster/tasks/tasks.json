@@ -1,0 +1,649 @@
+{
+  "meta": {
+    "projectName": "MLX Model Hub",
+    "createdAt": "2026-01-11T12:00:00Z",
+    "version": "1.0.0",
+    "description": "Local-first MLX Model Hub for Apple Silicon with model registry, training orchestration, inference serving, and observability"
+  },
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Project Scaffolding and Environment Setup",
+      "description": "Initialize the project structure with uv, configure dependencies, create storage directories, and set up the configuration management system using pydantic-settings.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "subtasks": [
+        {
+          "id": "1.1",
+          "title": "Initialize uv project with pyproject.toml",
+          "description": "Create pyproject.toml with all backend dependencies: fastapi, uvicorn, sqlmodel, alembic, pydantic-settings, mlflow>=3.8.0, mlx>=0.30.0, mlx-lm>=0.21.0, opentelemetry, prometheus-client, sse-starlette, pytest, httpx, ruff",
+          "status": "pending"
+        },
+        {
+          "id": "1.2",
+          "title": "Create backend directory structure",
+          "description": "Create backend/src/mlx_hub/ with api/, db/, training/, inference/, config.py, main.py",
+          "status": "pending"
+        },
+        {
+          "id": "1.3",
+          "title": "Implement config.py with pydantic-settings",
+          "description": "Create Settings class with DATABASE_URL, MLFLOW_TRACKING_URI, ARTIFACT_ROOT, STORAGE_ACTIVE_PATH, STORAGE_ARCHIVE_PATH, LOG_LEVEL. Use env vars with defaults.",
+          "status": "pending"
+        },
+        {
+          "id": "1.4",
+          "title": "Create storage directories",
+          "description": "Create storage/active and storage/archive directories with .gitkeep files",
+          "status": "pending"
+        },
+        {
+          "id": "1.5",
+          "title": "Configure pytest and ruff",
+          "description": "Add [tool.pytest.ini_options] and [tool.ruff] sections to pyproject.toml. Create conftest.py with async fixtures.",
+          "status": "pending"
+        },
+        {
+          "id": "1.6",
+          "title": "Write first failing test",
+          "description": "Create backend/tests/test_config.py that validates settings load correctly and directories exist. TDD: test should fail initially.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "uv sync completes without errors",
+        "python -c 'import mlx' succeeds",
+        "pytest backend/tests/test_config.py -v passes",
+        "Settings load with environment variables",
+        "Storage directories exist and are writable"
+      ],
+      "estimatedEffort": "2-3 hours",
+      "tags": ["setup", "infrastructure"]
+    },
+    {
+      "id": 2,
+      "title": "Database Schema and Migrations",
+      "description": "Define SQLModel classes for Model, ModelVersion, Dataset, and TrainingJob with proper relationships and constraints. Set up Alembic for migrations.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "subtasks": [
+        {
+          "id": "2.1",
+          "title": "Create SQLModel base classes",
+          "description": "Create db/models.py with Model, ModelVersion, Dataset, TrainingJob classes using SQLModel. Include proper typing and relationships.",
+          "status": "pending"
+        },
+        {
+          "id": "2.2",
+          "title": "Define enums for status fields",
+          "description": "Create enums: TaskType (text-generation, classification), ModelVersionStatus (training, ready, archived, failed), JobStatus (queued, running, completed, failed, cancelled)",
+          "status": "pending"
+        },
+        {
+          "id": "2.3",
+          "title": "Initialize Alembic",
+          "description": "Run alembic init and configure alembic.ini and env.py for async SQLAlchemy with SQLModel",
+          "status": "pending"
+        },
+        {
+          "id": "2.4",
+          "title": "Create initial migration",
+          "description": "Generate migration with alembic revision --autogenerate. Add indexes on Model.name, ModelVersion.version",
+          "status": "pending"
+        },
+        {
+          "id": "2.5",
+          "title": "Write constraint tests",
+          "description": "Test FK enforcement: creating ModelVersion without Model should fail. Test unique constraints on Model.name.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "alembic upgrade head runs without errors",
+        "FK constraints enforced in database",
+        "Indexes created on frequently queried fields",
+        "All model tests pass"
+      ],
+      "estimatedEffort": "3-4 hours",
+      "tags": ["database", "migrations"]
+    },
+    {
+      "id": 3,
+      "title": "Model Registry API with MLflow Integration",
+      "description": "Implement FastAPI router for model CRUD operations with MLflow experiment creation and tracking.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [2],
+      "subtasks": [
+        {
+          "id": "3.1",
+          "title": "Create async database session dependency",
+          "description": "Implement get_session async generator using AsyncSession from sqlmodel.ext.asyncio. Use asyncpg driver.",
+          "status": "pending"
+        },
+        {
+          "id": "3.2",
+          "title": "Implement model router",
+          "description": "Create api/models.py with POST /models, GET /models, GET /models/{id}, GET /models/{id}/history endpoints",
+          "status": "pending"
+        },
+        {
+          "id": "3.3",
+          "title": "Integrate MLflow experiment creation",
+          "description": "On POST /models, create MLflow experiment using mlflow.create_experiment(). Store experiment_id in Model row.",
+          "status": "pending"
+        },
+        {
+          "id": "3.4",
+          "title": "Handle MLflow unavailability",
+          "description": "Wrap MLflow calls in try/except. If MLflow is down, return 503 Service Unavailable with retry-after header.",
+          "status": "pending"
+        },
+        {
+          "id": "3.5",
+          "title": "Write integration tests",
+          "description": "Test full registration flow: POST creates DB row and MLflow experiment. Test error handling for invalid data and MLflow failures.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "POST /models returns 201 with model JSON",
+        "Model exists in both DB and MLflow",
+        "GET /models returns paginated list",
+        "Graceful degradation when MLflow unavailable"
+      ],
+      "estimatedEffort": "4-5 hours",
+      "tags": ["api", "mlflow"]
+    },
+    {
+      "id": 4,
+      "title": "Dataset Registry API",
+      "description": "Implement dataset registration with checksum validation for reproducibility tracking.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [2],
+      "subtasks": [
+        {
+          "id": "4.1",
+          "title": "Implement dataset router",
+          "description": "Create api/datasets.py with POST /datasets, GET /datasets, GET /datasets/{id} endpoints",
+          "status": "pending"
+        },
+        {
+          "id": "4.2",
+          "title": "Add checksum calculation",
+          "description": "Calculate SHA256 checksum of dataset file on registration. Store in Dataset.checksum field.",
+          "status": "pending"
+        },
+        {
+          "id": "4.3",
+          "title": "Validate dataset path",
+          "description": "Ensure dataset path is within allowed directories to prevent path traversal. Check file exists.",
+          "status": "pending"
+        },
+        {
+          "id": "4.4",
+          "title": "Write dataset tests",
+          "description": "Test registration with valid/invalid paths. Test checksum calculation. Test duplicate detection.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Dataset registration calculates and stores checksum",
+        "Path traversal attacks prevented",
+        "Duplicate datasets detected by checksum"
+      ],
+      "estimatedEffort": "2-3 hours",
+      "tags": ["api", "datasets"]
+    },
+    {
+      "id": 5,
+      "title": "Training Job Orchestration",
+      "description": "Implement job queue with FIFO ordering, sequential execution (single active job), and status transitions.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [3, 4],
+      "subtasks": [
+        {
+          "id": "5.1",
+          "title": "Implement training jobs router",
+          "description": "Create api/training.py with POST /training/jobs, GET /training/jobs, GET /training/jobs/{id} endpoints",
+          "status": "pending"
+        },
+        {
+          "id": "5.2",
+          "title": "Create job queue with FIFO",
+          "description": "Use database ordering by created_at for FIFO. Add status column with enum (queued, running, completed, failed, cancelled)",
+          "status": "pending"
+        },
+        {
+          "id": "5.3",
+          "title": "Implement background worker",
+          "description": "Create training/worker.py with async worker loop. Use asyncio.create_task or FastAPI BackgroundTasks.",
+          "status": "pending"
+        },
+        {
+          "id": "5.4",
+          "title": "Add memory check before job",
+          "description": "Check available memory before starting job. Refuse if insufficient headroom (< 36GB available for MLX).",
+          "status": "pending"
+        },
+        {
+          "id": "5.5",
+          "title": "Implement heartbeat monitoring",
+          "description": "Update job heartbeat timestamp periodically. Mark stale jobs (no heartbeat > 5 min) as failed.",
+          "status": "pending"
+        },
+        {
+          "id": "5.6",
+          "title": "Write orchestration tests",
+          "description": "Test FIFO ordering. Test single active job constraint. Test status transitions. Test heartbeat timeout.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Jobs execute in FIFO order",
+        "Only one job running at a time",
+        "Status transitions correctly (queued -> running -> completed/failed)",
+        "Orphaned jobs detected and marked failed"
+      ],
+      "estimatedEffort": "5-6 hours",
+      "tags": ["training", "orchestration"]
+    },
+    {
+      "id": 6,
+      "title": "MLX Training Runner",
+      "description": "Implement the actual MLX training loop with LoRA/QLoRA support, checkpointing, and artifact saving.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [5],
+      "subtasks": [
+        {
+          "id": "6.1",
+          "title": "Create training runner interface",
+          "description": "Create training/runner.py with TrainingRunner class. Accept model config, dataset, hyperparameters.",
+          "status": "pending"
+        },
+        {
+          "id": "6.2",
+          "title": "Implement MLX training loop",
+          "description": "Use mlx.nn and mlx.optimizers. Implement value_and_grad pattern. Call mx.eval after each step.",
+          "status": "pending"
+        },
+        {
+          "id": "6.3",
+          "title": "Add LoRA adapter layer",
+          "description": "Use mlx_lm.lora for LoRA/QLoRA training. Support configurable rank (8, 16, 32). Support 4-bit and 8-bit quantized base models.",
+          "status": "pending"
+        },
+        {
+          "id": "6.4",
+          "title": "Implement checkpoint saving",
+          "description": "Save adapters as .safetensors using mx.save_safetensors. Calculate and store checksum. Use atomic writes (temp file + rename).",
+          "status": "pending"
+        },
+        {
+          "id": "6.5",
+          "title": "Add NaN/Inf detection",
+          "description": "Check loss for NaN/Inf after each step. If detected, lower learning rate and retry. If persistent, stop early.",
+          "status": "pending"
+        },
+        {
+          "id": "6.6",
+          "title": "Log metrics to MLflow",
+          "description": "Log loss, learning rate, epoch, step to MLflow run. Log adapter artifact path.",
+          "status": "pending"
+        },
+        {
+          "id": "6.7",
+          "title": "Write training tests",
+          "description": "Test with tiny model (e.g., 1M params). Verify loss decreases. Verify adapter file generated with valid checksum.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Training completes on test model",
+        "Loss decreases over epochs",
+        "Adapter .safetensors file generated",
+        "Checksum matches file contents",
+        "MLflow run logged with metrics"
+      ],
+      "estimatedEffort": "6-8 hours",
+      "tags": ["mlx", "training", "lora"]
+    },
+    {
+      "id": 7,
+      "title": "Inference Engine",
+      "description": "Implement model loading, caching, and inference with both blocking and streaming (SSE) endpoints.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [6],
+      "subtasks": [
+        {
+          "id": "7.1",
+          "title": "Create InferenceEngine class",
+          "description": "Create inference/engine.py with load_model, unload_model, generate methods. Use mlx_lm.load for model loading.",
+          "status": "pending"
+        },
+        {
+          "id": "7.2",
+          "title": "Implement LRU cache for models",
+          "description": "Cache loaded models with memory limit. Evict LRU model when memory pressure detected.",
+          "status": "pending"
+        },
+        {
+          "id": "7.3",
+          "title": "Add adapter loading",
+          "description": "Load LoRA adapters and apply to base model. Support multiple adapter versions per model.",
+          "status": "pending"
+        },
+        {
+          "id": "7.4",
+          "title": "Implement POST /inference endpoint",
+          "description": "Create api/inference.py with blocking inference endpoint. Accept model_id, prompt, max_tokens, temperature, top_p.",
+          "status": "pending"
+        },
+        {
+          "id": "7.5",
+          "title": "Implement POST /inference/stream endpoint",
+          "description": "Use sse-starlette EventSourceResponse. Stream tokens using mlx_lm.stream_generate. Send token, partial_text, done events.",
+          "status": "pending"
+        },
+        {
+          "id": "7.6",
+          "title": "Add KV cache controls",
+          "description": "Implement --max-kv-size equivalent for memory control. Clear cache between requests if needed.",
+          "status": "pending"
+        },
+        {
+          "id": "7.7",
+          "title": "Add metrics collection",
+          "description": "Track TTFT, tokens/sec, total latency. Expose via /metrics endpoint.",
+          "status": "pending"
+        },
+        {
+          "id": "7.8",
+          "title": "Write inference tests",
+          "description": "Test blocking inference returns output. Test SSE streaming. Test TTFT < 100ms on small model.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "POST /inference returns generated text",
+        "SSE streaming works with real-time token delivery",
+        "TTFT < 100ms on 7B 4-bit model",
+        "LRU cache evicts correctly under memory pressure",
+        "Metrics exposed for Prometheus"
+      ],
+      "estimatedEffort": "6-8 hours",
+      "tags": ["inference", "sse", "caching"]
+    },
+    {
+      "id": 8,
+      "title": "OpenTelemetry and Prometheus Integration",
+      "description": "Add observability instrumentation with OpenTelemetry for tracing and Prometheus for metrics.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [3, 7],
+      "subtasks": [
+        {
+          "id": "8.1",
+          "title": "Add OpenTelemetry middleware",
+          "description": "Install opentelemetry-instrumentation-fastapi. Configure TracerProvider with automatic instrumentation.",
+          "status": "pending"
+        },
+        {
+          "id": "8.2",
+          "title": "Create Prometheus metrics",
+          "description": "Use prometheus-client. Create Counter (requests), Histogram (latency), Gauge (active_jobs, loaded_models, memory_usage).",
+          "status": "pending"
+        },
+        {
+          "id": "8.3",
+          "title": "Expose /metrics endpoint",
+          "description": "Add /metrics route that returns prometheus text format. Include exemplars linking to traces.",
+          "status": "pending"
+        },
+        {
+          "id": "8.4",
+          "title": "Add request ID correlation",
+          "description": "Generate request ID for each request. Include in logs and traces. Pass to background tasks.",
+          "status": "pending"
+        },
+        {
+          "id": "8.5",
+          "title": "Write observability tests",
+          "description": "Test /metrics returns valid Prometheus format. Test traces generated for requests.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "/metrics returns valid Prometheus format",
+        "Traces generated for all API requests",
+        "Request IDs correlate logs and traces",
+        "RED metrics (Rate, Errors, Duration) exposed"
+      ],
+      "estimatedEffort": "3-4 hours",
+      "tags": ["observability", "prometheus", "otel"]
+    },
+    {
+      "id": 9,
+      "title": "Docker Compose Infrastructure",
+      "description": "Create docker-compose.yml for local development with Postgres, MLflow, Prometheus, and Grafana.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [8],
+      "subtasks": [
+        {
+          "id": "9.1",
+          "title": "Create docker-compose.yml",
+          "description": "Define services: postgres:17, mlflow, prometheus, grafana. Configure networks and volumes.",
+          "status": "pending"
+        },
+        {
+          "id": "9.2",
+          "title": "Configure Postgres",
+          "description": "Set up database with initial user/password from environment. Add healthcheck.",
+          "status": "pending"
+        },
+        {
+          "id": "9.3",
+          "title": "Configure MLflow",
+          "description": "Use ghcr.io/mlflow/mlflow. Point to Postgres backend. Configure artifact store path.",
+          "status": "pending"
+        },
+        {
+          "id": "9.4",
+          "title": "Configure Prometheus",
+          "description": "Create prometheus.yml with scrape config for backend /metrics. Set scrape interval.",
+          "status": "pending"
+        },
+        {
+          "id": "9.5",
+          "title": "Configure Grafana",
+          "description": "Provision Prometheus datasource. Create dashboard JSON for system metrics, training jobs, inference latency.",
+          "status": "pending"
+        },
+        {
+          "id": "9.6",
+          "title": "Create .env.example",
+          "description": "Document all required environment variables with example values.",
+          "status": "pending"
+        },
+        {
+          "id": "9.7",
+          "title": "Write infrastructure tests",
+          "description": "Test docker compose config validates. Test services start and are healthy.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "docker compose up -d starts all services",
+        "Postgres accessible on configured port",
+        "MLflow UI accessible at localhost:5000",
+        "Prometheus scrapes backend metrics",
+        "Grafana dashboards show data"
+      ],
+      "estimatedEffort": "4-5 hours",
+      "tags": ["docker", "infrastructure"]
+    },
+    {
+      "id": 10,
+      "title": "Frontend Dashboard - Project Setup",
+      "description": "Scaffold Next.js 15 application with App Router, configure shadcn/ui, and set up API client.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [3],
+      "subtasks": [
+        {
+          "id": "10.1",
+          "title": "Initialize Next.js 15 project",
+          "description": "Use create-next-app with App Router, TypeScript, Tailwind CSS, ESLint. Create in frontend/ directory.",
+          "status": "pending"
+        },
+        {
+          "id": "10.2",
+          "title": "Install and configure shadcn/ui",
+          "description": "Initialize shadcn/ui. Install common components: Button, Card, Table, Badge, Dialog, Input, Select.",
+          "status": "pending"
+        },
+        {
+          "id": "10.3",
+          "title": "Set up API client",
+          "description": "Create lib/api.ts with fetch wrapper. Configure NEXT_PUBLIC_API_BASE_URL. Add error handling.",
+          "status": "pending"
+        },
+        {
+          "id": "10.4",
+          "title": "Configure TanStack Query",
+          "description": "Set up QueryClientProvider. Create hooks for models, datasets, jobs, inference.",
+          "status": "pending"
+        },
+        {
+          "id": "10.5",
+          "title": "Create layout and navigation",
+          "description": "Create app/layout.tsx with sidebar navigation. Add routes for Models, Datasets, Training, Inference, Metrics.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "pnpm dev starts development server",
+        "Navigation between pages works",
+        "API client can fetch from backend",
+        "shadcn/ui components render correctly"
+      ],
+      "estimatedEffort": "3-4 hours",
+      "tags": ["frontend", "nextjs", "setup"]
+    },
+    {
+      "id": 11,
+      "title": "Frontend Dashboard - Core Pages",
+      "description": "Implement Models, Training Jobs, and Metrics pages with Server Components and real-time updates.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [10],
+      "subtasks": [
+        {
+          "id": "11.1",
+          "title": "Create Models list page",
+          "description": "Use Server Components for initial data fetch. Show table with name, task_type, created_at, version count. Add search/filter.",
+          "status": "pending"
+        },
+        {
+          "id": "11.2",
+          "title": "Create Model detail page",
+          "description": "Show model metadata, version history, MLflow experiment link. Add tabs for Versions, Training Runs, Metrics.",
+          "status": "pending"
+        },
+        {
+          "id": "11.3",
+          "title": "Create Training Jobs page",
+          "description": "List jobs with status badges (color-coded). Show model name, dataset, created_at, duration. Auto-refresh for running jobs.",
+          "status": "pending"
+        },
+        {
+          "id": "11.4",
+          "title": "Create Job detail page",
+          "description": "Show job config, logs (if available), metrics chart (loss over steps). Link to model version when complete.",
+          "status": "pending"
+        },
+        {
+          "id": "11.5",
+          "title": "Create Metrics dashboard",
+          "description": "Use Recharts for visualizations. Show CPU/GPU usage, memory, inference latency histogram, job queue length.",
+          "status": "pending"
+        },
+        {
+          "id": "11.6",
+          "title": "Add real-time updates",
+          "description": "Use polling or SSE for job status updates. Refresh metrics every 30 seconds.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Models list loads with data from API",
+        "Model detail shows version history",
+        "Training jobs update status in real-time",
+        "Metrics charts render with live data"
+      ],
+      "estimatedEffort": "6-8 hours",
+      "tags": ["frontend", "pages", "realtime"]
+    },
+    {
+      "id": 12,
+      "title": "End-to-End Testing and Documentation",
+      "description": "Write Playwright tests for critical flows, API documentation, and deployment guide.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [9, 11],
+      "subtasks": [
+        {
+          "id": "12.1",
+          "title": "Set up Playwright",
+          "description": "Install Playwright in frontend/. Configure for Chrome testing. Set up test fixtures.",
+          "status": "pending"
+        },
+        {
+          "id": "12.2",
+          "title": "Write E2E tests for model flow",
+          "description": "Test: navigate to Models, create model, view detail, check MLflow link.",
+          "status": "pending"
+        },
+        {
+          "id": "12.3",
+          "title": "Write E2E tests for training flow",
+          "description": "Test: submit training job, watch status update, verify completion.",
+          "status": "pending"
+        },
+        {
+          "id": "12.4",
+          "title": "Write E2E tests for inference",
+          "description": "Test: select model, submit prompt, verify response. Test streaming mode.",
+          "status": "pending"
+        },
+        {
+          "id": "12.5",
+          "title": "Generate OpenAPI documentation",
+          "description": "FastAPI auto-generates /docs. Add descriptions to all endpoints. Export openapi.json.",
+          "status": "pending"
+        },
+        {
+          "id": "12.6",
+          "title": "Write deployment README",
+          "description": "Document setup steps, environment variables, common issues, architecture diagram.",
+          "status": "pending"
+        }
+      ],
+      "acceptanceCriteria": [
+        "All Playwright tests pass",
+        "OpenAPI spec complete with examples",
+        "README covers full deployment process",
+        "Architecture diagram included"
+      ],
+      "estimatedEffort": "4-5 hours",
+      "tags": ["testing", "documentation", "e2e"]
+    }
+  ]
+}

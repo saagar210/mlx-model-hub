@@ -1,0 +1,19 @@
+{
+  "models": {
+    "main": {
+      "provider": "anthropic",
+      "modelId": "claude-sonnet-4-20250514",
+      "maxTokens": 8096
+    },
+    "research": {
+      "provider": "anthropic", 
+      "modelId": "claude-sonnet-4-20250514",
+      "maxTokens": 8096
+    },
+    "fallback": {
+      "provider": "anthropic",
+      "modelId": "claude-sonnet-4-20250514",
+      "maxTokens": 8096
+    }
+  }
+}
