@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude mcp list:*)",
+      "Bash(claudekit setup:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(npx:*)",
+      "Bash(git:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(wc:*)",
+      "Bash(task-master:*)",
+      "mcp__playwright__browser_install",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_snapshot",
+      "mcp__taskmaster-ai__*",
+      "mcp__context7__*",
+      "mcp__github__*",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
