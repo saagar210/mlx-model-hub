@@ -103,7 +103,7 @@ Frontend will be available at `http://localhost:3000`.
 | Grafana | http://localhost:3001 | Metrics dashboards |
 | Prometheus | http://localhost:9090 | Metrics storage |
 | MLflow | http://localhost:5001 | Experiment tracking |
-| PostgreSQL | localhost:5433 | Database |
+| PostgreSQL | localhost:5434 | Database |
 
 ## API Endpoints
 
@@ -136,7 +136,7 @@ Frontend will be available at `http://localhost:3000`.
 ### Backend Environment Variables
 
 ```env
-DATABASE_URL=postgresql://user:pass@localhost:5433/mlx_hub
+DATABASE_URL=postgresql://user:pass@localhost:5434/mlx_hub
 MLFLOW_TRACKING_URI=http://localhost:5001
 MODEL_CACHE_DIR=~/.cache/mlx-hub
 MODEL_CACHE_MAX_SIZE=50GB

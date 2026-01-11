@@ -59,9 +59,9 @@ export default function Home() {
   const { data: training, isLoading: trainingLoading } = useTrainingJobs()
   const { data: metrics, isLoading: metricsLoading } = useMetrics()
 
-  const cachedModels = models?.models.filter((m) => m.cached).length ?? 0
+  const totalModels = models?.total ?? 0
   const runningJobs =
-    training?.jobs.filter((j) => j.status === "running").length ?? 0
+    training?.items.filter((j) => j.status === "running").length ?? 0
 
   return (
     <DashboardLayout>
@@ -76,8 +76,8 @@ export default function Home() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Models"
-            value={models?.total ?? 0}
-            subtitle={`${cachedModels} cached locally`}
+            value={totalModels}
+            subtitle="Registered models"
             icon={Box}
             href="/models"
             isLoading={modelsLoading}

@@ -188,13 +188,11 @@ function CreateTrainingJobDialog() {
                 <SelectValue placeholder="Select a model" />
               </SelectTrigger>
               <SelectContent>
-                {models?.models
-                  .filter((m) => m.cached)
-                  .map((model) => (
-                    <SelectItem key={model.id} value={model.repository}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
+                {models?.items?.map((model) => (
+                  <SelectItem key={model.id} value={model.base_model}>
+                    {model.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -315,8 +313,8 @@ export default function TrainingPage() {
     })
   }
 
-  const runningJobs = data?.jobs.filter((j) => j.status === "running").length ?? 0
-  const completedJobs = data?.jobs.filter((j) => j.status === "completed").length ?? 0
+  const runningJobs = data?.items.filter((j) => j.status === "running").length ?? 0
+  const completedJobs = data?.items.filter((j) => j.status === "completed").length ?? 0
 
   return (
     <DashboardLayout>
@@ -374,7 +372,7 @@ export default function TrainingPage() {
                   <Skeleton key={i} className="h-12 w-full" />
                 ))}
               </div>
-            ) : data?.jobs.length === 0 ? (
+            ) : data?.items.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 <p>No training jobs yet.</p>
                 <p className="mt-2">
@@ -395,7 +393,7 @@ export default function TrainingPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.jobs.map((job) => (
+                  {data?.items.map((job) => (
                     <TrainingJobRow
                       key={job.id}
                       job={job}

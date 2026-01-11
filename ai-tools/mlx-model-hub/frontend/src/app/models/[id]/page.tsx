@@ -7,26 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useModel, useLoadModel, useUnloadModel, useDeleteModel } from "@/lib/hooks"
-import { Model } from "@/lib/api"
+import { useModel, useDeleteModel } from "@/lib/hooks"
 import {
   ArrowLeft,
-  Play,
-  Square,
   Trash2,
   ExternalLink,
-  Download,
+  Tag,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-
-function formatBytes(bytes?: number): string {
-  if (!bytes) return "Unknown"
-  const k = 1024
-  const sizes = ["B", "KB", "MB", "GB", "TB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-}
 
 function formatDate(dateString?: string): string {
   if (!dateString) return "Never"
@@ -39,15 +28,20 @@ function formatDate(dateString?: string): string {
   })
 }
 
-function StatusBadge({ status }: { status: Model["status"] }) {
-  const variants: Record<Model["status"], "default" | "secondary" | "destructive" | "outline"> = {
-    available: "outline",
-    downloading: "secondary",
-    cached: "default",
-    error: "destructive",
+function TaskTypeBadge({ taskType }: { taskType: string }) {
+  const variants: Record<string, "default" | "secondary" | "outline"> = {
+    "text-generation": "default",
+    "chat": "default",
+    "classification": "secondary",
+    "summarization": "secondary",
+    "question-answering": "outline",
   }
 
-  return <Badge variant={variants[status]}>{status}</Badge>
+  return (
+    <Badge variant={variants[taskType] || "secondary"}>
+      {taskType.replace(/-/g, " ")}
+    </Badge>
+  )
 }
 
 export default function ModelDetailPage({
@@ -58,23 +52,7 @@ export default function ModelDetailPage({
   const { id } = use(params)
   const router = useRouter()
   const { data: model, isLoading, error } = useModel(id)
-  const loadModel = useLoadModel()
-  const unloadModel = useUnloadModel()
   const deleteModel = useDeleteModel()
-
-  const handleLoad = () => {
-    loadModel.mutate(id, {
-      onSuccess: () => toast.success("Model loaded"),
-      onError: (err) => toast.error(`Failed to load: ${err.message}`),
-    })
-  }
-
-  const handleUnload = () => {
-    unloadModel.mutate(id, {
-      onSuccess: () => toast.success("Model unloaded"),
-      onError: (err) => toast.error(`Failed to unload: ${err.message}`),
-    })
-  }
 
   const handleDelete = () => {
     deleteModel.mutate(id, {
@@ -130,30 +108,14 @@ export default function ModelDetailPage({
                 <h2 className="text-3xl font-bold tracking-tight">
                   {model.name}
                 </h2>
-                <p className="text-muted-foreground">{model.repository}</p>
+                <p className="text-muted-foreground font-mono text-sm">
+                  {model.base_model}
+                </p>
               </div>
               <div className="flex items-center gap-2">
-                {model.cached ? (
-                  <>
-                    <Button onClick={handleLoad} disabled={loadModel.isPending}>
-                      <Play className="mr-2 h-4 w-4" />
-                      Load
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleUnload}
-                      disabled={unloadModel.isPending}
-                    >
-                      <Square className="mr-2 h-4 w-4" />
-                      Unload
-                    </Button>
-                  </>
-                ) : (
-                  <Button disabled={model.status === "downloading"}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </Button>
-                )}
+                <Link href={`/inference?model=${model.id}`}>
+                  <Button>Run Inference</Button>
+                </Link>
                 <Button
                   variant="destructive"
                   onClick={handleDelete}
@@ -172,21 +134,23 @@ export default function ModelDetailPage({
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Status</span>
-                    <StatusBadge status={model.status} />
+                    <span className="text-muted-foreground">Task Type</span>
+                    <TaskTypeBadge taskType={model.task_type} />
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Size</span>
-                    <span>{formatBytes(model.size_bytes)}</span>
+                    <span className="text-muted-foreground">Base Model</span>
+                    <span className="font-mono text-sm">{model.base_model}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Quantization</span>
-                    <span>{model.quantization || "None"}</span>
+                    <span className="text-muted-foreground">Versions</span>
+                    <span>{model.version_count}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Cached</span>
-                    <span>{model.cached ? "Yes" : "No"}</span>
-                  </div>
+                  {model.mlflow_experiment_id && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">MLflow Experiment</span>
+                      <span className="font-mono text-sm">{model.mlflow_experiment_id}</span>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -203,10 +167,6 @@ export default function ModelDetailPage({
                     <span className="text-muted-foreground">Updated</span>
                     <span>{formatDate(model.updated_at)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Last Used</span>
-                    <span>{formatDate(model.last_used)}</span>
-                  </div>
                 </CardContent>
               </Card>
 
@@ -221,13 +181,33 @@ export default function ModelDetailPage({
                 </Card>
               )}
 
+              {Object.keys(model.tags).length > 0 && (
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Tags
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(model.tags).map(([key, value]) => (
+                        <Badge key={key} variant="outline">
+                          {key}: {value}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <Card className="md:col-span-2">
                 <CardHeader>
                   <CardTitle>External Links</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <a
-                    href={`https://huggingface.co/${model.repository}`}
+                    href={`https://huggingface.co/${model.base_model}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-primary hover:underline"

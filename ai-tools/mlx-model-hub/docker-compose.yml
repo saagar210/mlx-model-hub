@@ -14,7 +14,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"  # Host port 5433 to avoid conflicts
+      - "5434:5432"  # Host port 5434 to avoid conflicts
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlxhub} -d ${POSTGRES_DB:-mlxhub}"]
       interval: 10s

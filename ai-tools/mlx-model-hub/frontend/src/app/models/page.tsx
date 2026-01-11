@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -23,35 +24,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Progress } from "@/components/ui/progress"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  useModels,
-  useDownloadModel,
-  useDeleteModel,
-  useLoadModel,
-  useUnloadModel,
-} from "@/lib/hooks"
+import { useModels, useDeleteModel } from "@/lib/hooks"
 import { Model } from "@/lib/api"
-import {
-  Download,
-  Trash2,
-  Play,
-  Square,
-  RefreshCw,
-  Plus,
-  ExternalLink,
-} from "lucide-react"
+import { Trash2, RefreshCw, Plus, Eye } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
-
-function formatBytes(bytes?: number): string {
-  if (!bytes) return "Unknown"
-  const k = 1024
-  const sizes = ["B", "KB", "MB", "GB", "TB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-}
 
 function formatDate(dateString?: string): string {
   if (!dateString) return "Never"
@@ -63,26 +48,27 @@ function formatDate(dateString?: string): string {
   })
 }
 
-function StatusBadge({ status }: { status: Model["status"] }) {
-  const variants: Record<Model["status"], "default" | "secondary" | "destructive" | "outline"> = {
-    available: "outline",
-    downloading: "secondary",
-    cached: "default",
-    error: "destructive",
+function TaskTypeBadge({ taskType }: { taskType: string }) {
+  const variants: Record<string, "default" | "secondary" | "outline"> = {
+    "text-generation": "default",
+    "chat": "default",
+    "classification": "secondary",
+    "summarization": "secondary",
+    "question-answering": "outline",
   }
 
-  return <Badge variant={variants[status]}>{status}</Badge>
+  return (
+    <Badge variant={variants[taskType] || "secondary"}>
+      {taskType.replace(/-/g, " ")}
+    </Badge>
+  )
 }
 
 function ModelRow({
   model,
-  onLoad,
-  onUnload,
   onDelete,
 }: {
   model: Model
-  onLoad: (id: string) => void
-  onUnload: (id: string) => void
   onDelete: (id: string) => void
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -96,58 +82,25 @@ function ModelRow({
         >
           {model.name}
         </Link>
-        <div className="text-sm text-muted-foreground">{model.repository}</div>
-      </TableCell>
-      <TableCell>
-        <StatusBadge status={model.status} />
-        {model.status === "downloading" && model.download_progress && (
-          <Progress value={model.download_progress} className="mt-2 h-1 w-20" />
+        {model.description && (
+          <div className="text-sm text-muted-foreground line-clamp-1">
+            {model.description}
+          </div>
         )}
       </TableCell>
-      <TableCell>{formatBytes(model.size_bytes)}</TableCell>
-      <TableCell>{model.quantization || "None"}</TableCell>
-      <TableCell>{formatDate(model.last_used)}</TableCell>
+      <TableCell>
+        <TaskTypeBadge taskType={model.task_type} />
+      </TableCell>
+      <TableCell className="font-mono text-sm">{model.base_model}</TableCell>
+      <TableCell>{model.version_count}</TableCell>
+      <TableCell>{formatDate(model.created_at)}</TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          {model.cached ? (
-            <>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onLoad(model.id)}
-                title="Load model"
-              >
-                <Play className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onUnload(model.id)}
-                title="Unload model"
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              size="icon"
-              disabled={model.status === "downloading"}
-              title="Download model"
-            >
-              <Download className="h-4 w-4" />
+          <Link href={`/models/${model.id}`}>
+            <Button variant="ghost" size="icon" title="View details">
+              <Eye className="h-4 w-4" />
             </Button>
-          )}
-          <a
-            href={`https://huggingface.co/${model.repository}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex"
-          >
-            <Button variant="ghost" size="icon" title="View on Hugging Face">
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </a>
+          </Link>
           <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" title="Delete model">
@@ -158,8 +111,8 @@ function ModelRow({
               <DialogHeader>
                 <DialogTitle>Delete Model</DialogTitle>
                 <DialogDescription>
-                  Are you sure you want to delete {model.name}? This will remove
-                  the cached model files from your local storage.
+                  Are you sure you want to delete {model.name}? This action
+                  cannot be undone.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -187,23 +140,45 @@ function ModelRow({
   )
 }
 
-function DownloadModelDialog() {
+function CreateModelDialog({ onSuccess }: { onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
-  const [repository, setRepository] = useState("")
-  const downloadModel = useDownloadModel()
+  const [name, setName] = useState("")
+  const [taskType, setTaskType] = useState("text-generation")
+  const [baseModel, setBaseModel] = useState("")
+  const [description, setDescription] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleDownload = () => {
-    if (!repository.trim()) return
-    downloadModel.mutate(repository, {
-      onSuccess: () => {
-        toast.success(`Started downloading ${repository}`)
-        setRepository("")
-        setOpen(false)
-      },
-      onError: (error) => {
-        toast.error(`Failed to download: ${error.message}`)
-      },
-    })
+  const handleCreate = async () => {
+    if (!name.trim() || !baseModel.trim()) return
+    setIsSubmitting(true)
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/models`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            task_type: taskType,
+            base_model: baseModel,
+            description: description || undefined,
+          }),
+        }
+      )
+      if (!response.ok) {
+        throw new Error("Failed to create model")
+      }
+      toast.success(`Created model ${name}`)
+      setName("")
+      setBaseModel("")
+      setDescription("")
+      setOpen(false)
+      onSuccess()
+    } catch (error) {
+      toast.error(`Failed to create model: ${error}`)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -211,52 +186,75 @@ function DownloadModelDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" />
-          Download Model
+          Create Model
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Download Model</DialogTitle>
+          <DialogTitle>Create Model</DialogTitle>
           <DialogDescription>
-            Enter a Hugging Face repository ID to download an MLX model.
+            Register a new MLX model for training and inference.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <Input
-            placeholder="mlx-community/Llama-3.2-3B-Instruct-4bit"
-            value={repository}
-            onChange={(e) => setRepository(e.target.value)}
-          />
-          <p className="mt-2 text-sm text-muted-foreground">
-            Browse models at{" "}
-            <a
-              href="https://huggingface.co/mlx-community"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              huggingface.co/mlx-community
-            </a>
-          </p>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              placeholder="My Model"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="taskType">Task Type</Label>
+            <Select value={taskType} onValueChange={setTaskType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text-generation">Text Generation</SelectItem>
+                <SelectItem value="chat">Chat</SelectItem>
+                <SelectItem value="classification">Classification</SelectItem>
+                <SelectItem value="summarization">Summarization</SelectItem>
+                <SelectItem value="question-answering">Question Answering</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="baseModel">Base Model</Label>
+            <Input
+              id="baseModel"
+              placeholder="mlx-community/Llama-3.2-3B-Instruct-4bit"
+              value={baseModel}
+              onChange={(e) => setBaseModel(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (optional)</Label>
+            <Input
+              id="description"
+              placeholder="A fine-tuned model for..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
           <Button
-            onClick={handleDownload}
-            disabled={!repository.trim() || downloadModel.isPending}
+            onClick={handleCreate}
+            disabled={!name.trim() || !baseModel.trim() || isSubmitting}
           >
-            {downloadModel.isPending ? (
+            {isSubmitting ? (
               <>
                 <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Downloading...
+                Creating...
               </>
             ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </>
+              "Create"
             )}
           </Button>
         </DialogFooter>
@@ -267,23 +265,7 @@ function DownloadModelDialog() {
 
 export default function ModelsPage() {
   const { data, isLoading, refetch } = useModels()
-  const loadModel = useLoadModel()
-  const unloadModel = useUnloadModel()
   const deleteModel = useDeleteModel()
-
-  const handleLoad = (id: string) => {
-    loadModel.mutate(id, {
-      onSuccess: () => toast.success("Model loaded"),
-      onError: (error) => toast.error(`Failed to load: ${error.message}`),
-    })
-  }
-
-  const handleUnload = (id: string) => {
-    unloadModel.mutate(id, {
-      onSuccess: () => toast.success("Model unloaded"),
-      onError: (error) => toast.error(`Failed to unload: ${error.message}`),
-    })
-  }
 
   const handleDelete = (id: string) => {
     deleteModel.mutate(id, {
@@ -299,14 +281,14 @@ export default function ModelsPage() {
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Models</h2>
             <p className="text-muted-foreground">
-              Manage your MLX models from Hugging Face
+              Manage your MLX models for training and inference
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => refetch()}>
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <DownloadModelDialog />
+            <CreateModelDialog onSuccess={() => refetch()} />
           </div>
         </div>
 
@@ -321,11 +303,11 @@ export default function ModelsPage() {
                   <Skeleton key={i} className="h-12 w-full" />
                 ))}
               </div>
-            ) : data?.models.length === 0 ? (
+            ) : data?.items.length === 0 ? (
               <div className="py-8 text-center text-muted-foreground">
                 <p>No models yet.</p>
                 <p className="mt-2">
-                  Click "Download Model" to get started with MLX models.
+                  Click "Create Model" to register a new model.
                 </p>
               </div>
             ) : (
@@ -333,20 +315,18 @@ export default function ModelsPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Model</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Quantization</TableHead>
-                    <TableHead>Last Used</TableHead>
+                    <TableHead>Task Type</TableHead>
+                    <TableHead>Base Model</TableHead>
+                    <TableHead>Versions</TableHead>
+                    <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.models.map((model) => (
+                  {data?.items.map((model) => (
                     <ModelRow
                       key={model.id}
                       model={model}
-                      onLoad={handleLoad}
-                      onUnload={handleUnload}
                       onDelete={handleDelete}
                     />
                   ))}

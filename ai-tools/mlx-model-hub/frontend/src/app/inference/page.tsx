@@ -51,7 +51,7 @@ function InferencePlayground() {
   const { data: models, isLoading: modelsLoading } = useModels()
   const inference = useInference()
 
-  const cachedModels = models?.models.filter((m) => m.cached) ?? []
+  const availableModels = models?.items ?? []
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -157,7 +157,7 @@ function InferencePlayground() {
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
-                      {cachedModels.map((model) => (
+                      {availableModels.map((model) => (
                         <SelectItem key={model.id} value={model.id}>
                           {model.name}
                         </SelectItem>

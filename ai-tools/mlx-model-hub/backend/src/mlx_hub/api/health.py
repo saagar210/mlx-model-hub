@@ -4,7 +4,8 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Response
-from sqlmodel import SQLModel, select, text
+from sqlalchemy import text
+from sqlmodel import SQLModel
 
 from mlx_hub.config import get_settings
 from mlx_hub.db.session import SessionDep
@@ -61,7 +62,7 @@ async def readiness_check(session: SessionDep) -> ReadinessResponse:
 
     # Check database
     try:
-        await session.exec(select(text("1")))
+        await session.execute(text("SELECT 1"))
         checks["database"] = {"status": "ok"}
     except Exception as e:
         logger.error(f"Database check failed: {e}")
@@ -144,7 +145,7 @@ async def detailed_health(session: SessionDep) -> dict:
 
     # Database info
     try:
-        await session.exec(select(text("1")))
+        await session.execute(text("SELECT 1"))
         health_info["database"]["status"] = "connected"
     except Exception as e:
         health_info["database"]["status"] = "error"
