@@ -6,35 +6,28 @@ A comprehensive platform for managing, training, and deploying MLX models on App
 
 MLX Model Hub provides a full-stack solution for working with MLX models:
 
-- **Backend API**: FastAPI service for model management, training, and datasets
-- **Inference Server**: OpenAI-compatible inference engine with multi-modal support
-- **Frontend Dashboard**: Next.js web interface for managing models, training, and inference
-- **RAG Integration**: Knowledge-augmented inference via KAS (Knowledge Activation System)
+- **Backend API**: FastAPI service for model management, training, and inference
+- **Frontend Dashboard**: Next.js web interface for managing models and jobs
 - **Infrastructure**: Docker Compose stack with PostgreSQL, MLflow, Prometheus, and Grafana
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       Frontend (Next.js 15) :3005                       │
-│  Dashboard │ Models │ Training │ Inference │ Registry │ Metrics        │
-└─────────────────────────────────────────────────────────────────────────┘
-        │                    │                       │
-        ▼                    ▼                       ▼
-┌────────────────┐  ┌─────────────────────┐  ┌─────────────────┐
-│ Backend :8002  │  │ Inference Server    │  │  KAS :8000      │
-│ (Model Hub API)│  │ :8080 (OpenAI API)  │  │ (Knowledge/RAG) │
-│                │  │                     │  │                 │
-│ - Model CRUD   │  │ - /v1/chat/complete │  │ - Hybrid search │
-│ - Training     │  │ - /v1/models        │  │ - Q&A + citations│
-│ - Datasets     │  │ - /admin/* registry │  │ - Integration API│
-│ - Export       │  │ - Multi-modal       │  │                 │
-└────────────────┘  └─────────────────────┘  └─────────────────┘
-        │                    │
-        ▼                    ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Frontend (Next.js 15)                       │
+│  Dashboard │ Models │ Training │ Inference │ Metrics           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Backend API (FastAPI)                        │
+│  REST API │ Model Cache │ Training Manager │ Inference Engine  │
+└─────────────────────────────────────────────────────────────────┘
+        │           │              │               │
+        ▼           ▼              ▼               ▼
 ┌───────────┐ ┌──────────┐ ┌────────────┐ ┌──────────────────┐
 │PostgreSQL │ │  MLflow  │ │ Prometheus │ │     Grafana      │
-│  :5434    │ │  :5001   │ │   :9090    │ │     :3001        │
+│(metadata) │ │(tracking)│ │ (metrics)  │ │  (dashboards)    │
 └───────────┘ └──────────┘ └────────────┘ └──────────────────┘
 ```
 
@@ -73,24 +66,14 @@ MLX Model Hub provides a full-stack solution for working with MLX models:
 - Docker & Docker Compose
 - Apple Silicon Mac (M1/M2/M3/M4)
 
-### Automated Setup
-
-Run the setup script to install all dependencies and start infrastructure:
-
-```bash
-./scripts/setup.sh
-```
-
-### Manual Setup
-
-#### 1. Start Infrastructure
+### 1. Start Infrastructure
 
 ```bash
 # Start PostgreSQL, MLflow, Prometheus, Grafana
 docker compose up -d
 ```
 
-#### 2. Start Backend
+### 2. Start Backend
 
 ```bash
 cd backend
@@ -100,7 +83,7 @@ uv run uvicorn mlx_hub.main:app --reload
 
 Backend will be available at `http://localhost:8000`.
 
-#### 3. Start Frontend
+### 3. Start Frontend
 
 ```bash
 cd frontend
@@ -114,12 +97,9 @@ Frontend will be available at `http://localhost:3000`.
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Frontend | http://localhost:3005 | Web dashboard |
-| Backend API | http://localhost:8002 | Model Hub REST API |
-| Backend Docs | http://localhost:8002/docs | Swagger UI |
-| Inference Server | http://localhost:8080 | OpenAI-compatible API |
-| Inference Docs | http://localhost:8080/docs | Swagger UI |
-| KAS (optional) | http://localhost:8000 | Knowledge/RAG API |
+| Frontend | http://localhost:3000 | Web dashboard |
+| Backend API | http://localhost:8000 | REST API |
+| API Docs | http://localhost:8000/docs | Swagger UI |
 | Grafana | http://localhost:3001 | Metrics dashboards |
 | Prometheus | http://localhost:9090 | Metrics storage |
 | MLflow | http://localhost:5001 | Experiment tracking |
@@ -128,35 +108,22 @@ Frontend will be available at `http://localhost:3000`.
 ## API Endpoints
 
 ### Models
-- `GET /api/models` - List models
-- `GET /api/models/{id}` - Get model details
-- `POST /api/models` - Register model
-- `DELETE /api/models/{id}` - Delete model
-
-### Model Discovery
-- `GET /api/discover/search` - Search MLX models on HuggingFace
-- `GET /api/discover/models/{model_id}` - Get model details
-- `GET /api/discover/models/{model_id}/compatibility` - Check memory compatibility
-- `POST /api/discover/models/{model_id}/download` - Start model download
-- `GET /api/discover/download/{model_id}/status` - Get download status
-- `GET /api/discover/popular` - Get popular models
-- `GET /api/discover/recent` - Get recently updated models
+- `GET /api/v1/models` - List models
+- `GET /api/v1/models/{id}` - Get model details
+- `POST /api/v1/models/download` - Download model
+- `POST /api/v1/models/{id}/load` - Load model
+- `POST /api/v1/models/{id}/unload` - Unload model
+- `DELETE /api/v1/models/{id}` - Delete model
 
 ### Training
-- `GET /api/training/jobs` - List training jobs
-- `GET /api/training/jobs/{id}` - Get job details
-- `POST /api/training/jobs` - Create training job
-- `POST /api/training/jobs/{id}/cancel` - Cancel job
+- `GET /api/v1/training` - List training jobs
+- `GET /api/v1/training/{id}` - Get job details
+- `POST /api/v1/training` - Create training job
+- `POST /api/v1/training/{id}/cancel` - Cancel job
 
 ### Inference
-- `POST /api/inference` - Run inference
-- `POST /api/inference/stream` - Streaming inference (SSE)
-
-### OpenAI-Compatible API
-- `POST /v1/chat/completions` - Chat completions (streaming supported)
-- `POST /v1/completions` - Text completions
-- `GET /v1/models` - List available models
-- `GET /v1/models/{model_id}` - Get model info
+- `POST /api/v1/inference` - Run inference
+- `POST /api/v1/inference/stream` - Streaming inference
 
 ### Health
 - `GET /health` - Health check
@@ -213,33 +180,25 @@ npm run lint
 
 ```
 mlx-model-hub/
-├── backend/                   # Model Hub backend (FastAPI)
+├── backend/
 │   ├── src/mlx_hub/
-│   │   ├── api/               # API routes
-│   │   ├── core/              # Core modules (cache, config)
-│   │   ├── ml/                # ML modules (inference, training)
-│   │   ├── models/            # Database models
-│   │   ├── observability/     # Metrics & tracing
-│   │   └── services/          # Business logic
-│   └── tests/                 # Unit tests
-├── inference-server/          # Inference engine (OpenAI-compatible)
-│   ├── src/unified_mlx_app/
-│   │   ├── api/               # FastAPI routes (/v1/*, /admin/*)
-│   │   ├── services/          # Inference, TTS, STT services
-│   │   └── models/            # MLX model management
-│   └── frontend/              # Optional Gradio/React UI
-├── frontend/                  # Main web dashboard (Next.js)
+│   │   ├── api/           # API routes
+│   │   ├── core/          # Core modules (cache, config)
+│   │   ├── ml/            # ML modules (inference, training)
+│   │   ├── models/        # Database models
+│   │   ├── observability/ # Metrics & tracing
+│   │   └── services/      # Business logic
+│   └── tests/             # Unit tests
+├── frontend/
 │   ├── src/
-│   │   ├── app/               # Next.js pages
-│   │   ├── components/        # React components
-│   │   └── lib/               # API client & hooks (incl. KAS)
-│   └── e2e/                   # Playwright tests
+│   │   ├── app/           # Next.js pages
+│   │   ├── components/    # React components
+│   │   └── lib/           # API client & hooks
+│   └── e2e/               # Playwright tests
 ├── docker/
-│   ├── grafana/               # Grafana config & dashboards
-│   └── prometheus/            # Prometheus config
-├── docs/                      # Consolidated documentation
-│   └── INTEGRATION.md         # Integration guide
-└── docker-compose.yml         # Infrastructure stack
+│   ├── grafana/           # Grafana config & dashboards
+│   └── prometheus/        # Prometheus config
+└── docker-compose.yml     # Infrastructure stack
 ```
 
 ## License

@@ -82,41 +82,13 @@ async def db_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture
-async def async_client(test_db_engine) -> AsyncGenerator[AsyncClient, None]:
-    """Create async HTTP client for testing with mocked database."""
+async def async_client() -> AsyncGenerator[AsyncClient, None]:
+    """Create async HTTP client for testing."""
     # Import here to avoid circular imports
     from mlx_hub.main import app
-    from mlx_hub.db.session import get_session
-
-    async_session_factory = sessionmaker(
-        test_db_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
-
-    # Create tables
-    async with test_db_engine.begin() as conn:
-        await conn.execute(text("PRAGMA foreign_keys=ON"))
-        await conn.run_sync(SQLModel.metadata.create_all)
-
-    async def get_test_session() -> AsyncGenerator[AsyncSession, None]:
-        async with async_session_factory() as session:
-            await session.execute(text("PRAGMA foreign_keys=ON"))
-            yield session
-
-    # Override the database dependency
-    app.dependency_overrides[get_session] = get_test_session
 
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test"
     ) as client:
         yield client
-
-    # Clean up
-    app.dependency_overrides.clear()
-
-    async with test_db_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.drop_all)
-
-    await test_db_engine.dispose()

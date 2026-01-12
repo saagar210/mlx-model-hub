@@ -72,7 +72,9 @@ async def create_model(
     for tracking training runs.
     """
     # Check for duplicate name
-    existing = await session.execute(select(Model).where(Model.name == model_in.name))
+    existing = await session.execute(
+        select(Model).where(Model.name == model_in.name)
+    )
     if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -102,46 +104,40 @@ async def list_models(
     task_type: TaskType | None = None,
 ) -> ModelListResponse:
     """List all registered models with pagination."""
-    # Build base query conditions
-    conditions = []
+    # Build query
+    query = select(Model)
+    count_query = select(func.count()).select_from(Model)
+
     if task_type:
-        conditions.append(Model.task_type == task_type)
+        query = query.where(Model.task_type == task_type)
+        count_query = count_query.where(Model.task_type == task_type)
 
     # Get total count
-    count_query = select(func.count()).select_from(Model)
-    if conditions:
-        count_query = count_query.where(*conditions)
     total_result = await session.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Subquery for version counts - avoids N+1 queries
-    version_count_subquery = (
-        select(ModelVersion.model_id, func.count(ModelVersion.id).label("version_count"))
-        .group_by(ModelVersion.model_id)
-        .subquery()
-    )
-
-    # Main query with LEFT JOIN to version counts
-    query = select(
-        Model, func.coalesce(version_count_subquery.c.version_count, 0).label("version_count")
-    ).outerjoin(version_count_subquery, Model.id == version_count_subquery.c.model_id)
-
-    if conditions:
-        query = query.where(*conditions)
-
-    query = query.order_by(Model.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    # Get paginated results
+    query = query.offset((page - 1) * page_size).limit(page_size)
+    query = query.order_by(Model.created_at.desc())
 
     result = await session.execute(query)
-    rows = result.all()
+    models = result.scalars().all()
 
-    # Build response items
-    items = [
-        ModelResponse(
+    # Build response items with version counts
+    items = []
+    for model in models:
+        # Count versions for each model
+        version_count_result = await session.execute(
+            select(func.count()).select_from(ModelVersion).where(
+                ModelVersion.model_id == model.id
+            )
+        )
+        version_count = version_count_result.scalar() or 0
+
+        items.append(ModelResponse(
             **model.model_dump(),
             version_count=version_count,
-        )
-        for model, version_count in rows
-    ]
+        ))
 
     return ModelListResponse(
         items=items,
@@ -166,7 +162,9 @@ async def get_model(
 
     # Count versions
     version_count_result = await session.execute(
-        select(func.count()).select_from(ModelVersion).where(ModelVersion.model_id == model.id)
+        select(func.count()).select_from(ModelVersion).where(
+            ModelVersion.model_id == model.id
+        )
     )
     version_count = version_count_result.scalar() or 0
 
@@ -202,7 +200,9 @@ async def update_model(
 
     # Count versions
     version_count_result = await session.execute(
-        select(func.count()).select_from(ModelVersion).where(ModelVersion.model_id == model.id)
+        select(func.count()).select_from(ModelVersion).where(
+            ModelVersion.model_id == model.id
+        )
     )
     version_count = version_count_result.scalar() or 0
 
@@ -273,102 +273,3 @@ async def get_model_history(
         "runs": [],
         "experiment_id": model.mlflow_experiment_id,
     }
-
-
-class ExportResponse(SQLModel):
-    """Response schema for model export."""
-
-    export_path: str
-    inference_url: str
-    model_name: str
-    registered: bool
-    message: str
-
-
-@router.post("/{model_id}/export", response_model=ExportResponse)
-async def export_model_to_inference(
-    model_id: UUID,
-    session: SessionDep,
-) -> ExportResponse:
-    """Export a trained model for use in unified-mlx-app.
-
-    Creates a standardized export bundle and registers it with the
-    inference server for immediate use.
-
-    Args:
-        model_id: UUID of the model to export.
-        session: Database session.
-
-    Returns:
-        Export response with inference URL and registration status.
-
-    Raises:
-        HTTPException: If model not found or no trained version available.
-    """
-    from mlx_hub.config import get_settings
-    from mlx_hub.db.enums import ModelVersionStatus
-    from mlx_hub.services.export_service import (
-        create_export_bundle,
-        register_with_inference_server,
-    )
-
-    settings = get_settings()
-
-    # Get model
-    model = await session.get(Model, model_id)
-    if not model:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Model {model_id} not found",
-        )
-
-    # Get latest READY version with adapter
-    result = await session.execute(
-        select(ModelVersion)
-        .where(
-            ModelVersion.model_id == model_id,
-            ModelVersion.status == ModelVersionStatus.READY,
-            ModelVersion.artifact_path.isnot(None),
-        )
-        .order_by(ModelVersion.created_at.desc())
-        .limit(1)
-    )
-    version = result.scalars().first()
-
-    if not version:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No trained version available for this model",
-        )
-
-    # Create export bundle
-    try:
-        export_path = await create_export_bundle(model, version)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create export bundle: {str(e)}",
-        )
-
-    # Register with inference server
-    registered = False
-    message = "Model exported successfully"
-
-    if settings.inference_auto_register:
-        try:
-            await register_with_inference_server(export_path)
-            registered = True
-            message = "Model exported and registered with inference server"
-        except ValueError as e:
-            logger.warning(f"Failed to register with inference server: {e}")
-            message = f"Model exported but registration failed: {str(e)}"
-
-    inference_url = f"{settings.inference_server_url}/v1/chat/completions"
-
-    return ExportResponse(
-        export_path=str(export_path),
-        inference_url=inference_url,
-        model_name=model.name,
-        registered=registered,
-        message=message,
-    )

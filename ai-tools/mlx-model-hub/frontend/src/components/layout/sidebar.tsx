@@ -5,22 +5,18 @@ import { usePathname } from "next/navigation"
 import {
   Box,
   Brain,
-  Compass,
   Gauge,
   GraduationCap,
   LayoutDashboard,
   MessageSquare,
-  Server,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Discover", href: "/discover", icon: Compass },
   { name: "Models", href: "/models", icon: Box },
   { name: "Training", href: "/training", icon: GraduationCap },
   { name: "Inference", href: "/inference", icon: MessageSquare },
-  { name: "Registry", href: "/registry", icon: Server },
   { name: "Metrics", href: "/metrics", icon: Gauge },
 ]
 

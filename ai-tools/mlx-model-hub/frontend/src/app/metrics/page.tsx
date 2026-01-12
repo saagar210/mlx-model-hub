@@ -1,6 +1,5 @@
 "use client"
 
-import { useMemo } from "react"
 import { DashboardLayout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,12 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useHealth, useMetrics } from "@/lib/hooks"
-import {
-  API_BASE_URL,
-  GRAFANA_URL,
-  MLFLOW_URL,
-  PROMETHEUS_URL,
-} from "@/lib/config"
 import {
   Activity,
   Brain,
@@ -24,7 +17,6 @@ import {
   Server,
   Zap,
 } from "lucide-react"
-import { MetricsChart, TTFTChart, ThroughputChart } from "@/components/charts"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B"
@@ -81,25 +73,6 @@ function MetricCard({
   )
 }
 
-// Generate mock time-series data for demonstration
-function generateMockTimeSeriesData(
-  points: number,
-  baseValue: number,
-  variance: number
-) {
-  const now = Date.now()
-  const data = []
-  for (let i = points; i >= 0; i--) {
-    const timestamp = new Date(now - i * 60000).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-    const value = baseValue + (Math.random() - 0.5) * variance
-    data.push({ timestamp, value: Math.max(0, value) })
-  }
-  return data
-}
-
 export default function MetricsPage() {
   const {
     data: health,
@@ -119,30 +92,6 @@ export default function MetricsPage() {
 
   const isLoading = healthLoading || metricsLoading
 
-  // Generate mock data for charts (in production, this would come from Prometheus)
-  const ttftData = useMemo(
-    () =>
-      generateMockTimeSeriesData(30, 85, 40).map((d) => ({
-        timestamp: d.timestamp,
-        ttft_ms: d.value,
-      })),
-    []
-  )
-
-  const throughputData = useMemo(
-    () =>
-      generateMockTimeSeriesData(30, 45, 20).map((d) => ({
-        timestamp: d.timestamp,
-        tokens_per_second: d.value,
-      })),
-    []
-  )
-
-  const requestsData = useMemo(
-    () => generateMockTimeSeriesData(24, 150, 100),
-    []
-  )
-
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -158,7 +107,7 @@ export default function MetricsPage() {
               <RefreshCw className="h-4 w-4" />
             </Button>
             <a
-              href={GRAFANA_URL}
+              href="http://localhost:3001"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -228,19 +177,6 @@ export default function MetricsPage() {
           />
         </div>
 
-        {/* Performance Charts */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <TTFTChart data={ttftData} />
-          <ThroughputChart data={throughputData} />
-          <MetricsChart
-            data={requestsData}
-            title="Requests per Hour"
-            description="API request volume"
-            valueFormatter={(v) => `${v.toFixed(0)}`}
-            type="bar"
-          />
-        </div>
-
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -277,7 +213,7 @@ export default function MetricsPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <a
-                href={PROMETHEUS_URL}
+                href="http://localhost:9090"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -286,7 +222,7 @@ export default function MetricsPage() {
                 <ExternalLink className="h-4 w-4" />
               </a>
               <a
-                href={GRAFANA_URL}
+                href="http://localhost:3001"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -295,7 +231,7 @@ export default function MetricsPage() {
                 <ExternalLink className="h-4 w-4" />
               </a>
               <a
-                href={MLFLOW_URL}
+                href="http://localhost:5001"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -304,7 +240,7 @@ export default function MetricsPage() {
                 <ExternalLink className="h-4 w-4" />
               </a>
               <a
-                href={`${API_BASE_URL}/docs`}
+                href="http://localhost:8000/docs"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -324,7 +260,7 @@ export default function MetricsPage() {
             <p className="text-sm text-muted-foreground">
               The following metrics are exposed at{" "}
               <code className="rounded bg-muted px-1 py-0.5">
-                {API_BASE_URL}/metrics
+                http://localhost:8000/metrics
               </code>
               :
             </p>

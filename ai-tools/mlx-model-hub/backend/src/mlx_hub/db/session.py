@@ -40,7 +40,7 @@ def get_session_factory(settings: Settings):
 
 
 async def get_session(
-    settings: Annotated[Settings, Depends(get_settings)],
+    settings: Annotated[Settings, Depends(get_settings)]
 ) -> AsyncGenerator[AsyncSession, None]:
     """Get database session for request.
 

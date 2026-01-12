@@ -2,7 +2,6 @@
 
 import { useHealth } from "@/lib/hooks"
 import { Badge } from "@/components/ui/badge"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 export function Header() {
   const { data: health, isError } = useHealth()
@@ -25,7 +24,6 @@ export function Header() {
             <Badge variant="secondary">Checking...</Badge>
           )}
         </div>
-        <ThemeToggle />
       </div>
     </header>
   )

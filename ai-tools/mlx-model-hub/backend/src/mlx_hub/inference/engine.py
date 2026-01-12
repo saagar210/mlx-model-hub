@@ -103,9 +103,7 @@ class InferenceEngine:
         try:
             from mlx_lm import load
 
-            # Run blocking model load in thread pool to avoid blocking event loop
-            model, tokenizer = await asyncio.to_thread(
-                load,
+            model, tokenizer = load(
                 base_model,
                 tokenizer_config={"trust_remote_code": True},
             )
@@ -243,9 +241,8 @@ class InferenceEngine:
                 # Tokenize prompt
                 tokens = cached_model.tokenizer.encode(prompt)
 
-                # Run blocking generation in thread pool
-                result = await asyncio.to_thread(
-                    generate,
+                # Generate
+                result = generate(
                     model=cached_model.model,
                     tokenizer=cached_model.tokenizer,
                     prompt=prompt,
@@ -257,7 +254,9 @@ class InferenceEngine:
 
                 first_token_time = time.time()
                 generated_text = result
-                generated_tokens = len(cached_model.tokenizer.encode(result)) - len(tokens)
+                generated_tokens = len(cached_model.tokenizer.encode(result)) - len(
+                    tokens
+                )
 
             except Exception as e:
                 logger.error(f"Generation failed: {e}")
@@ -265,7 +264,9 @@ class InferenceEngine:
 
             total_time = time.time() - start_time
             ttft = (first_token_time - start_time) if first_token_time else total_time
-            tokens_per_second = generated_tokens / total_time if total_time > 0 else 0.0
+            tokens_per_second = (
+                generated_tokens / total_time if total_time > 0 else 0.0
+            )
 
             return GenerationResult(
                 text=generated_text,

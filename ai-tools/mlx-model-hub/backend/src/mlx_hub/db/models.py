@@ -1,21 +1,16 @@
 """SQLModel database models."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Column, Index
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 from .enums import JobStatus, ModelVersionStatus, TaskType
 
 if TYPE_CHECKING:
     pass
-
-
-def utc_now() -> datetime:
-    """Get current UTC datetime (timezone-aware)."""
-    return datetime.now(UTC)
 
 
 class ModelBase(SQLModel):
@@ -35,8 +30,8 @@ class Model(ModelBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     mlflow_experiment_id: str | None = Field(default=None, max_length=100)
-    created_at: datetime = Field(default_factory=utc_now)
-    updated_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     versions: list["ModelVersion"] = Relationship(
@@ -66,7 +61,7 @@ class ModelVersion(ModelVersionBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     model_id: uuid.UUID = Field(foreign_key="models.id", index=True)
     mlflow_run_id: str | None = Field(default=None, max_length=100)
-    created_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     model: Model = Relationship(back_populates="versions")
@@ -87,7 +82,7 @@ class Dataset(DatasetBase, table=True):
     __tablename__ = "datasets"
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    created_at: datetime = Field(default_factory=utc_now)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
     training_jobs: list["TrainingJob"] = Relationship(back_populates="dataset")
@@ -105,18 +100,14 @@ class TrainingJob(TrainingJobBase, table=True):
     """Training job for fine-tuning a model."""
 
     __tablename__ = "training_jobs"
-    __table_args__ = (
-        # Index for finding stale jobs by heartbeat
-        Index("ix_training_jobs_heartbeat_at", "heartbeat_at"),
-        # Index for looking up jobs by model version
-        Index("ix_training_jobs_model_version_id", "model_version_id"),
-    )
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     model_id: uuid.UUID = Field(foreign_key="models.id", index=True)
     dataset_id: uuid.UUID = Field(foreign_key="datasets.id", index=True)
-    model_version_id: uuid.UUID | None = Field(default=None, foreign_key="model_versions.id")
-    created_at: datetime = Field(default_factory=utc_now)
+    model_version_id: uuid.UUID | None = Field(
+        default=None, foreign_key="model_versions.id"
+    )
+    created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     heartbeat_at: datetime | None = Field(default=None)

@@ -1,7 +1,7 @@
 """Health and metrics API endpoints."""
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, Response
 from sqlalchemy import text
@@ -37,7 +37,7 @@ async def health_check() -> HealthResponse:
     """Basic health check - is the service running?"""
     return HealthResponse(
         status="healthy",
-        timestamp=datetime.now(UTC).isoformat(),
+        timestamp=datetime.utcnow().isoformat(),
         version="0.1.0",
         checks={},
     )
@@ -124,7 +124,7 @@ async def detailed_health(session: SessionDep) -> dict:
     settings = get_settings()
 
     health_info = {
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": datetime.utcnow().isoformat(),
         "version": "0.1.0",
         "environment": {
             "debug": settings.debug,

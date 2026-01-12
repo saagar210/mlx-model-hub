@@ -38,14 +38,12 @@ def setup_tracing(app: Any = None) -> TracerProvider:
     settings = get_settings()
 
     # Create resource with service information
-    resource = Resource.create(
-        {
-            "service.name": "mlx-hub",
-            "service.version": "0.1.0",
-            "service.instance.id": str(uuid.uuid4()),
-            "deployment.environment": "development" if settings.debug else "production",
-        }
-    )
+    resource = Resource.create({
+        "service.name": "mlx-hub",
+        "service.version": "0.1.0",
+        "service.instance.id": str(uuid.uuid4()),
+        "deployment.environment": "development" if settings.debug else "production",
+    })
 
     # Create tracer provider
     provider = TracerProvider(resource=resource)
