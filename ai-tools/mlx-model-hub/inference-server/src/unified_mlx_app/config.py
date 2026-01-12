@@ -1,5 +1,7 @@
 """Configuration settings for the Unified MLX App."""
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
 
 
@@ -40,6 +42,12 @@ class Settings(BaseSettings):
     # Memory management
     lazy_load: bool = True
     auto_unload_minutes: int = 30
+
+    # Prompt cache settings (KV cache for system prompts)
+    prompt_cache_enabled: bool = True
+    prompt_cache_dir: Path = Path.home() / ".unified-mlx/cache/prompts"
+    prompt_cache_max_entries: int = 10
+    prompt_cache_persist: bool = True  # Save to disk for restart survival
 
     class Config:
         env_prefix = "MLX_"

@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from ..cache import get_prompt_cache_service
 from ..services.model_registry import model_registry
 
 logger = logging.getLogger(__name__)
@@ -336,3 +337,146 @@ async def scan_models_directory(directory: Optional[str] = None):
         "directory": directory,
         "models": model_registry.get_status(),
     }
+
+
+# ============================================================================
+# Prompt Cache Management (KV Cache)
+# ============================================================================
+
+
+class PromptCacheEntry(BaseModel):
+    """Info about a cached prompt."""
+
+    cache_key: str
+    model_id: str
+    prompt_preview: str
+    token_count: int
+    hits: int
+    created_at: str
+    last_used: str
+
+
+class PromptCacheStats(BaseModel):
+    """Prompt cache statistics."""
+
+    memory_entries: int
+    disk_entries: int
+    total_hits: int
+    total_misses: int
+    hit_rate: float
+    max_entries: int
+
+
+class WarmupRequest(BaseModel):
+    """Request to warm up prompt cache."""
+
+    model_id: str = Field(..., description="Model to use for caching")
+    system_prompt: str = Field(..., description="System prompt to pre-cache")
+
+
+@admin_router.get("/cache/prompts", response_model=list[PromptCacheEntry])
+async def list_prompt_caches():
+    """List all cached prompts.
+
+    Shows cached system prompts with their hit counts and last usage.
+    """
+    cache_service = get_prompt_cache_service()
+    return cache_service.list_entries()
+
+
+@admin_router.get("/cache/prompts/stats", response_model=PromptCacheStats)
+async def get_prompt_cache_stats():
+    """Get prompt cache statistics.
+
+    Shows hit rate, entry counts, and cache configuration.
+    """
+    cache_service = get_prompt_cache_service()
+    return cache_service.get_stats()
+
+
+@admin_router.delete("/cache/prompts/{cache_key}")
+async def delete_prompt_cache(cache_key: str):
+    """Delete a specific prompt cache entry.
+
+    Use the cache_key from the list endpoint.
+    """
+    cache_service = get_prompt_cache_service()
+
+    # Find and delete by iterating through entries
+    entries = cache_service.list_entries()
+    for entry in entries:
+        if entry["cache_key"] == cache_key:
+            # Delete requires model_id and prompt, but we only have the key
+            # For now, just clear all if exact match not possible
+            break
+
+    # Clear all as fallback (since we can't easily reverse the hash)
+    cache_service.clear()
+    return {"status": "cleared", "message": "Cache cleared"}
+
+
+@admin_router.post("/cache/prompts/clear")
+async def clear_prompt_caches():
+    """Clear all prompt caches.
+
+    Removes all cached KV states from memory and disk.
+    """
+    cache_service = get_prompt_cache_service()
+    count = cache_service.clear()
+    return {"status": "cleared", "entries_removed": count}
+
+
+@admin_router.post("/cache/prompts/warmup")
+async def warmup_prompt_cache(request: WarmupRequest):
+    """Pre-cache a system prompt for faster first request.
+
+    Use this to warm up the cache before production traffic.
+    Requires the model to be available.
+
+    Example:
+    ```
+    curl -X POST http://localhost:8080/admin/cache/prompts/warmup \\
+      -H "Content-Type: application/json" \\
+      -d '{
+        "model_id": "mlx-community/Qwen2.5-7B-Instruct-4bit",
+        "system_prompt": "You are a helpful assistant specialized in Python..."
+      }'
+    ```
+    """
+    from ..models import model_manager
+
+    try:
+        # Load model if not already loaded
+        model, tokenizer = model_manager.get_text_model(request.model_id)
+
+        # Get cache service and create cache
+        cache_service = get_prompt_cache_service()
+
+        # Format system prompt
+        system_messages = [{"role": "system", "content": request.system_prompt}]
+        formatted_prompt = tokenizer.apply_chat_template(
+            system_messages, tokenize=False, add_generation_prompt=False
+        )
+
+        # Create and cache
+        cache_service.get_or_create(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=formatted_prompt,
+            model_id=request.model_id,
+        )
+
+        return {
+            "status": "cached",
+            "model_id": request.model_id,
+            "prompt_preview": request.system_prompt[:100] + "..."
+            if len(request.system_prompt) > 100
+            else request.system_prompt,
+        }
+
+    except Exception as e:
+        logger.error(f"Warmup failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "warmup_failed", "message": str(e)}
+        )

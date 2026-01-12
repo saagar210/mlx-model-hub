@@ -6,7 +6,7 @@
 
 // API Configuration
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
 
 // Inference Server (unified-mlx-app) - separate from main API
 export const INFERENCE_SERVER_URL =

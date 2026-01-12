@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api import router
 from .api.admin_routes import admin_router
+from .cache import init_prompt_cache_service
 from .config import settings
 from .mcp.routes import router as mcp_router
 
@@ -44,6 +45,18 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Initialize prompt cache service for KV caching
+    if settings.prompt_cache_enabled:
+        init_prompt_cache_service(
+            cache_dir=settings.prompt_cache_dir,
+            max_memory_entries=settings.prompt_cache_max_entries,
+            persist_to_disk=settings.prompt_cache_persist,
+        )
+        logger.info(
+            f"Prompt cache initialized: max_entries={settings.prompt_cache_max_entries}, "
+            f"persist={settings.prompt_cache_persist}"
+        )
 
     app.include_router(router)
     app.include_router(mcp_router)

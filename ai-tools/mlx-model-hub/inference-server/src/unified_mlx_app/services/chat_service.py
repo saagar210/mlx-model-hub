@@ -4,9 +4,10 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass
-from typing import AsyncGenerator, Iterator
+from typing import Any, AsyncGenerator, Iterator
 
-from ..cache import response_cache
+from ..cache import response_cache, get_prompt_cache_service
+from ..config import settings
 from ..models import model_manager
 from .model_registry import model_registry
 
@@ -35,6 +36,7 @@ class ChatService:
     def __init__(self):
         self._model = None
         self._tokenizer = None
+        self._current_model_path = None
 
     def _ensure_model(self, model_path: str, force_reload: bool = False):
         """Ensure model is loaded.
@@ -52,6 +54,43 @@ class ChatService:
             self._model, self._tokenizer = model_manager.get_text_model(
                 model_path, force_reload=force_reload
             )
+        self._current_model_path = model_path
+
+    def _extract_system_prompt(self, messages: list[dict]) -> str | None:
+        """Extract system prompt from messages if present."""
+        for msg in messages:
+            if msg.get("role") == "system":
+                return msg.get("content", "")
+        return None
+
+    def _get_prompt_cache(self, model_path: str, system_prompt: str | None) -> Any:
+        """Get or create a prompt cache for the system prompt.
+
+        Returns a prompt cache pre-filled with the system prompt KV states,
+        or None if prompt caching is disabled or no system prompt.
+        """
+        if not settings.prompt_cache_enabled or not system_prompt:
+            return None
+
+        try:
+            cache_service = get_prompt_cache_service()
+
+            # Format system prompt the same way it will appear in the full prompt
+            system_messages = [{"role": "system", "content": system_prompt}]
+            formatted_system = self._tokenizer.apply_chat_template(
+                system_messages, tokenize=False, add_generation_prompt=False
+            )
+
+            # Get or create cache for this system prompt
+            return cache_service.get_or_create(
+                model=self._model,
+                tokenizer=self._tokenizer,
+                prompt=formatted_system,
+                model_id=model_path,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to get prompt cache: {e}")
+            return None
 
     def generate(
         self,
@@ -61,8 +100,19 @@ class ChatService:
         top_p: float = 0.9,
         max_tokens: int = 2048,
         use_cache: bool = True,
+        use_prompt_cache: bool = True,
     ) -> ChatResult:
-        """Generate a chat completion (non-streaming)."""
+        """Generate a chat completion (non-streaming).
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'.
+            model_path: Model identifier.
+            temperature: Sampling temperature.
+            top_p: Nucleus sampling threshold.
+            max_tokens: Maximum tokens to generate.
+            use_cache: Whether to use response caching (full response).
+            use_prompt_cache: Whether to use KV cache for system prompts.
+        """
         from mlx_lm import generate
         from mlx_lm.generate import make_sampler
 
@@ -72,7 +122,7 @@ class ChatService:
             messages, tokenize=False, add_generation_prompt=True
         )
 
-        # Check cache
+        # Check response cache (full response)
         if use_cache:
             cache_params = {"temperature": temperature, "max_tokens": max_tokens}
             cached = response_cache.get(prompt, model_path, **cache_params)
@@ -85,16 +135,28 @@ class ChatService:
                     cached=True,
                 )
 
+        # Get prompt cache for system prompt (KV cache)
+        prompt_cache = None
+        if use_prompt_cache:
+            system_prompt = self._extract_system_prompt(messages)
+            prompt_cache = self._get_prompt_cache(model_path, system_prompt)
+            if prompt_cache:
+                logger.info("Using KV cache for system prompt")
+
         # Generate
         sampler = make_sampler(temp=temperature, top_p=top_p)
-        result = generate(
-            self._model,
-            self._tokenizer,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            sampler=sampler,
-            verbose=False,
-        )
+        generate_kwargs = {
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+            "sampler": sampler,
+            "verbose": False,
+        }
+
+        # Add prompt_cache if available
+        if prompt_cache is not None:
+            generate_kwargs["prompt_cache"] = prompt_cache
+
+        result = generate(self._model, self._tokenizer, **generate_kwargs)
         response_text = result.text if hasattr(result, "text") else str(result)
 
         # Cache result
@@ -118,8 +180,18 @@ class ChatService:
         temperature: float = 0.7,
         top_p: float = 0.9,
         max_tokens: int = 2048,
+        use_prompt_cache: bool = True,
     ) -> Iterator[StreamChunk]:
-        """Stream chat completion tokens."""
+        """Stream chat completion tokens.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'.
+            model_path: Model identifier.
+            temperature: Sampling temperature.
+            top_p: Nucleus sampling threshold.
+            max_tokens: Maximum tokens to generate.
+            use_prompt_cache: Whether to use KV cache for system prompts.
+        """
         from mlx_lm import stream_generate
         from mlx_lm.generate import make_sampler
 
@@ -129,14 +201,30 @@ class ChatService:
             messages, tokenize=False, add_generation_prompt=True
         )
 
+        # Get prompt cache for system prompt (KV cache)
+        prompt_cache = None
+        if use_prompt_cache:
+            system_prompt = self._extract_system_prompt(messages)
+            prompt_cache = self._get_prompt_cache(model_path, system_prompt)
+            if prompt_cache:
+                logger.info("Using KV cache for streaming generation")
+
         sampler = make_sampler(temp=temperature, top_p=top_p)
+
+        stream_kwargs = {
+            "prompt": prompt,
+            "max_tokens": max_tokens,
+            "sampler": sampler,
+        }
+
+        # Add prompt_cache if available
+        if prompt_cache is not None:
+            stream_kwargs["prompt_cache"] = prompt_cache
 
         for response in stream_generate(
             self._model,
             self._tokenizer,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            sampler=sampler,
+            **stream_kwargs,
         ):
             yield StreamChunk(text=response.text)
 
