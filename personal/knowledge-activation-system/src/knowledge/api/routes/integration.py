@@ -143,12 +143,12 @@ async def ingest_research(request: ResearchIngestRequest) -> ResearchIngestRespo
     try:
         from pathlib import Path
 
+        from knowledge.chunking import ChunkingConfig, chunk_recursive
         from knowledge.config import get_settings
-        from knowledge.db import get_db
         from knowledge.embeddings import embed_text
-        from knowledge.ingest.files import chunk_text
 
         settings = get_settings()
+        chunking_config = ChunkingConfig(chunk_size=250, chunk_overlap=40)
 
         # Create filename from title
         safe_title = "".join(
@@ -193,10 +193,11 @@ async def ingest_research(request: ResearchIngestRequest) -> ResearchIngestRespo
         db = await get_db()
 
         # Create content record
-        content_id = await db.create_content(
+        content_id = await db.insert_content(
             filepath=str(filepath),
             content_type="research",
             title=request.title,
+            content_for_hash=request.content,  # For deduplication
             summary=request.content[:500] if len(request.content) > 500 else request.content,
             tags=all_tags,
             metadata={
@@ -204,23 +205,29 @@ async def ingest_research(request: ResearchIngestRequest) -> ResearchIngestRespo
                 "ingested_via": "api",
                 **request.metadata,
             },
+            add_to_review=False,  # Research doesn't need spaced repetition by default
         )
 
-        # Chunk and embed the content (strip frontmatter for embedding)
+        # Chunk and embed the content
         content_for_embedding = request.content
-        chunks = chunk_text(content_for_embedding, chunk_size=1000, chunk_overlap=200)
+        chunks = chunk_recursive(content_for_embedding, chunking_config)
 
-        chunk_count = 0
-        for i, chunk in enumerate(chunks):
-            embedding = await embed_text(chunk)
-            await db.create_chunk(
-                content_id=content_id,
-                chunk_text=chunk,
-                embedding=embedding,
-                chunk_index=i,
-                source_ref=f"{filepath.name}#chunk-{i}",
-            )
-            chunk_count += 1
+        # Prepare chunks with embeddings for batch insert
+        chunk_records = []
+        for chunk in chunks:
+            embedding = await embed_text(chunk.text)
+            chunk_records.append({
+                "chunk_index": chunk.index,
+                "chunk_text": chunk.text,
+                "embedding": embedding,
+                "source_ref": f"{filepath.name}#chunk-{chunk.index}",
+                "start_char": chunk.start_char,
+                "end_char": chunk.end_char,
+            })
+
+        # Batch insert chunks
+        await db.insert_chunks(content_id, chunk_records)
+        chunk_count = len(chunk_records)
 
         return ResearchIngestResponse(
             content_id=str(content_id),
