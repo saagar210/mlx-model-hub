@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     rate_limit_window: int = 60  # Window in seconds
     require_api_key: bool = False  # Set to True for production
 
+    # Daily Review Scheduler
+    review_enabled: bool = True  # Enable daily review reminders
+    review_time_hour: int = 9  # Hour for daily review (0-23)
+    review_time_minute: int = 0  # Minute for daily review (0-59)
+    review_timezone: str = "America/Los_Angeles"  # Timezone for scheduling
+
     @property
     def vault_dir(self) -> Path:
         """Expanded vault path."""

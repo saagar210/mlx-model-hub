@@ -242,3 +242,15 @@ class ReviewIntervalsResponse(BaseModel):
     hard: datetime
     good: datetime
     easy: datetime
+
+
+class ScheduleStatusResponse(BaseModel):
+    """Daily review schedule status."""
+
+    enabled: bool
+    scheduled_time: str  # "HH:MM" format
+    timezone: str
+    next_run: datetime | None = None
+    last_run: datetime | None = None
+    due_count: int
+    status: str  # "running", "waiting", "disabled"

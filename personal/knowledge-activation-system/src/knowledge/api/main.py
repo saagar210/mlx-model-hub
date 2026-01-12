@@ -16,6 +16,7 @@ from knowledge.db import close_db
 from knowledge.embeddings import close_embedding_service
 from knowledge.rerank import close_reranker
 from knowledge.reranker import close_local_reranker, preload_reranker
+from knowledge.review import start_daily_scheduler, stop_daily_scheduler
 
 
 @asynccontextmanager
@@ -24,9 +25,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup - preload models in background to avoid cold-start delays
     await preload_reranker()  # Non-blocking, loads in background thread
 
+    # Start daily review scheduler (if enabled)
+    await start_daily_scheduler()
+
     yield
 
     # Shutdown - cleanup all resources
+    await stop_daily_scheduler()
     await close_db()
     await close_embedding_service()
     await close_ai_provider()

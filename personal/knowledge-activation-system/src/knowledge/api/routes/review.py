@@ -11,6 +11,7 @@ from knowledge.api.schemas import (
     ReviewIntervalsResponse,
     ReviewQueueItem,
     ReviewStatsResponse,
+    ScheduleStatusResponse,
     SubmitReviewRequest,
     SubmitReviewResponse,
 )
@@ -22,6 +23,7 @@ from knowledge.review import (
     get_item_state,
     get_review_engine,
     get_review_stats_simple,
+    get_schedule_status,
     remove_from_queue,
     submit_review,
     suspend_item,
@@ -202,3 +204,24 @@ async def remove_from_review(content_id: UUID) -> dict:
         raise HTTPException(status_code=404, detail="Item not found")
 
     return {"status": "removed", "content_id": str(content_id)}
+
+
+@router.get("/schedule/status", response_model=ScheduleStatusResponse)
+async def get_schedule() -> ScheduleStatusResponse:
+    """
+    Get the daily review schedule status.
+
+    Returns the configured schedule time, next run time,
+    and current queue statistics.
+    """
+    info = await get_schedule_status()
+
+    return ScheduleStatusResponse(
+        enabled=info.enabled,
+        scheduled_time=info.scheduled_time.strftime("%H:%M"),
+        timezone=info.timezone,
+        next_run=info.next_run,
+        last_run=info.last_run,
+        due_count=info.due_count,
+        status=info.status,
+    )

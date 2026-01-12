@@ -70,6 +70,16 @@ from knowledge.review.scheduler import (
     unsuspend_item,
 )
 
+# Daily Scheduler
+from knowledge.review.daily_scheduler import (
+    DailyReviewScheduler,
+    ScheduleInfo,
+    get_daily_scheduler,
+    get_schedule_status,
+    start_daily_scheduler,
+    stop_daily_scheduler,
+)
+
 __all__ = [
     # Models
     "FSRSState",
@@ -103,4 +113,11 @@ __all__ = [
     "submit_review",
     "suspend_item",
     "unsuspend_item",
+    # Daily Scheduler
+    "DailyReviewScheduler",
+    "ScheduleInfo",
+    "get_daily_scheduler",
+    "get_schedule_status",
+    "start_daily_scheduler",
+    "stop_daily_scheduler",
 ]
