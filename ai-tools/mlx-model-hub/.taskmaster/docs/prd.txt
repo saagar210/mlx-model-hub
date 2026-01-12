@@ -1,0 +1,293 @@
+# MLX Model Hub - Product Requirements Document
+
+## Overview
+Build a local-first MLX Model Hub optimized for Apple Silicon (M4 Pro, 48GB) that provides:
+- Model registry with versioning and lineage tracking
+- Training orchestration for fine-tuning (LoRA/QLoRA)
+- Inference serving with streaming support
+- Observability via metrics dashboard and admin UI
+
+## Problem Statement
+ML practitioners on Apple Silicon lack a unified local tool for managing the complete model lifecycle:
+- Registering and versioning models
+- Orchestrating training jobs with reproducibility
+- Serving models for inference
+- Monitoring system resources and model performance
+
+Current solutions require cloud infrastructure or are fragmented across multiple tools without integration.
+
+## Goals
+1. Train, version, and serve MLX models locally via API and admin UI
+2. Maintain full reproducibility (git commit + dataset hash + params + seeds)
+3. Provide observability for latency, memory, job health, and model quality
+
+## Success Criteria
+1. End-to-end flow works: register -> train -> version -> serve -> monitor
+2. Reproducibility: each model version tied to git commit, dataset hash, params, seeds
+3. Performance: inference TTFT < 100ms for 7B 4-bit model
+4. Operational stability: 24h sequential training without memory issues
+5. Visibility: metrics dashboard shows CPU/GPU/memory, job queue, latency
+
+## Target Users
+- ML engineers on Apple Silicon
+- Researchers fine-tuning models locally
+- Developers building AI applications
+
+## Technical Constraints
+- Single-node deployment on macOS (M4 Pro)
+- Unified memory budget: 48GB total, reserve 12GB headroom, 36GB for MLX
+- Postgres in Docker for metadata
+- Local filesystem for artifacts (MinIO/S3 later)
+
+## Out of Scope (Initial Phase)
+- Multi-node/distributed training orchestration
+- Cloud deployment
+- Enterprise auth/SSO
+- Model marketplace
+- Automated labeling pipelines
+
+## Architecture
+
+### Backend Stack
+- FastAPI for REST API
+- SQLModel + Alembic for database ORM and migrations
+- MLflow 3.x for experiment tracking and model registry
+- MLX + MLX-LM for training and inference
+- OpenTelemetry + Prometheus for observability
+- sse-starlette for streaming inference
+
+### Frontend Stack
+- Next.js 15 with App Router
+- React Server Components
+- shadcn/ui component library
+- Recharts for metrics visualization
+
+### Infrastructure
+- Docker Compose for local services
+- Postgres for metadata storage
+- Prometheus + Grafana for monitoring
+
+## API Endpoints
+
+### Model Management
+- POST /models - Register new model
+- GET /models - List all models
+- GET /models/{id} - Get model details
+- GET /models/{id}/history - Get MLflow run history
+
+### Dataset Management
+- POST /datasets - Register dataset
+- GET /datasets - List datasets
+
+### Training
+- POST /training/jobs - Submit training job
+- GET /training/jobs - List all jobs
+- GET /training/jobs/{id} - Get job status
+
+### Inference
+- POST /inference - Run inference (blocking)
+- POST /inference/stream - Streaming inference (SSE)
+
+### System
+- GET /health - Health check
+- GET /metrics - Prometheus metrics
+
+## Data Models
+
+### Model
+- name: string (unique)
+- task_type: enum (text-generation, classification, etc.)
+- description: string
+- base_model: string (HuggingFace ID)
+- mlflow_experiment_id: string
+- created_at: datetime
+- tags: json
+
+### ModelVersion
+- model_id: FK to Model
+- version: string (semver)
+- status: enum (training, ready, archived, failed)
+- metrics: json (loss, accuracy, etc.)
+- artifact_path: string
+- mlflow_run_id: string
+- created_at: datetime
+
+### Dataset
+- name: string (unique)
+- path: string (local path)
+- checksum: string (sha256)
+- schema: json
+- created_at: datetime
+
+### TrainingJob
+- model_id: FK to Model
+- dataset_id: FK to Dataset
+- status: enum (queued, running, completed, failed, cancelled)
+- config: json (lora_rank, learning_rate, epochs, batch_size, seed)
+- started_at: datetime
+- completed_at: datetime
+- error_message: string (nullable)
+
+## Functional Requirements
+
+### F1: Project Scaffolding
+- Initialize uv project with dependencies
+- Create config management with pydantic-settings
+- Set up storage directories (active, archive)
+- Configure logging
+
+### F2: Database Schema
+- Define SQLModel models with relationships
+- Initialize Alembic migrations
+- Create indexes on frequently queried fields
+- Enforce FK constraints
+
+### F3: Model Registry API
+- CRUD operations for models
+- Integration with MLflow experiments
+- Validation of model metadata
+- Error handling for MLflow unavailability
+
+### F4: Training Job Orchestration
+- Job queue with FIFO ordering
+- Sequential execution (single active job)
+- Status transitions with timestamps
+- Memory check before job start
+- Heartbeat monitoring for running jobs
+
+### F5: MLX Training Runner
+- Training loop with MLX optimizers
+- LoRA/QLoRA adapter support
+- Quantized model training (4-bit, 8-bit)
+- Checkpoint saving (.safetensors)
+- NaN/Inf detection and early stopping
+- Gradient checkpointing for memory efficiency
+
+### F6: Inference Engine
+- Model loading with caching (LRU)
+- Adapter loading and merging
+- Streaming generation with SSE
+- KV cache management
+- Token counting and latency metrics
+
+### F7: Frontend Dashboard
+- Models list with search and filter
+- Model detail view with version history
+- Training jobs view with status updates
+- Metrics charts (CPU, GPU, memory, latency)
+- Real-time updates via polling or SSE
+
+### F8: Observability Stack
+- Docker Compose for Postgres, MLflow, Prometheus, Grafana
+- OpenTelemetry instrumentation for traces
+- Prometheus metrics endpoint
+- Pre-built Grafana dashboards
+
+## Non-Functional Requirements
+
+### Performance
+- Inference TTFT < 100ms for 7B 4-bit model
+- API response time < 200ms for CRUD operations
+- Dashboard load time < 2s
+
+### Reliability
+- 24h sequential training without crashes
+- Graceful handling of memory pressure
+- Automatic job retry on transient failures
+
+### Security
+- No external network exposure by default
+- Path validation to prevent traversal
+- Environment-based secrets management
+
+### Maintainability
+- TDD approach with >80% test coverage
+- Comprehensive API documentation (OpenAPI)
+- Structured logging with correlation IDs
+
+## Implementation Tasks
+
+### Task 1: Project Scaffolding and Environment
+Create pyproject.toml with all backend dependencies. Implement config.py using pydantic-settings for environment validation. Create storage/active and storage/archive directories. Set up pytest configuration. Write first test that validates config loading and directory existence.
+
+### Task 2: Database Schema and Migrations
+Define SQLModel classes for Model, ModelVersion, Dataset, TrainingJob with proper relationships. Initialize Alembic for migrations. Create initial migration with indexes. Write tests for FK constraint enforcement (creating ModelVersion without Model should fail).
+
+### Task 3: Model Registry API with MLflow Integration
+Implement FastAPI router for /models endpoints. Create MLflow experiment on model registration. Store mlflow_experiment_id in database. Handle MLflow unavailability gracefully (503 response). Write integration tests for the full registration flow.
+
+### Task 4: Training Job Orchestration
+Implement job table with status enum and transitions. Build background worker using FastAPI BackgroundTasks or asyncio. Enforce FIFO ordering with single active job constraint. Add memory check before job load. Write tests for sequential execution and status transitions.
+
+### Task 5: MLX Training Runner
+Implement training loop using mlx.nn and mlx.optimizers. Add LoRA adapter layer with configurable rank. Support 4-bit and 8-bit quantized base models. Save adapters as .safetensors with checksums. Add NaN/Inf loss detection with early stop. Write tests with tiny model to verify loss decreases.
+
+### Task 6: Inference Engine
+Implement InferenceEngine class with model loading/unloading. Add LRU cache for loaded models with memory limit. Create POST /inference endpoint with validation. Create POST /inference/stream with SSE using sse-starlette. Implement KV cache controls for long contexts. Write tests for both blocking and streaming inference.
+
+### Task 7: Frontend Dashboard
+Scaffold Next.js 15 app with App Router. Create models list page with Server Components. Add model detail page with version history. Create training jobs page with status badges. Add metrics dashboard with Recharts. Write Playwright tests for critical user flows.
+
+### Task 8: Observability and Docker Compose
+Create docker-compose.yml for Postgres, MLflow, Prometheus, Grafana. Configure Prometheus to scrape /metrics. Add OpenTelemetry middleware to FastAPI. Create Grafana dashboard JSON files. Write tests to validate docker compose config.
+
+## Risks and Mitigations
+
+### Memory Pressure
+Risk: Training large models exhausts unified memory
+Mitigation: Enforce 36GB limit, memory check before job, LRU eviction
+
+### Thermal Throttling
+Risk: Extended training causes thermal slowdown
+Mitigation: Monitor temperature, cooldown between epochs, batch size tuning
+
+### MLX API Changes
+Risk: MLX updates break training/inference code
+Mitigation: Pin MLX version, isolate adapter layer, comprehensive tests
+
+### Artifact Corruption
+Risk: Interrupted training corrupts model files
+Mitigation: Atomic writes, checksum verification, temporary staging directory
+
+## Dependencies
+
+### Python Backend
+- fastapi>=0.128.0
+- uvicorn>=0.30.0
+- sqlmodel>=0.0.22
+- alembic>=1.14.0
+- pydantic-settings>=2.5.0
+- mlflow>=3.8.0
+- mlx>=0.30.0
+- mlx-lm>=0.21.0
+- opentelemetry-instrumentation-fastapi>=0.48b0
+- prometheus-client>=0.21.0
+- sse-starlette>=3.1.0
+- pytest>=8.0.0
+- httpx>=0.27.0
+- ruff>=0.8.0
+
+### Frontend
+- next>=15.0.0
+- react>=19.0.0
+- @shadcn/ui (components)
+- recharts>=2.13.0
+- @tanstack/react-query>=5.0.0
+- @testing-library/react>=16.0.0
+- playwright>=1.48.0
+
+### Infrastructure
+- postgres:17
+- grafana/grafana:latest
+- prom/prometheus:latest
+- ghcr.io/mlflow/mlflow:latest
+
+## Deployment Checklist
+1. Ensure Docker Desktop running
+2. Copy .env.example to .env and configure
+3. Run migrations: alembic upgrade head
+4. Start services: docker compose up -d
+5. Start backend: uv run uvicorn mlx_hub.main:app --reload
+6. Start frontend: pnpm dev
+7. Verify /health and /metrics endpoints
+8. Access dashboard at localhost:3000
