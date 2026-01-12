@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from mlx_hub.api import datasets, health, inference, models, training
+from mlx_hub.api import datasets, health, inference, models, openai_compat, training
 from mlx_hub.config import get_settings
 from mlx_hub.observability import (
     PrometheusMiddleware,
@@ -56,6 +56,7 @@ app.add_middleware(RequestIdMiddleware)
 
 # Include routers
 app.include_router(health.router)  # /health, /metrics at root level
+app.include_router(openai_compat.router)  # /v1/... OpenAI-compatible endpoints
 app.include_router(models.router, prefix="/api")
 app.include_router(datasets.router, prefix="/api")
 app.include_router(training.router, prefix="/api")

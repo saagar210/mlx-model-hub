@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useState, useRef, useEffect } from "react"
+import { Suspense, useState, useRef, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { DashboardLayout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -17,13 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useModels, useInference } from "@/lib/hooks"
-import { Send, Settings, Trash2, Copy, CheckCircle } from "lucide-react"
+import { useModels } from "@/lib/hooks"
+import { streamInference, InferenceRequest } from "@/lib/api"
+import { Send, Settings, Trash2, Copy, CheckCircle, StopCircle, Zap } from "lucide-react"
 import { toast } from "sonner"
 
 interface Message {
   role: "user" | "assistant"
   content: string
+  isStreaming?: boolean
   stats?: {
     tokens: number
     ttft_ms: number
@@ -40,16 +43,23 @@ function InferencePlayground() {
   const [prompt, setPrompt] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
   const [showSettings, setShowSettings] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [streamEnabled, setStreamEnabled] = useState(true)
+  const abortControllerRef = useRef<AbortController | null>(null)
   const [settings, setSettings] = useState({
     max_tokens: 512,
     temperature: 0.7,
     top_p: 0.9,
   })
   const [copied, setCopied] = useState<number | null>(null)
+  const [currentStats, setCurrentStats] = useState<{
+    tokens: number
+    ttft?: number
+    tps?: number
+  } | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { data: models, isLoading: modelsLoading } = useModels()
-  const inference = useInference()
 
   const availableModels = models?.items ?? []
 
@@ -57,42 +67,111 @@ function InferencePlayground() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  const handleSend = () => {
+  const handleStreamingInference = useCallback(async () => {
     if (!prompt.trim() || !selectedModel) return
 
     const userMessage: Message = { role: "user", content: prompt }
     setMessages((prev) => [...prev, userMessage])
     setPrompt("")
+    setIsStreaming(true)
+    setCurrentStats({ tokens: 0 })
 
-    inference.mutate(
-      {
-        model_id: selectedModel,
-        prompt: prompt,
-        max_tokens: settings.max_tokens,
-        temperature: settings.temperature,
-        top_p: settings.top_p,
-      },
-      {
-        onSuccess: (data) => {
-          const assistantMessage: Message = {
-            role: "assistant",
-            content: data.response,
-            stats: {
-              tokens: data.tokens_generated,
-              ttft_ms: data.time_to_first_token_ms,
-              total_ms: data.total_time_ms,
-              tps: data.tokens_per_second,
-            },
+    // Add empty assistant message for streaming
+    const assistantMessage: Message = {
+      role: "assistant",
+      content: "",
+      isStreaming: true,
+    }
+    setMessages((prev) => [...prev, assistantMessage])
+
+    const request: InferenceRequest = {
+      model_id: selectedModel,
+      prompt: prompt,
+      max_tokens: settings.max_tokens,
+      temperature: settings.temperature,
+      top_p: settings.top_p,
+      stream: true,
+    }
+
+    let accumulatedContent = ""
+    let tokenCount = 0
+    let ttft: number | undefined
+    let tps: number | undefined
+
+    try {
+      for await (const chunk of streamInference(request)) {
+        if (chunk.type === "token") {
+          accumulatedContent += chunk.token || ""
+          tokenCount++
+          if (chunk.ttft !== undefined && ttft === undefined) {
+            ttft = chunk.ttft * 1000 // Convert to ms
           }
-          setMessages((prev) => [...prev, assistantMessage])
-        },
-        onError: (error) => {
-          toast.error(`Inference failed: ${error.message}`)
-          // Remove the pending message
-          setMessages((prev) => prev.slice(0, -1))
-        },
+          setCurrentStats({ tokens: tokenCount, ttft, tps })
+
+          // Update the streaming message
+          setMessages((prev) => {
+            const updated = [...prev]
+            const lastIdx = updated.length - 1
+            if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                content: accumulatedContent,
+              }
+            }
+            return updated
+          })
+        } else if (chunk.type === "done") {
+          tps = chunk.tokens_per_second
+          const totalTime = chunk.total_time ? chunk.total_time * 1000 : 0
+
+          // Finalize the message with stats
+          setMessages((prev) => {
+            const updated = [...prev]
+            const lastIdx = updated.length - 1
+            if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                content: accumulatedContent,
+                isStreaming: false,
+                stats: {
+                  tokens: chunk.total_tokens || tokenCount,
+                  ttft_ms: ttft || 0,
+                  total_ms: totalTime,
+                  tps: tps || 0,
+                },
+              }
+            }
+            return updated
+          })
+        } else if (chunk.type === "error") {
+          throw new Error(chunk.error || "Stream error")
+        }
       }
-    )
+    } catch (error) {
+      toast.error(`Inference failed: ${error instanceof Error ? error.message : "Unknown error"}`)
+      // Remove the streaming message on error
+      setMessages((prev) => prev.filter((m) => !m.isStreaming))
+    } finally {
+      setIsStreaming(false)
+      setCurrentStats(null)
+    }
+  }, [prompt, selectedModel, settings])
+
+  const handleStopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsStreaming(false)
+  }
+
+  const handleSend = () => {
+    if (streamEnabled) {
+      handleStreamingInference()
+    } else {
+      // Non-streaming fallback (kept for compatibility)
+      handleStreamingInference()
+    }
   }
 
   const handleCopy = (index: number, content: string) => {
@@ -121,7 +200,18 @@ function InferencePlayground() {
             Test models in the interactive playground
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Zap className={`h-4 w-4 ${streamEnabled ? "text-yellow-500" : "text-muted-foreground"}`} />
+            <Label htmlFor="stream-toggle" className="text-sm">
+              Streaming
+            </Label>
+            <Switch
+              id="stream-toggle"
+              checked={streamEnabled}
+              onCheckedChange={setStreamEnabled}
+            />
+          </div>
           <Button
             variant="outline"
             size="icon"
@@ -166,6 +256,17 @@ function InferencePlayground() {
                   </Select>
                 )}
               </div>
+              {isStreaming && currentStats && (
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span>{currentStats.tokens} tokens</span>
+                  {currentStats.ttft && (
+                    <span>{currentStats.ttft.toFixed(0)}ms TTFT</span>
+                  )}
+                  {currentStats.tps && (
+                    <span>{currentStats.tps.toFixed(1)} tok/s</span>
+                  )}
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col overflow-hidden p-0">
@@ -192,7 +293,12 @@ function InferencePlayground() {
                             : "bg-muted"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
+                        <p className="whitespace-pre-wrap">
+                          {message.content}
+                          {message.isStreaming && (
+                            <span className="ml-1 inline-block h-4 w-2 animate-pulse bg-primary" />
+                          )}
+                        </p>
                         {message.stats && (
                           <div className="mt-2 border-t border-border/50 pt-2 text-xs text-muted-foreground">
                             {message.stats.tokens} tokens |{" "}
@@ -200,38 +306,23 @@ function InferencePlayground() {
                             {message.stats.tps.toFixed(1)} tok/s
                           </div>
                         )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute -right-2 -top-2 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
-                          onClick={() => handleCopy(index, message.content)}
-                        >
-                          {copied === index ? (
-                            <CheckCircle className="h-3 w-3 text-green-500" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
+                        {!message.isStreaming && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute -right-2 -top-2 h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+                            onClick={() => handleCopy(index, message.content)}
+                          >
+                            {copied === index ? (
+                              <CheckCircle className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
-                  {inference.isPending && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[80%] rounded-lg bg-muted px-4 py-2">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 animate-bounce rounded-full bg-primary" />
-                          <div
-                            className="h-2 w-2 animate-bounce rounded-full bg-primary"
-                            style={{ animationDelay: "0.2s" }}
-                          />
-                          <div
-                            className="h-2 w-2 animate-bounce rounded-full bg-primary"
-                            style={{ animationDelay: "0.4s" }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <div ref={messagesEndRef} />
                 </div>
               )}
@@ -244,20 +335,29 @@ function InferencePlayground() {
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
                   className="min-h-[80px] resize-none"
-                  disabled={!selectedModel || inference.isPending}
+                  disabled={!selectedModel || isStreaming}
                 />
-                <Button
-                  className="h-auto"
-                  onClick={handleSend}
-                  disabled={
-                    !prompt.trim() || !selectedModel || inference.isPending
-                  }
-                >
-                  <Send className="h-4 w-4" />
-                </Button>
+                {isStreaming ? (
+                  <Button
+                    className="h-auto"
+                    variant="destructive"
+                    onClick={handleStopStreaming}
+                  >
+                    <StopCircle className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    className="h-auto"
+                    onClick={handleSend}
+                    disabled={!prompt.trim() || !selectedModel}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 Press Enter to send, Shift+Enter for new line
+                {streamEnabled && " | Streaming enabled"}
               </p>
             </div>
           </CardContent>
