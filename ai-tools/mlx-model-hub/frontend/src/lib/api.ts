@@ -362,3 +362,120 @@ export async function getHealth(): Promise<HealthResponse> {
 export async function getMetrics(): Promise<MetricsResponse> {
   return fetchApi<MetricsResponse>("/health/detailed")
 }
+
+// Model Discovery
+export interface DiscoveredModel {
+  model_id: string
+  author: string
+  model_name: string
+  downloads: number
+  likes: number
+  tags: string[]
+  pipeline_tag?: string
+  library_name?: string
+  created_at?: string
+  last_modified?: string
+  total_size_bytes: number
+  size_gb: number
+  estimated_memory_gb: number
+  quantization?: string
+  is_mlx: boolean
+  is_quantized: boolean
+  files: Array<{
+    filename: string
+    size_bytes: number
+    lfs: boolean
+  }>
+}
+
+export interface DiscoverSearchResponse {
+  models: DiscoveredModel[]
+  total_count: number
+  page: number
+  page_size: number
+}
+
+export interface MemoryCompatibility {
+  status: "compatible" | "tight" | "incompatible"
+  message: string
+  warning?: string
+  required_memory_gb: number
+  available_memory_gb: number
+  total_memory_gb: number
+}
+
+export interface DownloadStatus {
+  model_id: string
+  status: "pending" | "downloading" | "completed" | "failed" | "cancelled"
+  progress_percent: number
+  downloaded_bytes: number
+  total_bytes: number
+  error?: string
+  output_path?: string
+}
+
+export async function searchDiscoverModels(
+  query = "",
+  page = 1,
+  pageSize = 20,
+  mlxOnly = true,
+  sort = "downloads",
+  direction = "desc"
+): Promise<DiscoverSearchResponse> {
+  const params = new URLSearchParams({
+    query,
+    page: page.toString(),
+    page_size: pageSize.toString(),
+    mlx_only: mlxOnly.toString(),
+    sort,
+    direction,
+  })
+  return fetchApi<DiscoverSearchResponse>(`/api/discover/search?${params}`)
+}
+
+export async function getDiscoveredModel(modelId: string): Promise<DiscoveredModel> {
+  return fetchApi<DiscoveredModel>(`/api/discover/models/${encodeURIComponent(modelId)}`)
+}
+
+export async function checkModelCompatibility(
+  modelId: string
+): Promise<MemoryCompatibility> {
+  return fetchApi<MemoryCompatibility>(
+    `/api/discover/models/${encodeURIComponent(modelId)}/compatibility`
+  )
+}
+
+export async function startModelDownload(
+  modelId: string,
+  outputDir?: string
+): Promise<DownloadStatus> {
+  return fetchApi<DownloadStatus>(
+    `/api/discover/models/${encodeURIComponent(modelId)}/download`,
+    {
+      method: "POST",
+      body: JSON.stringify(outputDir ? { output_dir: outputDir } : {}),
+    }
+  )
+}
+
+export async function getDownloadStatus(modelId: string): Promise<DownloadStatus> {
+  return fetchApi<DownloadStatus>(
+    `/api/discover/download/${encodeURIComponent(modelId)}/status`
+  )
+}
+
+export async function cancelDownload(modelId: string): Promise<void> {
+  return fetchApi<void>(`/api/discover/download/${encodeURIComponent(modelId)}`, {
+    method: "DELETE",
+  })
+}
+
+export async function getPopularModels(limit = 10): Promise<DiscoverSearchResponse> {
+  const params = new URLSearchParams({ limit: limit.toString() })
+  return fetchApi<DiscoverSearchResponse>(`/api/discover/popular?${params}`)
+}
+
+export async function getRecentModels(limit = 10): Promise<DiscoverSearchResponse> {
+  const params = new URLSearchParams({ limit: limit.toString() })
+  return fetchApi<DiscoverSearchResponse>(`/api/discover/recent?${params}`)
+}
