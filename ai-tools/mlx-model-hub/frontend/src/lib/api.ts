@@ -199,9 +199,20 @@ export async function runInference(
   })
 }
 
+export interface StreamToken {
+  type: "token" | "done" | "error"
+  token?: string
+  index?: number
+  ttft?: number
+  total_tokens?: number
+  total_time?: number
+  tokens_per_second?: number
+  error?: string
+}
+
 export async function* streamInference(
   request: InferenceRequest
-): AsyncGenerator<string, void, unknown> {
+): AsyncGenerator<StreamToken, void, unknown> {
   const url = `${API_BASE_URL}/api/inference/stream`
   const response = await fetch(url, {
     method: "POST",
@@ -220,10 +231,126 @@ export async function* streamInference(
   if (!reader) throw new Error("No response body")
 
   const decoder = new TextDecoder()
+  let buffer = ""
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    yield decoder.decode(value, { stream: true })
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() || ""
+
+    for (const line of lines) {
+      if (line.startsWith("event:")) {
+        // Store event type for next data line
+        continue
+      }
+      if (line.startsWith("data:")) {
+        const data = line.slice(5).trim()
+        if (data === "[DONE]") {
+          return
+        }
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.error) {
+            yield { type: "error", error: parsed.error }
+          } else if (parsed.done) {
+            yield {
+              type: "done",
+              total_tokens: parsed.total_tokens,
+              total_time: parsed.total_time,
+              tokens_per_second: parsed.tokens_per_second,
+            }
+          } else {
+            yield {
+              type: "token",
+              token: parsed.token,
+              index: parsed.index,
+              ttft: parsed.ttft,
+            }
+          }
+        } catch {
+          // Skip invalid JSON
+        }
+      }
+    }
+  }
+}
+
+// OpenAI-compatible streaming (for /v1/chat/completions)
+export interface ChatMessage {
+  role: "system" | "user" | "assistant"
+  content: string
+}
+
+export interface ChatCompletionRequest {
+  model: string
+  messages: ChatMessage[]
+  temperature?: number
+  top_p?: number
+  max_tokens?: number
+  stream?: boolean
+}
+
+export interface ChatStreamChunk {
+  type: "content" | "done" | "error"
+  content?: string
+  finish_reason?: string
+  error?: string
+}
+
+export async function* streamChatCompletion(
+  request: ChatCompletionRequest
+): AsyncGenerator<ChatStreamChunk, void, unknown> {
+  const url = `${API_BASE_URL}/v1/chat/completions`
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ ...request, stream: true }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new ApiError(response.status, response.statusText, errorText)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("No response body")
+
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split("\n")
+    buffer = lines.pop() || ""
+
+    for (const line of lines) {
+      if (line.startsWith("data:")) {
+        const data = line.slice(5).trim()
+        if (data === "[DONE]") {
+          return
+        }
+        try {
+          const parsed = JSON.parse(data)
+          const choice = parsed.choices?.[0]
+          if (choice?.delta?.content) {
+            yield { type: "content", content: choice.delta.content }
+          }
+          if (choice?.finish_reason) {
+            yield { type: "done", finish_reason: choice.finish_reason }
+          }
+        } catch {
+          // Skip invalid JSON
+        }
+      }
+    }
   }
 }
 
