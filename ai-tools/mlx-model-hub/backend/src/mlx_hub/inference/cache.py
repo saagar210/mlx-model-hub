@@ -169,10 +169,7 @@ class ModelCache:
             self._evict_lru()
 
         # Check memory limit
-        while (
-            self._total_memory_gb + needed_memory_gb > self.max_memory_gb
-            and self._cache
-        ):
+        while self._total_memory_gb + needed_memory_gb > self.max_memory_gb and self._cache:
             self._evict_lru()
 
         # Check system memory pressure
@@ -190,10 +187,7 @@ class ModelCache:
         key, cached = self._cache.popitem(last=False)
         self._total_memory_gb -= cached.estimated_memory_gb
 
-        logger.info(
-            f"Evicted LRU model: {key} "
-            f"(freed ~{cached.estimated_memory_gb:.1f}GB)"
-        )
+        logger.info(f"Evicted LRU model: {key} (freed ~{cached.estimated_memory_gb:.1f}GB)")
 
     def stats(self) -> dict:
         """Get cache statistics.

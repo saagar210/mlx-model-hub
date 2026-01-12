@@ -119,9 +119,7 @@ async def create_dataset(
     file_path = validate_dataset_path(dataset_in.path, settings)
 
     # Check for duplicate name
-    existing = await session.execute(
-        select(Dataset).where(Dataset.name == dataset_in.name)
-    )
+    existing = await session.execute(select(Dataset).where(Dataset.name == dataset_in.name))
     if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -132,9 +130,7 @@ async def create_dataset(
     checksum = calculate_checksum(file_path)
 
     # Check for duplicate checksum (same file content, different name)
-    existing_checksum = await session.execute(
-        select(Dataset).where(Dataset.checksum == checksum)
-    )
+    existing_checksum = await session.execute(select(Dataset).where(Dataset.checksum == checksum))
     duplicate = existing_checksum.scalars().first()
     if duplicate:
         raise HTTPException(
@@ -166,9 +162,7 @@ async def list_datasets(
 ) -> DatasetListResponse:
     """List all registered datasets with pagination."""
     # Get total count
-    count_result = await session.execute(
-        select(func.count()).select_from(Dataset)
-    )
+    count_result = await session.execute(select(func.count()).select_from(Dataset))
     total = count_result.scalar() or 0
 
     # Get paginated results

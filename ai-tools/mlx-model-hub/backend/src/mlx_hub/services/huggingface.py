@@ -68,7 +68,7 @@ class ModelMetadata:
     @property
     def size_gb(self) -> float:
         """Get total size in GB."""
-        return self.total_size_bytes / (1024 ** 3)
+        return self.total_size_bytes / (1024**3)
 
 
 @dataclass
@@ -205,9 +205,7 @@ class HuggingFaceService:
     async def _fetch_model_files(self, metadata: ModelMetadata) -> None:
         """Fetch file information for a model."""
         try:
-            response = await self.client.get(
-                f"{HF_API_BASE}/models/{metadata.model_id}/tree/main"
-            )
+            response = await self.client.get(f"{HF_API_BASE}/models/{metadata.model_id}/tree/main")
             response.raise_for_status()
             files = response.json()
 
@@ -222,11 +220,13 @@ class HuggingFaceService:
                     if lfs_info:
                         size = lfs_info.get("size", size)
 
-                    model_files.append(ModelFile(
-                        filename=f.get("path", ""),
-                        size_bytes=size,
-                        lfs=lfs_info is not None,
-                    ))
+                    model_files.append(
+                        ModelFile(
+                            filename=f.get("path", ""),
+                            size_bytes=size,
+                            lfs=lfs_info is not None,
+                        )
+                    )
                     total_size += size
 
             metadata.files = model_files
@@ -306,7 +306,7 @@ class HuggingFaceService:
         Actual memory usage depends on context length, batch size, etc.
         """
         # Base estimate from file size (model weights)
-        base_gb = metadata.total_size_bytes / (1024 ** 3)
+        base_gb = metadata.total_size_bytes / (1024**3)
 
         # For MLX models, the safetensors files ARE the model weights
         # Memory usage is roughly: weights + KV cache + activations
@@ -345,8 +345,8 @@ class HuggingFaceService:
         if available_memory_gb is None:
             # Get system memory
             mem = psutil.virtual_memory()
-            available_memory_gb = mem.available / (1024 ** 3)
-            total_memory_gb = mem.total / (1024 ** 3)
+            available_memory_gb = mem.available / (1024**3)
+            total_memory_gb = mem.total / (1024**3)
         else:
             total_memory_gb = available_memory_gb
 
@@ -387,20 +387,36 @@ class HuggingFaceService:
 
         Args:
             model_id: HuggingFace model ID.
-            output_dir: Directory to save the model (default: ~/.cache/huggingface/hub).
+            output_dir: Directory to save the model. Must be under storage_models_path.
             progress_callback: Optional callback for download progress.
 
         Returns:
             Path to the downloaded model directory.
+
+        Raises:
+            ValueError: If model_id is invalid or output_dir is outside allowed path.
         """
         from huggingface_hub import snapshot_download
 
         settings = get_settings()
 
+        # Validate model ID format to prevent injection
+        if not self._validate_model_id(model_id):
+            raise ValueError(f"Invalid model ID format: {model_id}")
+
+        # Determine and validate output directory
+        base_path = settings.storage_models_path.resolve()
+
         if output_dir is None:
-            output_dir = settings.storage_models_path / model_id.replace("/", "--")
+            # Safe: we control the path construction
+            safe_name = model_id.replace("/", "--")
+            output_dir = base_path / safe_name
         else:
-            output_dir = Path(output_dir)
+            # User-provided path: validate it's under base_path
+            output_dir = Path(output_dir).resolve()
+            if not str(output_dir).startswith(str(base_path)):
+                logger.warning(f"Path traversal attempt blocked: {output_dir}")
+                raise ValueError(f"Output directory must be under {base_path}")
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -416,6 +432,23 @@ class HuggingFaceService:
         except Exception as e:
             logger.error(f"Failed to download model {model_id}: {e}")
             raise
+
+    def _validate_model_id(self, model_id: str) -> bool:
+        """Validate a HuggingFace model ID format.
+
+        Valid model IDs: owner/model-name
+        Characters allowed: alphanumeric, hyphen, underscore, period
+        """
+        if not model_id or len(model_id) > 256:
+            return False
+
+        # Must have exactly one slash
+        if model_id.count("/") != 1:
+            return False
+
+        # Pattern: alphanumeric, hyphen, underscore, period
+        pattern = r"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$"
+        return bool(re.match(pattern, model_id))
 
 
 # Global service instance

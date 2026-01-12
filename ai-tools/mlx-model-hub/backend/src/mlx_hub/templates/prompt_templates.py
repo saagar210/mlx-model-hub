@@ -7,7 +7,6 @@ correctly based on the model being used.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 
 class ModelFamily(str, Enum):

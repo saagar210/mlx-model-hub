@@ -248,8 +248,7 @@ class TrainingRunner:
 
             avg_epoch_loss = epoch_loss / max(1, epoch_steps)
             logger.info(
-                f"Epoch {epoch + 1}/{self.config.epochs} complete, "
-                f"Avg Loss: {avg_epoch_loss:.4f}"
+                f"Epoch {epoch + 1}/{self.config.epochs} complete, Avg Loss: {avg_epoch_loss:.4f}"
             )
 
         # Save adapter
@@ -352,9 +351,7 @@ class TrainingRunner:
                     if "messages" in item and isinstance(item["messages"], list):
                         data.append(item)
                     else:
-                        logger.warning(
-                            f"Line {line_num}: Missing or invalid 'messages' field"
-                        )
+                        logger.warning(f"Line {line_num}: Missing or invalid 'messages' field")
                 except json.JSONDecodeError as e:
                     logger.warning(f"Line {line_num}: Invalid JSON - {e}")
 
@@ -467,10 +464,7 @@ class TrainingRunner:
         # Create versioned directory
         version = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         adapter_dir = (
-            self.settings.storage_models_path
-            / self.model_info.name
-            / "versions"
-            / version
+            self.settings.storage_models_path / self.model_info.name / "versions" / version
         )
         adapter_dir.mkdir(parents=True, exist_ok=True)
 
