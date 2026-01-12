@@ -15,18 +15,23 @@ from knowledge.config import get_settings
 from knowledge.db import close_db
 from knowledge.embeddings import close_embedding_service
 from knowledge.rerank import close_reranker
+from knowledge.reranker import close_local_reranker, preload_reranker
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
-    # Startup
+    # Startup - preload models in background to avoid cold-start delays
+    await preload_reranker()  # Non-blocking, loads in background thread
+
     yield
-    # Shutdown
+
+    # Shutdown - cleanup all resources
     await close_db()
     await close_embedding_service()
     await close_ai_provider()
     await close_reranker()
+    await close_local_reranker()
 
 
 app = FastAPI(
@@ -46,8 +51,10 @@ allowed_origins = [
     "http://127.0.0.1:3000",
     "http://localhost:3001",  # LocalCrew dashboard
     "http://127.0.0.1:3001",
-    "http://localhost:3002",  # MLX Model Hub frontend
+    "http://localhost:3002",  # MLX Model Hub frontend (alt port)
     "http://127.0.0.1:3002",
+    "http://localhost:3005",  # MLX Model Hub frontend
+    "http://127.0.0.1:3005",
     "http://localhost:7860",  # Unified MLX Gradio UI
     "http://127.0.0.1:7860",
     "http://localhost:8001",  # LocalCrew API

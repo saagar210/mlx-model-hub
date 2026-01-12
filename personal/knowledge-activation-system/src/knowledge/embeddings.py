@@ -129,7 +129,7 @@ class EmbeddingService:
         texts: list[str],
         batch_size: int = 10,
         max_retries: int = 3,
-        max_concurrent: int = 5,
+        max_concurrent: int | None = None,
     ) -> list[list[float]]:
         """
         Generate embeddings for multiple texts in batches with rate limiting.
@@ -138,15 +138,18 @@ class EmbeddingService:
             texts: List of texts to embed
             batch_size: Number of texts per batch
             max_retries: Number of retries per text on failure
-            max_concurrent: Maximum concurrent requests to Ollama
+            max_concurrent: Maximum concurrent requests (defaults to config)
 
         Returns:
             List of embedding vectors (same order as input)
         """
         results: list[list[float] | None] = [None] * len(texts)
 
+        # Use config value if not explicitly set
+        concurrent = max_concurrent or self.settings.embedding_max_concurrent
+
         # Rate limiting semaphore
-        semaphore = asyncio.Semaphore(max_concurrent)
+        semaphore = asyncio.Semaphore(concurrent)
 
         async def embed_with_retry(index: int, text: str) -> None:
             """Embed single text with retry logic and rate limiting."""

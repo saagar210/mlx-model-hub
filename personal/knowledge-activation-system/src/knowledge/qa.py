@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 
 from knowledge.ai import generate_answer
+from knowledge.config import get_settings
 from knowledge.rerank import RankedResult, rerank_results
 from knowledge.search import hybrid_search
 
@@ -192,7 +194,7 @@ async def ask(
                 "sufficient information for this query."
             )
 
-        # Step 4: Generate answer
+        # Step 4: Generate answer with timeout protection
         context = [
             {
                 "title": r.result.title,
@@ -202,7 +204,23 @@ async def ask(
             for r in ranked_results
         ]
 
-        ai_response = await generate_answer(query, context)
+        settings = get_settings()
+        try:
+            ai_response = await asyncio.wait_for(
+                generate_answer(query, context),
+                timeout=settings.llm_timeout,
+            )
+        except asyncio.TimeoutError:
+            # Return partial result with citations but no AI answer
+            return QAResult(
+                query=query,
+                answer="",
+                confidence=confidence_level,
+                confidence_score=confidence_score,
+                citations=citations,
+                warning="LLM generation timed out. Results shown without synthesized answer.",
+                error=f"LLM timeout after {settings.llm_timeout}s",
+            )
 
         if not ai_response.success:
             return QAResult(

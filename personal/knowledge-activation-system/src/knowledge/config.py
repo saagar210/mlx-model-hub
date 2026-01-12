@@ -27,12 +27,14 @@ class Settings(BaseSettings):
     embedding_model: str = "nomic-embed-text"
     rerank_model: str = "mxbai-rerank-base-v1"
     ollama_timeout: float = 30.0
+    embedding_max_concurrent: int = 5  # Max concurrent embedding requests
 
     # OpenRouter (Phase 3)
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     primary_model: str = "deepseek/deepseek-chat"
     fallback_model: str = "anthropic/claude-3.5-sonnet"
+    llm_timeout: float = 60.0  # Overall timeout for LLM generation
 
     # Obsidian
     vault_path: str = "~/Obsidian"

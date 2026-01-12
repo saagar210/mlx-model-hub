@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from dataclasses import dataclass
+
 from fastapi import APIRouter
 
 from knowledge.api.schemas import (
@@ -14,6 +17,20 @@ from knowledge.embeddings import check_ollama_health
 
 router = APIRouter(tags=["health"])
 
+# Health check cache (reduces load from frequent polling)
+HEALTH_CACHE_TTL = 30.0  # seconds
+
+
+@dataclass
+class CachedHealth:
+    """Cached health response with timestamp."""
+
+    response: HealthResponse
+    timestamp: float
+
+
+_health_cache: CachedHealth | None = None
+
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
@@ -21,7 +38,27 @@ async def health_check() -> HealthResponse:
     Check health of all services.
 
     Returns status of PostgreSQL and Ollama.
+    Cached for 30 seconds to reduce polling load.
     """
+    global _health_cache
+
+    # Return cached response if still valid
+    if _health_cache is not None:
+        age = time.time() - _health_cache.timestamp
+        if age < HEALTH_CACHE_TTL:
+            return _health_cache.response
+
+    # Perform actual health check
+    response = await _perform_health_check()
+
+    # Cache the result
+    _health_cache = CachedHealth(response=response, timestamp=time.time())
+
+    return response
+
+
+async def _perform_health_check() -> HealthResponse:
+    """Perform the actual health check (uncached)."""
     services = []
     all_healthy = True
 
