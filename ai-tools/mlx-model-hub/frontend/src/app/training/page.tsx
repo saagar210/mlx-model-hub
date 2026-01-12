@@ -33,7 +33,7 @@ import {
   useModels,
 } from "@/lib/hooks"
 import { TrainingJob, TrainingConfig } from "@/lib/api"
-import { RefreshCw, Plus, XCircle, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { RefreshCw, Plus, XCircle, CheckCircle, Clock, AlertCircle, TrendingDown } from "lucide-react"
 import { toast } from "sonner"
 import {
   Select,
@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { TrainingLossChart } from "@/components/charts"
 
 function formatDate(dateString?: string): string {
   if (!dateString) return "-"
@@ -302,6 +303,37 @@ function CreateTrainingJobDialog() {
   )
 }
 
+// Generate mock loss data for demonstration
+function generateMockLossData(job: TrainingJob) {
+  if (!job.metrics || job.status !== "running") return []
+
+  const steps = job.metrics.step || 100
+  const data = []
+  let loss = 2.5 // Starting loss
+
+  for (let i = 0; i <= steps; i += Math.max(1, Math.floor(steps / 50))) {
+    // Simulate decreasing loss with some noise
+    loss = loss * 0.98 + (Math.random() - 0.5) * 0.1
+    loss = Math.max(0.1, loss) // Don't go below 0.1
+    data.push({
+      step: i,
+      loss: parseFloat(loss.toFixed(4)),
+      epoch: Math.floor(i / (steps / (job.config.num_epochs || 3))),
+    })
+  }
+
+  // Ensure the last point matches the current metrics
+  if (job.metrics.loss) {
+    data[data.length - 1] = {
+      step: steps,
+      loss: job.metrics.loss,
+      epoch: job.metrics.epoch,
+    }
+  }
+
+  return data
+}
+
 export default function TrainingPage() {
   const { data, isLoading, refetch } = useTrainingJobs()
   const cancelJob = useCancelTrainingJob()
@@ -313,8 +345,12 @@ export default function TrainingPage() {
     })
   }
 
-  const runningJobs = data?.items.filter((j) => j.status === "running").length ?? 0
+  const runningJobs = data?.items.filter((j) => j.status === "running") ?? []
   const completedJobs = data?.items.filter((j) => j.status === "completed").length ?? 0
+
+  // Get the first running job for the chart
+  const activeJob = runningJobs[0]
+  const lossData = activeJob ? generateMockLossData(activeJob) : []
 
   return (
     <DashboardLayout>
@@ -348,7 +384,7 @@ export default function TrainingPage() {
               <CardTitle className="text-sm font-medium">Running</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{runningJobs}</div>
+              <div className="text-2xl font-bold">{runningJobs.length}</div>
             </CardContent>
           </Card>
           <Card>
@@ -360,6 +396,71 @@ export default function TrainingPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Training Loss Chart - shows when a job is running */}
+        {activeJob && (
+          <div className="grid gap-4 md:grid-cols-2">
+            <TrainingLossChart
+              data={lossData}
+              title={`Training Loss - ${activeJob.config.base_model}`}
+              isLive={true}
+            />
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5" />
+                  <CardTitle className="text-sm font-medium">Active Training</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Epoch:</span>
+                    <span className="ml-2 font-medium">
+                      {activeJob.metrics?.epoch ?? 0}/{activeJob.config.num_epochs}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Step:</span>
+                    <span className="ml-2 font-medium">{activeJob.metrics?.step ?? 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Loss:</span>
+                    <span className="ml-2 font-medium">
+                      {activeJob.metrics?.loss?.toFixed(4) ?? "-"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Tokens/s:</span>
+                    <span className="ml-2 font-medium">
+                      {activeJob.metrics?.tokens_per_second?.toFixed(1) ?? "-"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Batch Size:</span>
+                    <span className="ml-2 font-medium">{activeJob.config.batch_size}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Learning Rate:</span>
+                    <span className="ml-2 font-medium">{activeJob.config.learning_rate}</span>
+                  </div>
+                </div>
+                <div className="pt-2">
+                  <div className="mb-2 flex justify-between text-xs">
+                    <span>Progress</span>
+                    <span>
+                      {((activeJob.metrics?.epoch ?? 0) / activeJob.config.num_epochs * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={(activeJob.metrics?.epoch ?? 0) / activeJob.config.num_epochs * 100}
+                    className="h-2"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <Card>
           <CardHeader>

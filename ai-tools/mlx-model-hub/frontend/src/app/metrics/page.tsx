@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo } from "react"
 import { DashboardLayout } from "@/components/layout"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,7 @@ import {
   Server,
   Zap,
 } from "lucide-react"
+import { MetricsChart, TTFTChart, ThroughputChart } from "@/components/charts"
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B"
@@ -79,6 +81,25 @@ function MetricCard({
   )
 }
 
+// Generate mock time-series data for demonstration
+function generateMockTimeSeriesData(
+  points: number,
+  baseValue: number,
+  variance: number
+) {
+  const now = Date.now()
+  const data = []
+  for (let i = points; i >= 0; i--) {
+    const timestamp = new Date(now - i * 60000).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+    const value = baseValue + (Math.random() - 0.5) * variance
+    data.push({ timestamp, value: Math.max(0, value) })
+  }
+  return data
+}
+
 export default function MetricsPage() {
   const {
     data: health,
@@ -97,6 +118,30 @@ export default function MetricsPage() {
   }
 
   const isLoading = healthLoading || metricsLoading
+
+  // Generate mock data for charts (in production, this would come from Prometheus)
+  const ttftData = useMemo(
+    () =>
+      generateMockTimeSeriesData(30, 85, 40).map((d) => ({
+        timestamp: d.timestamp,
+        ttft_ms: d.value,
+      })),
+    []
+  )
+
+  const throughputData = useMemo(
+    () =>
+      generateMockTimeSeriesData(30, 45, 20).map((d) => ({
+        timestamp: d.timestamp,
+        tokens_per_second: d.value,
+      })),
+    []
+  )
+
+  const requestsData = useMemo(
+    () => generateMockTimeSeriesData(24, 150, 100),
+    []
+  )
 
   return (
     <DashboardLayout>
@@ -180,6 +225,19 @@ export default function MetricsPage() {
             subtitle="Since last restart"
             icon={Clock}
             isLoading={isLoading}
+          />
+        </div>
+
+        {/* Performance Charts */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <TTFTChart data={ttftData} />
+          <ThroughputChart data={throughputData} />
+          <MetricsChart
+            data={requestsData}
+            title="Requests per Hour"
+            description="API request volume"
+            valueFormatter={(v) => `${v.toFixed(0)}`}
+            type="bar"
           />
         </div>
 
