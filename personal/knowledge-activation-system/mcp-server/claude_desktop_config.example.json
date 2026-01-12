@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "knowledge-activation": {
+      "command": "/Users/d/claude-code/personal/knowledge-activation-system/.venv/bin/python",
+      "args": [
+        "/Users/d/claude-code/personal/knowledge-activation-system/mcp-server/server.py"
+      ],
+      "env": {
+        "KNOWLEDGE_DATABASE_URL": "postgresql://knowledge:localdev@localhost:5432/knowledge",
+        "KNOWLEDGE_OLLAMA_URL": "http://localhost:11434",
+        "KNOWLEDGE_EMBEDDING_MODEL": "nomic-embed-text",
+        "KNOWLEDGE_VAULT_PATH": "~/Obsidian"
+      }
+    }
+  }
+}

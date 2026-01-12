@@ -1,0 +1,10 @@
+# MCP Server Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core MCP package
+mcp>=1.0.0
+
+# Already in parent project but listed for completeness
+pydantic>=2.0.0
+asyncpg>=0.29.0
+pgvector>=0.3.0
