@@ -1,0 +1,126 @@
+[project]
+name = "knowledge-activation-system"
+version = "0.1.0"
+description = "AI-powered personal knowledge management with hybrid search and spaced repetition"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Saagar"}
+]
+
+dependencies = [
+    # Core
+    "asyncpg>=0.29.0",
+    "pgvector>=0.3.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    # CLI
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "fsrs>=6.3.0",
+]
+
+[project.optional-dependencies]
+# Phase 2: Content Ingestion
+ingestion = [
+    "youtube-transcript-api>=0.6.0",
+    "yt-dlp>=2024.0.0",
+    "trafilatura>=1.6.0",
+    "pypdf>=4.0.0",
+    "langchain-text-splitters>=0.2.0",
+]
+
+# Phase 3: Intelligence Layer
+ai = [
+    "openai>=1.0.0",
+    "instructor>=1.13.0",
+]
+
+# LlamaIndex RAG Framework
+llamaindex = [
+    "llama-index-core>=0.11.0",
+    "llama-index-llms-ollama>=0.3.0",
+    "llama-index-embeddings-ollama>=0.3.0",
+    "sentence-transformers>=3.0.0",  # For local reranking
+]
+
+# Phase 4: Web Application
+api = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+]
+
+# Phase 5: Active Engagement
+fsrs = [
+    "fsrs>=4.0.0",
+]
+
+# Whisper for YouTube fallback (optional, large dependency)
+whisper = [
+    "openai-whisper>=20231117",
+]
+
+# Development
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.8.0",
+    "ruff>=0.1.0",
+]
+
+# All dependencies
+all = [
+    "knowledge-activation-system[ingestion,ai,api,fsrs,llamaindex,dev]",
+]
+
+[project.scripts]
+knowledge = "cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/knowledge"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "asyncpg.*",
+    "pgvector.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["knowledge"]
