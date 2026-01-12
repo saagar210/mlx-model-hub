@@ -1,0 +1,249 @@
+# Unified Docker Compose for KAS + LocalCrew Ecosystem
+#
+# This configuration runs both KAS and LocalCrew with shared infrastructure:
+# - Single PostgreSQL with schema separation (kas.*, localcrew.*)
+# - Shared Ollama instance for embeddings and inference
+# - Optional MLFlow for experiment tracking
+#
+# Usage:
+#   Basic (databases + ollama):     docker compose -f docker-compose.unified.yml up -d
+#   With all services:              docker compose -f docker-compose.unified.yml --profile full up -d
+#   Development (with watchtower):  docker compose -f docker-compose.unified.yml --profile dev up -d
+#
+# Individual services can still be deployed separately using project-specific compose files.
+
+services:
+  # ==========================================================================
+  # Shared Infrastructure
+  # ==========================================================================
+
+  postgres:
+    image: timescale/timescaledb-ha:pg16
+    container_name: kas-unified-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: unified
+    volumes:
+      - postgres_unified_data:/var/lib/postgresql/data
+      - ./shared-infra/docker/init-multi-schema.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c maintenance_work_mem=256MB
+      -c work_mem=32MB
+      -c max_connections=200
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - kas-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kas-ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+    networks:
+      - kas-network
+
+  # ==========================================================================
+  # KAS Services
+  # ==========================================================================
+
+  kas-api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: kas-api
+    restart: unless-stopped
+    profiles:
+      - full
+      - kas
+    environment:
+      KNOWLEDGE_DATABASE_URL: postgresql://kas:kas_localdev@postgres:5432/unified?options=-csearch_path=kas,public
+      KNOWLEDGE_OLLAMA_URL: http://ollama:11434
+      KNOWLEDGE_LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      KNOWLEDGE_LOG_JSON: "true"
+      KNOWLEDGE_API_HOST: "0.0.0.0"
+      KNOWLEDGE_API_PORT: "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - kas-network
+
+  kas-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: kas-web
+    restart: unless-stopped
+    profiles:
+      - full
+      - kas
+    environment:
+      NEXT_PUBLIC_API_URL: http://kas-api:8000
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - kas-api
+    networks:
+      - kas-network
+
+  # ==========================================================================
+  # LocalCrew Services
+  # ==========================================================================
+
+  localcrew-api:
+    build:
+      context: ../crewai-automation-platform
+      dockerfile: docker/Dockerfile.api
+    container_name: localcrew-api
+    restart: unless-stopped
+    profiles:
+      - full
+      - localcrew
+    environment:
+      DATABASE_URL: postgresql://localcrew:localcrew_localdev@postgres:5432/unified?options=-csearch_path=localcrew,public
+      OLLAMA_URL: http://ollama:11434
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_JSON: "true"
+      API_HOST: "0.0.0.0"
+      API_PORT: "8001"
+      # KAS integration
+      KAS_ENABLED: "true"
+      KAS_BASE_URL: http://kas-api:8000
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - kas-network
+
+  localcrew-web:
+    build:
+      context: ../crewai-automation-platform/web
+      dockerfile: Dockerfile
+    container_name: localcrew-web
+    restart: unless-stopped
+    profiles:
+      - full
+      - localcrew
+    environment:
+      NEXT_PUBLIC_API_URL: http://localcrew-api:8001
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      - localcrew-api
+    networks:
+      - kas-network
+
+  # ==========================================================================
+  # Optional Services
+  # ==========================================================================
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    container_name: kas-mlflow
+    restart: unless-stopped
+    profiles:
+      - full
+      - mlflow
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://localcrew:localcrew_localdev@postgres:5432/unified?options=-csearch_path=localcrew,public
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: /mlflow/artifacts
+    ports:
+      - "127.0.0.1:5001:5000"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://localcrew:localcrew_localdev@postgres:5432/unified?options=-csearch_path=localcrew,public
+      --default-artifact-root /mlflow/artifacts
+    networks:
+      - kas-network
+
+  # Auto-update containers (development only)
+  watchtower:
+    image: containrrr/watchtower
+    container_name: kas-watchtower
+    restart: unless-stopped
+    profiles:
+      - dev
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_SCHEDULE=0 0 4 * * 0
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_REVIVE_STOPPED=false
+      - WATCHTOWER_LABEL_ENABLE=true
+    command: --label-enable
+    networks:
+      - kas-network
+
+# ==========================================================================
+# Volumes & Networks
+# ==========================================================================
+
+volumes:
+  postgres_unified_data:
+    name: kas-unified-postgres
+  ollama_data:
+    name: kas-unified-ollama
+  mlflow_artifacts:
+    name: kas-unified-mlflow
+
+networks:
+  kas-network:
+    name: kas-ecosystem
+    driver: bridge
