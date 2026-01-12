@@ -216,22 +216,26 @@ async def generate_stream(
                 if chunk.get("done"):
                     yield {
                         "event": "done",
-                        "data": json.dumps({
-                            "total_tokens": chunk["total_tokens"],
-                            "total_time": chunk["total_time"],
-                            "tokens_per_second": chunk["tokens_per_second"],
-                            "model_id": str(request.model_id),
-                            "version_id": str(version_id) if version_id else None,
-                        }),
+                        "data": json.dumps(
+                            {
+                                "total_tokens": chunk["total_tokens"],
+                                "total_time": chunk["total_time"],
+                                "tokens_per_second": chunk["tokens_per_second"],
+                                "model_id": str(request.model_id),
+                                "version_id": str(version_id) if version_id else None,
+                            }
+                        ),
                     }
                 else:
                     yield {
                         "event": "token",
-                        "data": json.dumps({
-                            "token": chunk["token"],
-                            "index": chunk["index"],
-                            "ttft": chunk.get("ttft"),
-                        }),
+                        "data": json.dumps(
+                            {
+                                "token": chunk["token"],
+                                "index": chunk["index"],
+                                "ttft": chunk.get("ttft"),
+                            }
+                        ),
                     }
 
         except ValueError as e:

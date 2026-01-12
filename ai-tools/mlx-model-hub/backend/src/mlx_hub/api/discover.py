@@ -4,16 +4,12 @@ Provides endpoints for searching, browsing, and downloading
 MLX models from HuggingFace Hub.
 """
 
-import asyncio
 import logging
-from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from mlx_hub.db.session import get_session
 from mlx_hub.services.huggingface import (
     HuggingFaceService,
     ModelMetadata,
@@ -97,9 +93,7 @@ class DownloadStatusResponse(BaseModel):
 class DownloadRequest(BaseModel):
     """Request model for starting a download."""
 
-    output_dir: str | None = Field(
-        None, description="Optional custom output directory"
-    )
+    output_dir: str | None = Field(None, description="Optional custom output directory")
 
 
 # In-memory download tracking (in production, use Redis or database)
@@ -261,12 +255,18 @@ async def start_download(
             _download_status[model_id].downloaded_bytes = metadata.total_size_bytes
             _download_status[model_id].output_path = str(path)
 
+        except ValueError as e:
+            # Path validation or model ID validation error
+            logger.error(f"Download validation failed for {model_id}: {e}")
+            _download_status[model_id].status = "failed"
+            _download_status[model_id].error = str(e)
         except Exception as e:
             logger.error(f"Download failed for {model_id}: {e}")
             _download_status[model_id].status = "failed"
             _download_status[model_id].error = str(e)
 
-    background_tasks.add_task(asyncio.to_thread, asyncio.run, download_task())
+    # FastAPI's BackgroundTasks handles coroutines directly
+    background_tasks.add_task(download_task)
 
     return status
 

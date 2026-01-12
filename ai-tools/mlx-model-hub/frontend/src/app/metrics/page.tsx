@@ -8,6 +8,12 @@ import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useHealth, useMetrics } from "@/lib/hooks"
 import {
+  API_BASE_URL,
+  GRAFANA_URL,
+  MLFLOW_URL,
+  PROMETHEUS_URL,
+} from "@/lib/config"
+import {
   Activity,
   Brain,
   Clock,
@@ -107,7 +113,7 @@ export default function MetricsPage() {
               <RefreshCw className="h-4 w-4" />
             </Button>
             <a
-              href="http://localhost:3001"
+              href={GRAFANA_URL}
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -213,7 +219,7 @@ export default function MetricsPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <a
-                href="http://localhost:9090"
+                href={PROMETHEUS_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -222,7 +228,7 @@ export default function MetricsPage() {
                 <ExternalLink className="h-4 w-4" />
               </a>
               <a
-                href="http://localhost:3001"
+                href={GRAFANA_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -231,7 +237,7 @@ export default function MetricsPage() {
                 <ExternalLink className="h-4 w-4" />
               </a>
               <a
-                href="http://localhost:5001"
+                href={MLFLOW_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -240,7 +246,7 @@ export default function MetricsPage() {
                 <ExternalLink className="h-4 w-4" />
               </a>
               <a
-                href="http://localhost:8000/docs"
+                href={`${API_BASE_URL}/docs`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between rounded-md border p-3 transition-colors hover:bg-accent"
@@ -260,7 +266,7 @@ export default function MetricsPage() {
             <p className="text-sm text-muted-foreground">
               The following metrics are exposed at{" "}
               <code className="rounded bg-muted px-1 py-0.5">
-                http://localhost:8000/metrics
+                {API_BASE_URL}/metrics
               </code>
               :
             </p>

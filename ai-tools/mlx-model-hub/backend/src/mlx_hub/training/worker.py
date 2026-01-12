@@ -194,8 +194,7 @@ def check_memory_available() -> bool:
     is_available = available_gb >= required_gb
     if not is_available:
         logger.warning(
-            f"Insufficient memory: {available_gb:.1f}GB available, "
-            f"{required_gb}GB required"
+            f"Insufficient memory: {available_gb:.1f}GB available, {required_gb}GB required"
         )
     return is_available
 

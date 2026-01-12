@@ -27,7 +27,7 @@ from mlx_hub.inference import (
     InferenceEngine,
     get_inference_engine,
 )
-from mlx_hub.templates import ModelFamily, detect_model_family, format_chat_prompt
+from mlx_hub.templates import detect_model_family, format_chat_prompt
 
 logger = logging.getLogger(__name__)
 

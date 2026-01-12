@@ -12,10 +12,12 @@ from starlette.responses import Response
 
 # Application info
 APP_INFO = Info("mlx_hub", "MLX Model Hub application information")
-APP_INFO.info({
-    "version": "0.1.0",
-    "description": "Local-first MLX Model Hub for Apple Silicon",
-})
+APP_INFO.info(
+    {
+        "version": "0.1.0",
+        "description": "Local-first MLX Model Hub for Apple Silicon",
+    }
+)
 
 # HTTP metrics (RED - Rate, Errors, Duration)
 HTTP_REQUESTS_TOTAL = Counter(
@@ -182,6 +184,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         """Normalize path to reduce cardinality."""
         # Replace UUIDs with placeholder
         import re
+
         uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
         normalized = re.sub(uuid_pattern, "{id}", path)
         return normalized
@@ -242,6 +245,7 @@ def update_training_loss(job_id: str, loss: float) -> None:
 
 def timed_db_operation(operation: str):
     """Decorator to time database operations."""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -251,7 +255,9 @@ def timed_db_operation(operation: str):
             finally:
                 duration = time.perf_counter() - start_time
                 DB_QUERY_DURATION_SECONDS.labels(operation=operation).observe(duration)
+
         return wrapper
+
     return decorator
 
 

@@ -72,9 +72,7 @@ async def create_model(
     for tracking training runs.
     """
     # Check for duplicate name
-    existing = await session.execute(
-        select(Model).where(Model.name == model_in.name)
-    )
+    existing = await session.execute(select(Model).where(Model.name == model_in.name))
     if existing.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -104,40 +102,46 @@ async def list_models(
     task_type: TaskType | None = None,
 ) -> ModelListResponse:
     """List all registered models with pagination."""
-    # Build query
-    query = select(Model)
-    count_query = select(func.count()).select_from(Model)
-
+    # Build base query conditions
+    conditions = []
     if task_type:
-        query = query.where(Model.task_type == task_type)
-        count_query = count_query.where(Model.task_type == task_type)
+        conditions.append(Model.task_type == task_type)
 
     # Get total count
+    count_query = select(func.count()).select_from(Model)
+    if conditions:
+        count_query = count_query.where(*conditions)
     total_result = await session.execute(count_query)
     total = total_result.scalar() or 0
 
-    # Get paginated results
-    query = query.offset((page - 1) * page_size).limit(page_size)
-    query = query.order_by(Model.created_at.desc())
+    # Subquery for version counts - avoids N+1 queries
+    version_count_subquery = (
+        select(ModelVersion.model_id, func.count(ModelVersion.id).label("version_count"))
+        .group_by(ModelVersion.model_id)
+        .subquery()
+    )
+
+    # Main query with LEFT JOIN to version counts
+    query = select(
+        Model, func.coalesce(version_count_subquery.c.version_count, 0).label("version_count")
+    ).outerjoin(version_count_subquery, Model.id == version_count_subquery.c.model_id)
+
+    if conditions:
+        query = query.where(*conditions)
+
+    query = query.order_by(Model.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
 
     result = await session.execute(query)
-    models = result.scalars().all()
+    rows = result.all()
 
-    # Build response items with version counts
-    items = []
-    for model in models:
-        # Count versions for each model
-        version_count_result = await session.execute(
-            select(func.count()).select_from(ModelVersion).where(
-                ModelVersion.model_id == model.id
-            )
-        )
-        version_count = version_count_result.scalar() or 0
-
-        items.append(ModelResponse(
+    # Build response items
+    items = [
+        ModelResponse(
             **model.model_dump(),
             version_count=version_count,
-        ))
+        )
+        for model, version_count in rows
+    ]
 
     return ModelListResponse(
         items=items,
@@ -162,9 +166,7 @@ async def get_model(
 
     # Count versions
     version_count_result = await session.execute(
-        select(func.count()).select_from(ModelVersion).where(
-            ModelVersion.model_id == model.id
-        )
+        select(func.count()).select_from(ModelVersion).where(ModelVersion.model_id == model.id)
     )
     version_count = version_count_result.scalar() or 0
 
@@ -200,9 +202,7 @@ async def update_model(
 
     # Count versions
     version_count_result = await session.execute(
-        select(func.count()).select_from(ModelVersion).where(
-            ModelVersion.model_id == model.id
-        )
+        select(func.count()).select_from(ModelVersion).where(ModelVersion.model_id == model.id)
     )
     version_count = version_count_result.scalar() or 0
 
