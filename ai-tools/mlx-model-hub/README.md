@@ -66,14 +66,24 @@ MLX Model Hub provides a full-stack solution for working with MLX models:
 - Docker & Docker Compose
 - Apple Silicon Mac (M1/M2/M3/M4)
 
-### 1. Start Infrastructure
+### Automated Setup
+
+Run the setup script to install all dependencies and start infrastructure:
+
+```bash
+./scripts/setup.sh
+```
+
+### Manual Setup
+
+#### 1. Start Infrastructure
 
 ```bash
 # Start PostgreSQL, MLflow, Prometheus, Grafana
 docker compose up -d
 ```
 
-### 2. Start Backend
+#### 2. Start Backend
 
 ```bash
 cd backend
@@ -83,7 +93,7 @@ uv run uvicorn mlx_hub.main:app --reload
 
 Backend will be available at `http://localhost:8000`.
 
-### 3. Start Frontend
+#### 3. Start Frontend
 
 ```bash
 cd frontend
@@ -108,22 +118,35 @@ Frontend will be available at `http://localhost:3000`.
 ## API Endpoints
 
 ### Models
-- `GET /api/v1/models` - List models
-- `GET /api/v1/models/{id}` - Get model details
-- `POST /api/v1/models/download` - Download model
-- `POST /api/v1/models/{id}/load` - Load model
-- `POST /api/v1/models/{id}/unload` - Unload model
-- `DELETE /api/v1/models/{id}` - Delete model
+- `GET /api/models` - List models
+- `GET /api/models/{id}` - Get model details
+- `POST /api/models` - Register model
+- `DELETE /api/models/{id}` - Delete model
+
+### Model Discovery
+- `GET /api/discover/search` - Search MLX models on HuggingFace
+- `GET /api/discover/models/{model_id}` - Get model details
+- `GET /api/discover/models/{model_id}/compatibility` - Check memory compatibility
+- `POST /api/discover/models/{model_id}/download` - Start model download
+- `GET /api/discover/download/{model_id}/status` - Get download status
+- `GET /api/discover/popular` - Get popular models
+- `GET /api/discover/recent` - Get recently updated models
 
 ### Training
-- `GET /api/v1/training` - List training jobs
-- `GET /api/v1/training/{id}` - Get job details
-- `POST /api/v1/training` - Create training job
-- `POST /api/v1/training/{id}/cancel` - Cancel job
+- `GET /api/training/jobs` - List training jobs
+- `GET /api/training/jobs/{id}` - Get job details
+- `POST /api/training/jobs` - Create training job
+- `POST /api/training/jobs/{id}/cancel` - Cancel job
 
 ### Inference
-- `POST /api/v1/inference` - Run inference
-- `POST /api/v1/inference/stream` - Streaming inference
+- `POST /api/inference` - Run inference
+- `POST /api/inference/stream` - Streaming inference (SSE)
+
+### OpenAI-Compatible API
+- `POST /v1/chat/completions` - Chat completions (streaming supported)
+- `POST /v1/completions` - Text completions
+- `GET /v1/models` - List available models
+- `GET /v1/models/{model_id}` - Get model info
 
 ### Health
 - `GET /health` - Health check
