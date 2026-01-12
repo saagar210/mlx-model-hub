@@ -1,6 +1,6 @@
 // API client for MLX Model Hub backend
 
-import { API_BASE_URL } from "./config"
+import { API_BASE_URL, INFERENCE_SERVER_URL, KAS_URL } from "./config"
 
 export class ApiError extends Error {
   constructor(
@@ -156,6 +156,20 @@ export async function deleteModel(id: string): Promise<void> {
   })
 }
 
+export interface ExportResponse {
+  export_path: string
+  inference_url: string
+  model_name: string
+  registered: boolean
+  message: string
+}
+
+export async function exportModel(id: string): Promise<ExportResponse> {
+  return fetchApi<ExportResponse>(`/api/models/${id}/export`, {
+    method: "POST",
+  })
+}
+
 // Training
 export async function getTrainingJobs(
   page = 1,
@@ -303,7 +317,7 @@ export interface ChatStreamChunk {
 export async function* streamChatCompletion(
   request: ChatCompletionRequest
 ): AsyncGenerator<ChatStreamChunk, void, unknown> {
-  const url = `${API_BASE_URL}/v1/chat/completions`
+  const url = `${INFERENCE_SERVER_URL}/v1/chat/completions`
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -351,6 +365,108 @@ export async function* streamChatCompletion(
         }
       }
     }
+  }
+}
+
+// Helper function to get available models from inference server
+export async function getInferenceModels(): Promise<string[]> {
+  try {
+    const response = await fetch(`${INFERENCE_SERVER_URL}/v1/models`)
+    if (!response.ok) return []
+    const data = await response.json()
+    return data.data?.map((m: { id: string }) => m.id) || []
+  } catch {
+    return []
+  }
+}
+
+// Admin API types for unified-mlx-app
+export interface RegistryModel {
+  name: string
+  base_model: string
+  type: "lora" | "base"
+  adapter_path?: string
+  config?: Record<string, unknown>
+  metadata?: Record<string, unknown>
+  loaded: boolean
+  registered_by?: string
+  model_id?: string
+}
+
+export interface ModelStatus {
+  registered: boolean
+  loaded: boolean
+  type?: "lora" | "base"
+  base_model?: string
+  adapter_path?: string
+}
+
+export interface RegistryStatus {
+  models: RegistryModel[]
+  total_count: number
+}
+
+export interface AdminHealthResponse {
+  status: "ok" | "error"
+  models_count: number
+  loaded_count: number
+}
+
+// Admin API functions for unified-mlx-app registry
+export async function getRegistryStatus(registeredBy?: string): Promise<RegistryStatus> {
+  const params = registeredBy ? `?registered_by=${encodeURIComponent(registeredBy)}` : ""
+  const response = await fetch(`${INFERENCE_SERVER_URL}/admin/models${params}`)
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+  return response.json()
+}
+
+export async function getModelStatus(name: string): Promise<ModelStatus> {
+  const response = await fetch(`${INFERENCE_SERVER_URL}/admin/models/${encodeURIComponent(name)}/status`)
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+  return response.json()
+}
+
+export async function unregisterModel(name: string): Promise<void> {
+  const response = await fetch(`${INFERENCE_SERVER_URL}/admin/models/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+}
+
+export async function preloadModel(name: string): Promise<void> {
+  const response = await fetch(`${INFERENCE_SERVER_URL}/admin/models/${encodeURIComponent(name)}/load`, {
+    method: "POST",
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+}
+
+export async function scanExportsDirectory(): Promise<{ discovered: number; registered: number }> {
+  const response = await fetch(`${INFERENCE_SERVER_URL}/admin/models/scan`, {
+    method: "POST",
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+  return response.json()
+}
+
+export async function getAdminHealth(): Promise<AdminHealthResponse> {
+  try {
+    const response = await fetch(`${INFERENCE_SERVER_URL}/admin/health`)
+    if (!response.ok) {
+      return { status: "error", models_count: 0, loaded_count: 0 }
+    }
+    return response.json()
+  } catch {
+    return { status: "error", models_count: 0, loaded_count: 0 }
   }
 }
 
@@ -478,4 +594,148 @@ export async function getPopularModels(limit = 10): Promise<DiscoverSearchRespon
 export async function getRecentModels(limit = 10): Promise<DiscoverSearchResponse> {
   const params = new URLSearchParams({ limit: limit.toString() })
   return fetchApi<DiscoverSearchResponse>(`/api/discover/recent?${params}`)
+}
+
+// =============================================================================
+// Knowledge Activation System (KAS) Integration
+// =============================================================================
+
+// KAS Types
+export interface KASSearchResult {
+  content_id: string
+  title: string
+  content_type: string
+  score: number
+  chunk_text: string | null
+  source_ref: string | null
+}
+
+export interface KASSearchResponse {
+  results: KASSearchResult[]
+  query: string
+  total: number
+  source: string
+}
+
+export interface KASCitation {
+  index: number
+  title: string
+  content_type: string
+  chunk_text: string | null
+}
+
+export interface KASAskResponse {
+  query: string
+  answer: string
+  confidence: "low" | "medium" | "high"
+  confidence_score: number
+  citations: KASCitation[]
+  warning: string | null
+  error: string | null
+}
+
+export interface KASHealthResponse {
+  status: string
+  version: string
+  services: Record<string, string>
+  stats: {
+    total_content: number
+    total_chunks: number
+  }
+}
+
+export interface KASStatsResponse {
+  total_content: number
+  total_chunks: number
+  content_by_type: Record<string, number>
+  review_active: number
+  review_due: number
+}
+
+// KAS API Functions
+
+/**
+ * Check KAS health status
+ */
+export async function getKASHealth(): Promise<KASHealthResponse> {
+  try {
+    const response = await fetch(`${KAS_URL}/api/v1/health`)
+    if (!response.ok) {
+      return {
+        status: "error",
+        version: "unknown",
+        services: { database: "error", embeddings: "error" },
+        stats: { total_content: 0, total_chunks: 0 },
+      }
+    }
+    return response.json()
+  } catch {
+    return {
+      status: "offline",
+      version: "unknown",
+      services: { database: "unreachable", embeddings: "unreachable" },
+      stats: { total_content: 0, total_chunks: 0 },
+    }
+  }
+}
+
+/**
+ * Get KAS statistics
+ */
+export async function getKASStats(): Promise<KASStatsResponse> {
+  const response = await fetch(`${KAS_URL}/api/v1/stats`)
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+  return response.json()
+}
+
+/**
+ * Search the knowledge base (simple GET endpoint)
+ */
+export async function searchKAS(
+  query: string,
+  limit = 10
+): Promise<KASSearchResponse> {
+  const params = new URLSearchParams({
+    q: query,
+    limit: limit.toString(),
+  })
+  const response = await fetch(`${KAS_URL}/api/v1/search?${params}`)
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+  return response.json()
+}
+
+/**
+ * Ask a question and get an AI-generated answer with citations
+ */
+export async function askKAS(
+  query: string,
+  limit = 10
+): Promise<KASAskResponse> {
+  const response = await fetch(`${KAS_URL}/search/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, limit }),
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, response.statusText, await response.text())
+  }
+  return response.json()
+}
+
+/**
+ * Format KAS search results as context for RAG
+ */
+export function formatKASContextForRAG(results: KASSearchResult[]): string {
+  if (results.length === 0) return ""
+
+  const contextParts = results.map((r, i) => {
+    const text = r.chunk_text || r.title
+    return `[${i + 1}] ${r.title} (${r.content_type}):\n${text}`
+  })
+
+  return `Here is relevant context from the knowledge base:\n\n${contextParts.join("\n\n")}\n\n---\n\n`
 }

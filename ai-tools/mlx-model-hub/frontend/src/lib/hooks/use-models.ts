@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   deleteModel,
+  exportModel,
   getModel,
   getModels,
 } from "@/lib/api"
@@ -39,5 +40,11 @@ export function useDeleteModel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: modelKeys.lists() })
     },
+  })
+}
+
+export function useExportModel() {
+  return useMutation({
+    mutationFn: (id: string) => exportModel(id),
   })
 }

@@ -35,6 +35,14 @@ test.describe("Navigation", () => {
     await expect(page.getByRole("heading", { name: "Inference" }).first()).toBeVisible()
   })
 
+  test("should navigate to registry page", async ({ page }) => {
+    await page.goto("/")
+
+    await page.getByRole("link", { name: "Registry", exact: true }).first().click()
+    await expect(page).toHaveURL("/registry")
+    await expect(page.getByRole("heading", { name: "Model Registry" })).toBeVisible()
+  })
+
   test("should navigate to metrics page", async ({ page }) => {
     await page.goto("/")
 

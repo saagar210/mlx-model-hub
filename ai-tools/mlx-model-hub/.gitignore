@@ -75,6 +75,13 @@ Thumbs.db
 # MLflow artifacts (local tracking)
 mlruns/
 
+# Inference server artifacts
+inference-server/.cache/
+inference-server/mlx_models/
+inference-server/logs/
+inference-server/frontend/.next/
+inference-server/frontend/node_modules/
+
 # Alembic
 backend/migrations/versions/*.pyc
 

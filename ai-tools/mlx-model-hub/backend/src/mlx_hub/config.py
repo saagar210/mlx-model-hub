@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     # MLflow
     mlflow_tracking_uri: str = "http://localhost:5001"
 
+    # Inference Server (unified-mlx-app)
+    inference_server_url: str = "http://localhost:8080"
+    inference_auto_register: bool = True
+
     # Storage - use absolute paths for production, relative for development
     storage_base_path: Path = Path("./storage")
     storage_models_path: Path = Path("./storage/models")

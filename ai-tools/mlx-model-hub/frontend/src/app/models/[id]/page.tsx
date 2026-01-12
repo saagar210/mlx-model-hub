@@ -7,12 +7,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useModel, useDeleteModel } from "@/lib/hooks"
+import {
+  useModel,
+  useDeleteModel,
+  useExportModel,
+  useModelStatus,
+  useUnregisterModel,
+  usePreloadModel,
+} from "@/lib/hooks"
 import {
   ArrowLeft,
   Trash2,
   ExternalLink,
   Tag,
+  MessageSquare,
+  Server,
+  Zap,
+  CheckCircle,
+  XCircle,
+  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -52,7 +65,15 @@ export default function ModelDetailPage({
   const { id } = use(params)
   const router = useRouter()
   const { data: model, isLoading, error } = useModel(id)
+  const { data: modelStatus } = useModelStatus(model?.name)
   const deleteModel = useDeleteModel()
+  const exportModel = useExportModel()
+  const unregister = useUnregisterModel()
+  const preload = usePreloadModel()
+
+  // Check if model is registered in inference server
+  const isRegistered = modelStatus?.registered ?? false
+  const isLoaded = modelStatus?.loaded ?? false
 
   const handleDelete = () => {
     deleteModel.mutate(id, {
@@ -61,6 +82,50 @@ export default function ModelDetailPage({
         router.push("/models")
       },
       onError: (err) => toast.error(`Failed to delete: ${err.message}`),
+    })
+  }
+
+  const handleExport = () => {
+    exportModel.mutate(id, {
+      onSuccess: (data) => {
+        if (data.registered) {
+          toast.success(`${data.model_name} is ready for chat!`)
+        } else if (data.message.includes("already registered")) {
+          toast.info(`${data.model_name} is already registered`)
+        } else {
+          toast.warning(`Exported but not registered: ${data.message}`)
+        }
+        router.push("/inference")
+      },
+      onError: (err) => {
+        // Handle different error types
+        const message = err.message.toLowerCase()
+        if (message.includes("no trained version")) {
+          toast.error("No trained version available to export")
+        } else if (message.includes("not found")) {
+          toast.error("Inference server endpoint not found")
+        } else if (message.includes("invalid")) {
+          toast.error("Invalid model configuration")
+        } else {
+          toast.error(`Export failed: ${err.message}`)
+        }
+      },
+    })
+  }
+
+  const handleUnregister = () => {
+    if (!model) return
+    unregister.mutate(model.name, {
+      onSuccess: () => toast.success(`${model.name} unregistered from inference server`),
+      onError: (err) => toast.error(`Failed to unregister: ${err.message}`),
+    })
+  }
+
+  const handlePreload = () => {
+    if (!model) return
+    preload.mutate(model.name, {
+      onSuccess: () => toast.success(`${model.name} loaded into memory`),
+      onError: (err) => toast.error(`Failed to preload: ${err.message}`),
     })
   }
 
@@ -117,6 +182,14 @@ export default function ModelDetailPage({
                   <Button>Run Inference</Button>
                 </Link>
                 <Button
+                  variant="default"
+                  onClick={handleExport}
+                  disabled={exportModel.isPending || model.version_count === 0}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  {exportModel.isPending ? "Exporting..." : "Use in Chat"}
+                </Button>
+                <Button
                   variant="destructive"
                   onClick={handleDelete}
                   disabled={deleteModel.isPending}
@@ -167,6 +240,75 @@ export default function ModelDetailPage({
                     <span className="text-muted-foreground">Updated</span>
                     <span>{formatDate(model.updated_at)}</span>
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Server className="h-4 w-4" />
+                    Registry Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Inference Server</span>
+                    {isRegistered ? (
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                        <span className="text-sm">Registered</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Not Registered</span>
+                      </div>
+                    )}
+                  </div>
+                  {isRegistered && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Memory Status</span>
+                      {isLoaded ? (
+                        <Badge variant="default">Loaded</Badge>
+                      ) : (
+                        <Badge variant="secondary">Unloaded</Badge>
+                      )}
+                    </div>
+                  )}
+                  {isRegistered && (
+                    <div className="flex gap-2 pt-2 border-t">
+                      {!isLoaded && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={handlePreload}
+                          disabled={preload.isPending}
+                        >
+                          {preload.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Zap className="mr-2 h-4 w-4" />
+                          )}
+                          {preload.isPending ? "Loading..." : "Pre-load"}
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={handleUnregister}
+                        disabled={unregister.isPending}
+                      >
+                        {unregister.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Server className="mr-2 h-4 w-4" />
+                        )}
+                        {unregister.isPending ? "Removing..." : "Unregister"}
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

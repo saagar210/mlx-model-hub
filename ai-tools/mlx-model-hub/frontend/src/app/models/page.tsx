@@ -32,9 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useModels, useDeleteModel } from "@/lib/hooks"
+import { useModels, useDeleteModel, useScanExports } from "@/lib/hooks"
 import { Model } from "@/lib/api"
-import { Trash2, RefreshCw, Plus, Eye } from "lucide-react"
+import { Trash2, RefreshCw, Plus, Eye, Scan } from "lucide-react"
 import { toast } from "sonner"
 import Link from "next/link"
 
@@ -266,11 +266,22 @@ function CreateModelDialog({ onSuccess }: { onSuccess: () => void }) {
 export default function ModelsPage() {
   const { data, isLoading, refetch } = useModels()
   const deleteModel = useDeleteModel()
+  const scan = useScanExports()
 
   const handleDelete = (id: string) => {
     deleteModel.mutate(id, {
       onSuccess: () => toast.success("Model deleted"),
       onError: (error) => toast.error(`Failed to delete: ${error.message}`),
+    })
+  }
+
+  const handleScan = () => {
+    scan.mutate(undefined, {
+      onSuccess: (data) => {
+        toast.success(`Scanned exports: ${data.discovered} found, ${data.registered} registered`)
+        refetch()
+      },
+      onError: (error) => toast.error(`Scan failed: ${error.message}`),
     })
   }
 
@@ -285,6 +296,14 @@ export default function ModelsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleScan}
+              disabled={scan.isPending}
+            >
+              <Scan className={`mr-2 h-4 w-4 ${scan.isPending ? "animate-spin" : ""}`} />
+              Sync to Unified MLX
+            </Button>
             <Button variant="outline" size="icon" onClick={() => refetch()}>
               <RefreshCw className="h-4 w-4" />
             </Button>

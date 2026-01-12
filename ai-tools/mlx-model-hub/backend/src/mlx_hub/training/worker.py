@@ -137,6 +137,26 @@ async def process_job(session, job: TrainingJob) -> None:
         await session.commit()
         await session.refresh(version)
 
+        # Auto-export to inference server
+        try:
+            from mlx_hub.services.export_service import (
+                create_export_bundle,
+                register_with_inference_server,
+            )
+
+            settings = get_settings()
+            export_path = await create_export_bundle(model, version)
+
+            if settings.inference_auto_register:
+                await register_with_inference_server(export_path)
+                logger.info(f"Model {model.name} exported and registered with inference server")
+            else:
+                logger.info(f"Model {model.name} exported to {export_path}")
+
+        except Exception as e:
+            # Non-fatal: training succeeded, but export failed
+            logger.warning(f"Export to inference server failed (non-fatal): {e}")
+
         # Update job on success
         job.status = JobStatus.COMPLETED
         job.completed_at = datetime.now(UTC)

@@ -8,6 +8,14 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// Inference Server (unified-mlx-app) - separate from main API
+export const INFERENCE_SERVER_URL =
+  process.env.NEXT_PUBLIC_INFERENCE_URL || "http://localhost:8080";
+
+// Knowledge Activation System (KAS) - knowledge retrieval and RAG
+export const KAS_URL =
+  process.env.NEXT_PUBLIC_KAS_URL || "http://localhost:8000";
+
 // External Service URLs (configured via environment)
 export const GRAFANA_URL =
   process.env.NEXT_PUBLIC_GRAFANA_URL || "http://localhost:3001";
@@ -38,14 +46,14 @@ export const API_ENDPOINTS = {
   trainingJobs: `${API_BASE_URL}/api/training/jobs`,
   trainingJob: (id: string) => `${API_BASE_URL}/api/training/jobs/${id}`,
 
-  // Inference
+  // Inference (legacy - mlx-model-hub backend)
   inference: `${API_BASE_URL}/api/inference`,
   inferenceStream: `${API_BASE_URL}/api/inference/stream`,
 
-  // OpenAI-compatible
-  chatCompletions: `${API_BASE_URL}/v1/chat/completions`,
-  completions: `${API_BASE_URL}/v1/completions`,
-  v1Models: `${API_BASE_URL}/v1/models`,
+  // OpenAI-compatible (unified-mlx-app inference server)
+  chatCompletions: `${INFERENCE_SERVER_URL}/v1/chat/completions`,
+  completions: `${INFERENCE_SERVER_URL}/v1/completions`,
+  v1Models: `${INFERENCE_SERVER_URL}/v1/models`,
 } as const;
 
 // Feature flags (can be extended for A/B testing, etc.)

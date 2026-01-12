@@ -273,3 +273,102 @@ async def get_model_history(
         "runs": [],
         "experiment_id": model.mlflow_experiment_id,
     }
+
+
+class ExportResponse(SQLModel):
+    """Response schema for model export."""
+
+    export_path: str
+    inference_url: str
+    model_name: str
+    registered: bool
+    message: str
+
+
+@router.post("/{model_id}/export", response_model=ExportResponse)
+async def export_model_to_inference(
+    model_id: UUID,
+    session: SessionDep,
+) -> ExportResponse:
+    """Export a trained model for use in unified-mlx-app.
+
+    Creates a standardized export bundle and registers it with the
+    inference server for immediate use.
+
+    Args:
+        model_id: UUID of the model to export.
+        session: Database session.
+
+    Returns:
+        Export response with inference URL and registration status.
+
+    Raises:
+        HTTPException: If model not found or no trained version available.
+    """
+    from mlx_hub.config import get_settings
+    from mlx_hub.db.enums import ModelVersionStatus
+    from mlx_hub.services.export_service import (
+        create_export_bundle,
+        register_with_inference_server,
+    )
+
+    settings = get_settings()
+
+    # Get model
+    model = await session.get(Model, model_id)
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model {model_id} not found",
+        )
+
+    # Get latest READY version with adapter
+    result = await session.execute(
+        select(ModelVersion)
+        .where(
+            ModelVersion.model_id == model_id,
+            ModelVersion.status == ModelVersionStatus.READY,
+            ModelVersion.artifact_path.isnot(None),
+        )
+        .order_by(ModelVersion.created_at.desc())
+        .limit(1)
+    )
+    version = result.scalars().first()
+
+    if not version:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No trained version available for this model",
+        )
+
+    # Create export bundle
+    try:
+        export_path = await create_export_bundle(model, version)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create export bundle: {str(e)}",
+        )
+
+    # Register with inference server
+    registered = False
+    message = "Model exported successfully"
+
+    if settings.inference_auto_register:
+        try:
+            await register_with_inference_server(export_path)
+            registered = True
+            message = "Model exported and registered with inference server"
+        except ValueError as e:
+            logger.warning(f"Failed to register with inference server: {e}")
+            message = f"Model exported but registration failed: {str(e)}"
+
+    inference_url = f"{settings.inference_server_url}/v1/chat/completions"
+
+    return ExportResponse(
+        export_path=str(export_path),
+        inference_url=inference_url,
+        model_name=model.name,
+        registered=registered,
+        message=message,
+    )
