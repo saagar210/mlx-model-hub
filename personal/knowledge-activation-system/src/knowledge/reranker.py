@@ -283,7 +283,7 @@ async def rerank_results(
     # Update scores to reflect reranking
     output = []
     for rr in reranked:
-        # Create new result with rerank score
+        # Create new result with rerank score (preserve all fields)
         result = SearchResult(
             content_id=rr.result.content_id,
             title=rr.result.title,
@@ -291,8 +291,11 @@ async def rerank_results(
             score=rr.rerank_score,  # Use rerank score
             chunk_text=rr.result.chunk_text,
             source_ref=rr.result.source_ref,
+            namespace=rr.result.namespace,
             bm25_rank=rr.result.bm25_rank,
             vector_rank=rr.result.vector_rank,
+            vector_similarity=rr.result.vector_similarity,
+            bm25_score=rr.result.bm25_score,
         )
         output.append(result)
 

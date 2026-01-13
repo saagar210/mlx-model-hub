@@ -113,23 +113,24 @@ def mock_embeddings_service() -> MagicMock:
 
 # Search fixtures
 @pytest.fixture
-def sample_bm25_results() -> list[tuple[UUID, str, str, float]]:
-    """Sample BM25 search results."""
+def sample_bm25_results() -> list[tuple[UUID, str, str, str | None, float]]:
+    """Sample BM25 search results: (content_id, title, type, namespace, bm25_score)."""
     return [
-        (uuid4(), "Introduction to Machine Learning", "youtube", 0.95),
-        (uuid4(), "Deep Learning Fundamentals", "bookmark", 0.82),
-        (uuid4(), "Neural Networks Explained", "file", 0.71),
+        (uuid4(), "Introduction to Machine Learning", "youtube", "default", 0.95),
+        (uuid4(), "Deep Learning Fundamentals", "bookmark", "default", 0.82),
+        (uuid4(), "Neural Networks Explained", "file", "default", 0.71),
     ]
 
 
 @pytest.fixture
-def sample_vector_results() -> list[tuple[UUID, str, str, str | None, float]]:
-    """Sample vector search results."""
+def sample_vector_results() -> list[tuple[UUID, str, str, str | None, str | None, float]]:
+    """Sample vector search results: (content_id, title, type, namespace, chunk_text, similarity)."""
     return [
         (
             uuid4(),
             "Machine Learning Basics",
             "youtube",
+            "default",
             "Machine learning is a subset of AI...",
             0.89,
         ),
@@ -137,6 +138,7 @@ def sample_vector_results() -> list[tuple[UUID, str, str, str | None, float]]:
             uuid4(),
             "Deep Learning Fundamentals",
             "bookmark",
+            "default",
             "Deep learning uses neural networks...",
             0.85,
         ),
@@ -144,6 +146,7 @@ def sample_vector_results() -> list[tuple[UUID, str, str, str | None, float]]:
             uuid4(),
             "AI Overview",
             "note",
+            "default",
             "Artificial intelligence encompasses...",
             0.78,
         ),

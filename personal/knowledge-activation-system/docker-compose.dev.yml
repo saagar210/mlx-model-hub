@@ -1,0 +1,95 @@
+# Development Docker Compose Configuration (P35)
+#
+# Start all services for local development:
+#   docker compose -f docker-compose.dev.yml up -d
+#
+# Hot reload enabled for API changes.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: kas-db-dev
+    environment:
+      POSTGRES_USER: knowledge
+      POSTGRES_PASSWORD: localdev
+      POSTGRES_DB: knowledge
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - kas_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knowledge -d knowledge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kas-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: kas-ollama-dev
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # GPU support (uncomment for GPU-enabled hosts)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    networks:
+      - kas-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: kas-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      KNOWLEDGE_DATABASE_URL: postgresql://knowledge:localdev@db:5432/knowledge
+      KNOWLEDGE_OLLAMA_URL: http://ollama:11434
+      KNOWLEDGE_LOG_FORMAT: console
+      KNOWLEDGE_LOG_LEVEL: DEBUG
+      KNOWLEDGE_VAULT_PATH: /app/vault
+    volumes:
+      - ./src:/app/src:ro
+      - ./cli.py:/app/cli.py:ro
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./dev_vault:/app/vault:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn knowledge.api.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - kas-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: kas-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kas-network
+    profiles:
+      - full  # Only start with: docker compose -f docker-compose.dev.yml --profile full up
+
+volumes:
+  kas_dev_data:
+    name: kas_dev_data
+  ollama_models:
+    name: kas_ollama_models
+  redis_data:
+    name: kas_redis_data
+
+networks:
+  kas-network:
+    name: kas-network

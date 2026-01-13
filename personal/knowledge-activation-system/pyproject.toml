@@ -15,6 +15,10 @@ dependencies = [
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    # Logging (P15)
+    "structlog>=24.0.0",
+    # Health checks (P23)
+    "psutil>=5.9.0",
     # CLI
     "typer>=0.12.0",
     "rich>=13.0.0",
@@ -49,6 +53,7 @@ llamaindex = [
 api = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
+    "python-multipart>=0.0.9",  # File uploads
 ]
 
 # Phase 5: Active Engagement
@@ -61,6 +66,29 @@ whisper = [
     "openai-whisper>=20231117",
 ]
 
+# Phase 12: Multi-Modal Intelligence
+multimodal = [
+    "pillow>=10.0.0",
+    "pytesseract>=0.3.10",
+    "pymupdf>=1.24.0",
+    "faster-whisper>=1.0.0",
+    "opencv-python>=4.9.0",
+]
+
+# Observability
+observability = [
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+    "opentelemetry-instrumentation-fastapi>=0.46b0",
+    "opentelemetry-exporter-otlp>=1.25.0",
+    "prometheus-client>=0.20.0",
+]
+
+# Caching
+cache = [
+    "redis>=5.0.0",
+]
+
 # Development
 dev = [
     "pytest>=8.0.0",
@@ -68,11 +96,17 @@ dev = [
     "pytest-cov>=4.0.0",
     "mypy>=1.8.0",
     "ruff>=0.1.0",
+    # Load testing (P29)
+    "locust>=2.20.0",
+    # Security testing (P32)
+    "bandit>=1.7.0",
+    # Mutation testing (P31)
+    "mutmut>=2.4.0",
 ]
 
 # All dependencies
 all = [
-    "knowledge-activation-system[ingestion,ai,api,fsrs,llamaindex,dev]",
+    "knowledge-activation-system[ingestion,ai,api,fsrs,llamaindex,multimodal,observability,cache,dev]",
 ]
 
 [project.scripts]
@@ -89,6 +123,9 @@ packages = ["src/knowledge"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "integration: marks tests as integration tests (requires real database)",
+]
 
 [tool.mypy]
 python_version = "3.11"
@@ -124,3 +161,12 @@ ignore = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["knowledge"]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "evaluation"]
+skips = ["B101"]  # Allow assert in non-test code for validation
+
+[tool.mutmut]
+paths_to_mutate = "src/knowledge/"
+tests_dir = "tests/"
+runner = "pytest -x -q"

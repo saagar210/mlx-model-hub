@@ -1,0 +1,92 @@
+/* Knowledge Engine Obsidian Plugin Styles */
+
+.knowledge-engine-search-modal {
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.ke-search-input-container {
+  margin-bottom: 16px;
+}
+
+.ke-search-input {
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 16px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.ke-search-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+}
+
+.ke-search-results {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.ke-search-hint,
+.ke-search-loading,
+.ke-search-no-results {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+}
+
+.ke-search-error {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-error);
+}
+
+.ke-results-header {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.ke-result-item {
+  padding: 12px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ke-result-item:hover {
+  background: var(--background-secondary);
+}
+
+.ke-result-item:last-child {
+  border-bottom: none;
+}
+
+.ke-result-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--text-normal);
+}
+
+.ke-result-content {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+
+.ke-result-score {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Highlight matches */
+.ke-highlight {
+  background: var(--text-highlight-bg);
+  padding: 0 2px;
+  border-radius: 2px;
+}

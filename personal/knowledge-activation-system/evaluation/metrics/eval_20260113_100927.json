@@ -1,0 +1,324 @@
+{
+  "timestamp": "2026-01-13T10:09:27.741959",
+  "total_queries": 18,
+  "successful_queries": 18,
+  "avg_composite_score": 0.20316983407792263,
+  "category_scores": {
+    "frameworks": 0.2575157744240666,
+    "ai-ml": 0.2091523138214519,
+    "agents": 0.10759823272020637,
+    "infrastructure": 0.2596809719792723,
+    "mcp": 0.21104176707302807,
+    "best-practices": 0.11006293301986052,
+    "tools": 0.20757996480293203,
+    "learning": 0.3075909671341122
+  },
+  "results": [
+    {
+      "id": "framework-001",
+      "query": "How do I create a FastAPI dependency?",
+      "category": "frameworks",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6297375538722655,
+        "avg_search_score": 0.018129348498892587,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.10749472222133094
+      }
+    },
+    {
+      "id": "framework-002",
+      "query": "What is the difference between Pydantic v1 and v2?",
+      "category": "frameworks",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_vector_similarity": 0.5961953095674886,
+        "avg_search_score": 0.018610573062798834,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.3075909671341122
+      }
+    },
+    {
+      "id": "framework-003",
+      "query": "How does LangChain handle document loading?",
+      "category": "frameworks",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_vector_similarity": 0.663206340056337,
+        "avg_search_score": 0.018248783587192084,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.3075186092389908
+      }
+    },
+    {
+      "id": "rag-001",
+      "query": "What is RAG and how does it work?",
+      "category": "ai-ml",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.5,
+        "avg_vector_similarity": 0.7040737980688144,
+        "avg_search_score": 0.01873960535162704,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.20761677359187783
+      }
+    },
+    {
+      "id": "rag-002",
+      "query": "How do I evaluate RAG system quality?",
+      "category": "ai-ml",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6821370735441732,
+        "avg_search_score": 0.02242844618747627,
+        "top_result_score": 0.03868852521552415,
+        "composite": 0.11222339428060009
+      }
+    },
+    {
+      "id": "rag-003",
+      "query": "What are hybrid search strategies for RAG?",
+      "category": "ai-ml",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_vector_similarity": 0.6941264684490815,
+        "avg_search_score": 0.01873960535162704,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.30761677359187783
+      }
+    },
+    {
+      "id": "agent-001",
+      "query": "How do I implement tool use with Claude?",
+      "category": "agents",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6724430375494819,
+        "avg_search_score": 0.018719556854211453,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.10761276389239471
+      }
+    },
+    {
+      "id": "agent-002",
+      "query": "What is the ReAct pattern for agents?",
+      "category": "agents",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6940067822825056,
+        "avg_search_score": 0.018610573062798834,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.10759096713411219
+      }
+    },
+    {
+      "id": "agent-003",
+      "query": "How does LangGraph handle state in agents?",
+      "category": "agents",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6721276483275943,
+        "avg_search_score": 0.018610573062798834,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.10759096713411219
+      }
+    },
+    {
+      "id": "infra-001",
+      "query": "How do I deploy a Docker container?",
+      "category": "infrastructure",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.5,
+        "avg_vector_similarity": 0.6627361476215535,
+        "avg_search_score": 0.022223085776255473,
+        "top_result_score": 0.03737704949300798,
+        "composite": 0.2119200270538527
+      }
+    },
+    {
+      "id": "infra-002",
+      "query": "What is Kubernetes pod scheduling?",
+      "category": "infrastructure",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_vector_similarity": 0.5398719096499411,
+        "avg_search_score": 0.018479425490547218,
+        "top_result_score": 0.01873015903291248,
+        "composite": 0.30744191690469197
+      }
+    },
+    {
+      "id": "mcp-001",
+      "query": "What is the Model Context Protocol?",
+      "category": "mcp",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.5,
+        "avg_vector_similarity": 0.6368456583595313,
+        "avg_search_score": 0.020962855831839797,
+        "top_result_score": 0.028958094612739124,
+        "composite": 0.2099841900889158
+      }
+    },
+    {
+      "id": "mcp-002",
+      "query": "How do I create an MCP server?",
+      "category": "mcp",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.5,
+        "avg_vector_similarity": 0.6741444347098124,
+        "avg_search_score": 0.022422298645026977,
+        "top_result_score": 0.03807442164067456,
+        "composite": 0.21209934405714032
+      }
+    },
+    {
+      "id": "best-001",
+      "query": "What are prompt engineering best practices?",
+      "category": "best-practices",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6846307008689635,
+        "avg_search_score": 0.018479425490547218,
+        "top_result_score": 0.01873015903291248,
+        "composite": 0.10744191690469194
+      }
+    },
+    {
+      "id": "best-002",
+      "query": "How do I secure an LLM application?",
+      "category": "best-practices",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_vector_similarity": 0.6220902420947032,
+        "avg_search_score": 0.025043224695230328,
+        "top_result_score": 0.038376520979915084,
+        "composite": 0.11268394913502909
+      }
+    },
+    {
+      "id": "edge-001",
+      "query": "What embedding models work best with Ollama?",
+      "category": "tools",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.5,
+        "avg_vector_similarity": 0.7463786230096703,
+        "avg_search_score": 0.018555561406897975,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.20757996480293203
+      }
+    },
+    {
+      "id": "edge-002",
+      "query": "How do I implement streaming with FastAPI and LLMs?",
+      "category": "frameworks",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_vector_similarity": 0.6789473620303202,
+        "avg_search_score": 0.018261737137009453,
+        "top_result_score": 0.019032258372153006,
+        "composite": 0.3074587991018325
+      }
+    },
+    {
+      "id": "edge-003",
+      "query": "What is the FSRS algorithm for spaced repetition?",
+      "category": "learning",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_vector_similarity": 0.6307770598597813,
+        "avg_search_score": 0.018610573062798834,
+        "top_result_score": 0.019344262607762074,
+        "composite": 0.3075909671341122
+      }
+    }
+  ]
+}

@@ -1,7 +1,14 @@
-"""File ingestion (PDF, TXT, MD)."""
+"""File ingestion (PDF, TXT, MD).
+
+Supports secure ingestion of local files with:
+- Path traversal protection
+- File type validation
+- Content validation
+"""
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -12,7 +19,10 @@ from knowledge.db import get_db
 from knowledge.embeddings import embed_batch
 from knowledge.ingest import IngestResult
 from knowledge.obsidian import create_note, get_relative_path
+from knowledge.security import PathSecurityError, is_safe_filename
 from knowledge.validation import extract_title_from_content, validate_content
+
+logger = logging.getLogger(__name__)
 
 # Page separator for PDF chunking
 PAGE_SEPARATOR = "\n---PAGE BREAK---\n"
@@ -115,11 +125,27 @@ async def ingest_file(
     settings = settings or get_settings()
     path = Path(path).resolve()
 
+    # Security: Validate filename
+    if not is_safe_filename(path.name):
+        logger.warning(f"Unsafe filename rejected: {path.name}")
+        return IngestResult(
+            success=False,
+            error="Invalid filename",
+        )
+
     # Check file exists
     if not path.exists():
         return IngestResult(
             success=False,
             error=f"File not found: {path}",
+        )
+
+    # Security: Ensure it's a regular file (not symlink, device, etc.)
+    if not path.is_file():
+        logger.warning(f"Non-regular file rejected: {path}")
+        return IngestResult(
+            success=False,
+            error="Path is not a regular file",
         )
 
     # Check file type

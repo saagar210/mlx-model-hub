@@ -9,6 +9,7 @@ import pytest
 
 from knowledge.config import Settings
 from knowledge.db import ChunkRecord, ContentRecord, Database
+from knowledge.exceptions import DatabaseError
 
 
 class TestDatabaseConnection:
@@ -62,7 +63,7 @@ class TestDatabaseConnection:
         """Test that acquire raises without connect."""
         db = Database(test_settings)
 
-        with pytest.raises(RuntimeError, match="not connected"):
+        with pytest.raises(DatabaseError, match="not connected"):
             async with db.acquire():
                 pass
 
@@ -211,8 +212,8 @@ class TestSearchOperations:
         result = await mock_db.bm25_search("machine learning", limit=10)
 
         assert len(result) == 3
-        # Results should be tuples of (id, title, type, rank)
-        assert len(result[0]) == 4
+        # Results should be tuples of (id, title, type, namespace, rank)
+        assert len(result[0]) == 5
 
     @pytest.mark.asyncio
     async def test_vector_search(
@@ -224,8 +225,8 @@ class TestSearchOperations:
         result = await mock_db.vector_search(mock_embedding, limit=10)
 
         assert len(result) == 3
-        # Results should be tuples of (id, title, type, chunk_text, similarity)
-        assert len(result[0]) == 5
+        # Results should be tuples of (id, title, type, namespace, chunk_text, similarity)
+        assert len(result[0]) == 6
 
 
 class TestStats:

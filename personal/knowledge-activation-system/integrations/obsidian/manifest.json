@@ -1,0 +1,11 @@
+{
+  "id": "knowledge-engine",
+  "name": "Knowledge Engine",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Connect your Obsidian vault to Knowledge Engine for AI-powered search, Q&A, and spaced repetition.",
+  "author": "Knowledge Engine Team",
+  "authorUrl": "https://github.com/knowledge-engine",
+  "fundingUrl": null,
+  "isDesktopOnly": false
+}

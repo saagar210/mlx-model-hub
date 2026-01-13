@@ -1,0 +1,200 @@
+/* ============================================================
+   Knowledge Engine Browser Extension - Content Script Styles
+   ============================================================ */
+
+/* Highlight Overlay */
+.ke-highlight-overlay {
+  position: absolute;
+  z-index: 2147483647;
+  display: none;
+  animation: ke-fade-in 0.15s ease;
+}
+
+@keyframes ke-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ke-highlight-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: #1e293b;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.ke-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ke-btn:hover {
+  background: #334155;
+}
+
+.ke-btn-clip {
+  background: #3b82f6;
+  color: white;
+}
+
+.ke-btn-clip:hover {
+  background: #2563eb;
+}
+
+.ke-btn-highlight svg {
+  color: #fbbf24;
+}
+
+.ke-btn-close {
+  padding: 8px;
+}
+
+.ke-btn-close:hover {
+  background: #ef4444;
+  color: white;
+}
+
+/* Text Highlights */
+.ke-highlight {
+  background: linear-gradient(to bottom, #fef08a 0%, #fde047 100%);
+  padding: 0 2px;
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ke-highlight-search {
+  background: linear-gradient(to bottom, #bbf7d0 0%, #86efac 100%);
+}
+
+/* Animation for new highlights */
+.ke-highlight-new {
+  animation: ke-highlight-pulse 0.5s ease;
+}
+
+@keyframes ke-highlight-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(251, 191, 36, 0);
+  }
+}
+
+/* Notification Toast (if using in-page notifications) */
+.ke-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2147483646;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #1e293b;
+  color: #f1f5f9;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  animation: ke-toast-in 0.3s ease;
+}
+
+@keyframes ke-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ke-toast.ke-toast-out {
+  animation: ke-toast-out 0.3s ease forwards;
+}
+
+@keyframes ke-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+.ke-toast-icon {
+  flex-shrink: 0;
+}
+
+.ke-toast-success .ke-toast-icon {
+  color: #22c55e;
+}
+
+.ke-toast-error .ke-toast-icon {
+  color: #ef4444;
+}
+
+.ke-toast-content {
+  flex: 1;
+}
+
+.ke-toast-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.ke-toast-message {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.ke-toast-close {
+  flex-shrink: 0;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.ke-toast-close:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+/* Loading Spinner */
+.ke-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #334155;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: ke-spin 0.6s linear infinite;
+}
+
+@keyframes ke-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

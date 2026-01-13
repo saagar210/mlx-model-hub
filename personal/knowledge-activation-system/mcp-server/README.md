@@ -1,183 +1,154 @@
-# Knowledge Activation System MCP Server
+# KAS MCP Server
 
-MCP (Model Context Protocol) server that exposes the Knowledge Activation System to Claude Desktop.
+Model Context Protocol server for the Knowledge Activation System. Query your personal knowledge base directly from Claude Code.
 
-## Features
+## Quick Start
 
-### Tools
+1. **Ensure KAS is running:**
+   ```bash
+   cd /Users/d/claude-code/personal/knowledge-activation-system
+   uv run uvicorn knowledge.api.main:app --host 0.0.0.0 --port 8000
+   ```
 
-| Tool | Description |
-|------|-------------|
-| `search_knowledge` | Search the knowledge base using hybrid search (BM25 + vector similarity) |
-| `get_content` | Get full details of a content item by ID |
-| `list_recent` | List recently added content items |
-| `get_stats` | Get database statistics |
-| `record_review` | Submit a spaced repetition review rating |
-| `get_due_reviews` | Get items due for review |
+2. **Restart Claude Code** to load the new MCP server.
 
-### Resources
+3. **Use the tools:**
+   - Search: `kas_search("How to implement RAG")`
+   - Ask: `kas_ask("What's the difference between BM25 and vector search?")`
+   - Capture: `kas_capture("content", "title")`
+   - Stats: `kas_stats()`
 
-| URI | Description |
-|-----|-------------|
-| `knowledge://stats` | Current database statistics |
-| `knowledge://recent` | Content added in the last 7 days |
+## Available Tools
 
-## Installation
+### `kas_search`
+Search your personal knowledge base for relevant information.
 
-### Prerequisites
+**Use for:** Finding documentation, code examples, notes, and other content you've previously saved.
 
-1. **PostgreSQL database** - Must have the KAS database running
-2. **Python 3.11+** with the knowledge-activation-system package
-3. **Ollama** - Running with `nomic-embed-text` model for embeddings
+**Examples:**
+- "How to implement RAG with LlamaIndex"
+- "FastAPI dependency injection patterns"
+- "Kubernetes deployment strategies"
 
-### Install Dependencies
+**Returns:** Ranked results with content snippets and metadata.
 
-From the project root:
+### `kas_ask`
+Ask a question and get a synthesized answer from your knowledge base.
 
-```bash
-# Install the MCP package
-pip install mcp
+**Use for:** Getting direct answers by analyzing relevant content and synthesizing information from multiple sources.
 
-# Or add to your existing venv
-cd /Users/d/claude-code/personal/knowledge-activation-system
-source .venv/bin/activate
-pip install mcp
-```
+**Best for:**
+- "How does X work?"
+- "What's the difference between X and Y?"
+- "Explain the process for doing X"
 
-### Configure Claude Desktop
+**Returns:** Answer with confidence score and source citations.
 
-Add the following to your Claude Desktop configuration file:
+### `kas_capture`
+Quickly capture content into your knowledge base for future reference.
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Use for:**
+- Code snippets you want to remember
+- Important information discovered during coding
+- Notes and learnings from the current session
+
+**Returns:** Confirmation with chunk count and content ID.
+
+### `kas_stats`
+Get statistics about your knowledge base.
+
+**Returns:**
+- Total documents stored
+- Total chunks indexed
+- System health status
+
+## Configuration
+
+The MCP server is registered in `~/.claude/mcp_settings.json`:
 
 ```json
 {
   "mcpServers": {
-    "knowledge-activation": {
-      "command": "/Users/d/claude-code/personal/knowledge-activation-system/.venv/bin/python",
-      "args": [
-        "/Users/d/claude-code/personal/knowledge-activation-system/mcp-server/server.py"
-      ],
+    "kas": {
+      "command": "node",
+      "args": ["/Users/d/claude-code/personal/knowledge-activation-system/mcp-server/dist/index.js"],
       "env": {
-        "KNOWLEDGE_DATABASE_URL": "postgresql://knowledge:localdev@localhost:5432/knowledge",
-        "KNOWLEDGE_OLLAMA_URL": "http://localhost:11434"
+        "KAS_API_URL": "http://localhost:8000"
       }
     }
   }
 }
 ```
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `KNOWLEDGE_DATABASE_URL` | `postgresql://knowledge:localdev@localhost:5432/knowledge` | PostgreSQL connection URL |
-| `KNOWLEDGE_OLLAMA_URL` | `http://localhost:11434` | Ollama server URL |
-| `KNOWLEDGE_EMBEDDING_MODEL` | `nomic-embed-text` | Embedding model name |
-| `KNOWLEDGE_VAULT_PATH` | `~/Obsidian` | Path to Obsidian vault |
-
-## Usage Examples
-
-Once configured, you can use these tools in Claude Desktop:
-
-### Search Knowledge Base
-
-```
-Use the search_knowledge tool to find information about "machine learning embeddings"
-```
-
-### Get Item Details
-
-```
-Get the full content for item ID 123e4567-e89b-12d3-a456-426614174000
-```
-
-### Review Due Items
-
-```
-What items do I need to review today?
-```
-
-### Submit a Review
-
-```
-Mark content 123e4567-e89b-12d3-a456-426614174000 as "good" (rating 3)
-```
-
 ## Development
 
-### Running Locally
-
 ```bash
-# Activate venv
-cd /Users/d/claude-code/personal/knowledge-activation-system
-source .venv/bin/activate
+cd /Users/d/claude-code/personal/knowledge-activation-system/mcp-server
 
-# Ensure database is running
-docker compose up -d
+# Install dependencies
+npm install
 
-# Test the server (will wait for MCP protocol input)
-python mcp-server/server.py
+# Build
+npm run build
+
+# Development mode
+npm run dev
+
+# Type check
+npm run typecheck
 ```
 
-### Debugging
+## Testing
 
-The server logs to stderr. To see logs while running with Claude Desktop:
+Test the MCP server manually:
 
-1. Check Claude Desktop logs
-2. Or run the server manually and observe stderr output
+```bash
+# Test tool listing
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node dist/index.js
 
-### Testing Tools
+# Test stats tool
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"kas_stats","arguments":{}}}' | node dist/index.js
+```
 
-You can test individual tool handlers by importing them:
+## Requirements
 
-```python
-import asyncio
-from mcp_server.server import handle_search_knowledge, get_database
+- Node.js >= 20.0.0
+- KAS API running on localhost:8000
+- PostgreSQL with knowledge data
 
-async def test():
-    await get_database()
-    result = await handle_search_knowledge({"query": "test", "limit": 5})
-    print(result)
+## Troubleshooting
 
-asyncio.run(test())
+### KAS API Not Available
+
+If you see "KAS API is not available", ensure the API is running:
+
+```bash
+cd /Users/d/claude-code/personal/knowledge-activation-system
+uv run uvicorn knowledge.api.main:app --host 0.0.0.0 --port 8000
+```
+
+### MCP Server Not Loaded
+
+1. Check `~/.claude/mcp_settings.json` has the kas entry
+2. Restart Claude Code
+3. Verify the dist/index.js path is correct
+
+### Build Errors
+
+```bash
+npm install
+npm run build
 ```
 
 ## Architecture
 
 ```
 mcp-server/
-├── __init__.py       # Package marker
-├── server.py         # Main MCP server with tools and resources
-└── README.md         # This file
+├── src/
+│   ├── index.ts       # Main MCP server with tool handlers
+│   └── kas-client.ts  # KAS API client
+├── dist/              # Built JavaScript
+├── package.json
+├── tsconfig.json
+└── README.md
 ```
-
-The server integrates with the existing KAS codebase:
-
-- `src/knowledge/db.py` - Database operations
-- `src/knowledge/search.py` - Hybrid search
-- `src/knowledge/review.py` - FSRS spaced repetition
-
-## Troubleshooting
-
-### Database Connection Failed
-
-Ensure PostgreSQL is running:
-```bash
-docker compose up -d
-docker compose logs postgres
-```
-
-### Ollama Not Available
-
-Embeddings require Ollama. Ensure it's running:
-```bash
-ollama serve
-ollama pull nomic-embed-text
-```
-
-### MCP Server Not Found in Claude Desktop
-
-1. Verify the path in `claude_desktop_config.json` is correct
-2. Ensure the Python path points to the venv with all dependencies
-3. Restart Claude Desktop after config changes

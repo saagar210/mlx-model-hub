@@ -9,19 +9,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from knowledge.ai import close_ai_provider
-from knowledge.api.middleware import SecurityMiddleware
-from knowledge.api.routes import content, health, integration, review, search
+from knowledge.api.middleware import APIVersionMiddleware, MetricsMiddleware, SecurityMiddleware
+from knowledge.api.routes import auth, batch, content, export, health, integration, metrics, namespaces, review, search, webhooks
 from knowledge.config import get_settings
 from knowledge.db import close_db
 from knowledge.embeddings import close_embedding_service
 from knowledge.rerank import close_reranker
 from knowledge.reranker import close_local_reranker, preload_reranker
 from knowledge.review import start_daily_scheduler, stop_daily_scheduler
+from knowledge.tracing import configure_tracing
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
+    # Configure tracing (if enabled)
+    configure_tracing()
+
     # Startup - preload models in background to avoid cold-start delays
     await preload_reranker()  # Non-blocking, loads in background thread
 
@@ -45,6 +49,12 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# API version middleware (adds X-API-Version header)
+app.add_middleware(APIVersionMiddleware, version="v1")
+
+# Metrics middleware (must be early to capture all requests)
+app.add_middleware(MetricsMiddleware)
 
 # Security middleware (rate limiting, API key validation)
 app.add_middleware(SecurityMiddleware)
@@ -77,11 +87,17 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router)  # Authentication (/auth)
 app.include_router(search.router)
 app.include_router(content.router)
 app.include_router(health.router)
+app.include_router(metrics.router)  # Prometheus metrics (/metrics)
 app.include_router(review.router)
 app.include_router(integration.router)  # External integration API (/api/v1/*)
+app.include_router(namespaces.router)  # Namespace management (/api/v1/namespaces)
+app.include_router(batch.router)  # Batch operations (/api/v1/batch)
+app.include_router(export.router)  # Export/Import (/api/v1/export)
+app.include_router(webhooks.router)  # Webhooks (/api/v1/webhooks)
 
 
 @app.get("/")

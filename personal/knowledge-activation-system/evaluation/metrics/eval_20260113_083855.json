@@ -1,0 +1,612 @@
+{
+  "timestamp": "2026-01-13T08:38:55.145323",
+  "total_queries": 18,
+  "successful_queries": 18,
+  "avg_composite_score": 0.11857585097308264,
+  "category_scores": {
+    "frameworks": 0.10645489277013603,
+    "ai-ml": 0.1077663681799721,
+    "agents": 0.1064683437999805,
+    "infrastructure": 0.10842210588489012,
+    "mcp": 0.10941103118442394,
+    "best-practices": 0.10863277540809271,
+    "tools": 0.10645489277013603,
+    "learning": 0.30645489277013604
+  },
+  "results": [
+    {
+      "id": "framework-001",
+      "query": "How do I create a FastAPI dependency?",
+      "category": "frameworks",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Build an MCP server - Model Context Protocol",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "LLM Powered Autonomous Agents",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "llamaindex-starter-tutorial",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "framework-002",
+      "query": "What is the difference between Pydantic v1 and v2?",
+      "category": "frameworks",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Accessible Name and Description Computation 1.2",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Advanced User Guide - FastAPI",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "GitHub - ml-explore/mlx-swift: Swift API for MLX",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "framework-003",
+      "query": "How does LangChain handle document loading?",
+      "category": "frameworks",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Build a RAG agent with LangChain - Docs by LangChain",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Beautiful Soup Documentation",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "Core ML | Apple Developer Documentation",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "rag-001",
+      "query": "What is RAG and how does it work?",
+      "category": "ai-ml",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Ragas: Automated Evaluation of Retrieval Augmented Generation",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "rag-002",
+      "query": "How do I evaluate RAG system quality?",
+      "category": "ai-ml",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01915970975231948,
+        "top_result_score": 0.03278688524590164,
+        "composite": 0.11038931899964423
+      },
+      "results_preview": [
+        {
+          "title": "Evaluation concepts - Docs by LangChain",
+          "score": 0.03278688524590164,
+          "namespace": ""
+        },
+        {
+          "title": "Evaluating",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "G-Eval | DeepEval by Confident AI - The LLM Evaluation Framework",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "rag-003",
+      "query": "What are hybrid search strategies for RAG?",
+      "category": "ai-ml",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Hybrid Search Revamped - Building with Qdrant's Query API - Qdrant",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Simon Willison on rag",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "Overview - Qdrant",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "agent-001",
+      "query": "How do I implement tool use with Claude?",
+      "category": "agents",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.016082786675396404,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10649524585966945
+      },
+      "results_preview": [
+        {
+          "title": "Connect Claude Code to tools via MCP - Claude Code Docs",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Guides",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Prompt Engineering",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "agent-002",
+      "query": "What is the ReAct pattern for agents?",
+      "category": "agents",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "GitHub - crewAIInc/crewAI: Framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Introduction - Phidata",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "GitHub - openai/swarm: Educational framework exploring ergonomic, lightweight multi-agent orchestration. Managed by OpenAI Solution team.",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "agent-003",
+      "query": "How does LangGraph handle state in agents?",
+      "category": "agents",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "LLM Powered Autonomous Agents",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Introduction - Phidata",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "GitHub - langchain-ai/langgraph: Build resilient language agents as graphs.",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "infra-001",
+      "query": "How do I deploy a Docker container?",
+      "category": "infrastructure",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01915970975231948,
+        "top_result_score": 0.03278688524590164,
+        "composite": 0.11038931899964423
+      },
+      "results_preview": [
+        {
+          "title": "Docker Compose",
+          "score": 0.03278688524590164,
+          "namespace": ""
+        },
+        {
+          "title": "GitHub - langchain-ai/langgraph: Build resilient language agents as graphs.",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "First Steps - FastAPI",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "infra-002",
+      "query": "What is Kubernetes pod scheduling?",
+      "category": "infrastructure",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Daily | API documentation",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Docker Compose",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "DSPy",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "mcp-001",
+      "query": "What is the Model Context Protocol?",
+      "category": "mcp",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.017954848892997297,
+        "top_result_score": 0.02472929470295581,
+        "composite": 0.10853682871919063
+      },
+      "results_preview": [
+        {
+          "title": "README.md",
+          "score": 0.02472929470295581,
+          "namespace": ""
+        },
+        {
+          "title": "Welcome to LM Studio Docs! | LM Studio Docs",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "api.md",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "mcp-002",
+      "query": "How do I create an MCP server?",
+      "category": "mcp",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.019159709752319485,
+        "top_result_score": 0.032266458495966696,
+        "composite": 0.11028523364965724
+      },
+      "results_preview": [
+        {
+          "title": "Connect Claude Code to tools via MCP - Claude Code Docs",
+          "score": 0.032266458495966696,
+          "namespace": ""
+        },
+        {
+          "title": "What is the Model Context Protocol (MCP)? - Model Context Protocol",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "README.md",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "best-001",
+      "query": "What are prompt engineering best practices?",
+      "category": "best-practices",
+      "difficulty": "easy",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Prompt Engineering Guide",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Prompt Engineering Guide",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "Building LLM applications for production",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "best-002",
+      "query": "How do I secure an LLM application?",
+      "category": "best-practices",
+      "difficulty": "medium",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.02153081534923153,
+        "top_result_score": 0.03252247488101534,
+        "composite": 0.11081065804604938
+      },
+      "results_preview": [
+        {
+          "title": "OWASP Top 10 for Large Language Model Applications | OWASP Foundation",
+          "score": 0.03252247488101534,
+          "namespace": ""
+        },
+        {
+          "title": "LLMRisks Archive",
+          "score": 0.02750455373406193,
+          "namespace": ""
+        },
+        {
+          "title": "Prompt injection: What\u2019s the worst that can happen?",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "edge-001",
+      "query": "What embedding models work best with Ollama?",
+      "category": "tools",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Simon Willison on rag",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "FastEmbed - Qdrant",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "Embeddings: What they are and why they matter",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "edge-002",
+      "query": "How do I implement streaming with FastAPI and LLMs?",
+      "category": "frameworks",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 0.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.10645489277013603
+      },
+      "results_preview": [
+        {
+          "title": "Foundations",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "Standard streams - Wikipedia",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "PyAudio Documentation",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    },
+    {
+      "id": "edge-003",
+      "query": "What is the FSRS algorithm for spaced repetition?",
+      "category": "learning",
+      "difficulty": "hard",
+      "status": "success",
+      "total_results": 5,
+      "scores": {
+        "has_results": 1.0,
+        "keyword_coverage": 0.0,
+        "namespace_match": 1.0,
+        "avg_search_score": 0.01588102122772932,
+        "top_result_score": 0.01639344262295082,
+        "composite": 0.30645489277013604
+      },
+      "results_preview": [
+        {
+          "title": "LLM Powered Autonomous Agents",
+          "score": 0.01639344262295082,
+          "namespace": ""
+        },
+        {
+          "title": "MLX",
+          "score": 0.016129032258064516,
+          "namespace": ""
+        },
+        {
+          "title": "GitHub - ml-explore/mlx: MLX: An array framework for Apple silicon",
+          "score": 0.015873015873015872,
+          "namespace": ""
+        }
+      ]
+    }
+  ]
+}

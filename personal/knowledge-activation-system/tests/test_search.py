@@ -62,14 +62,16 @@ class TestRRFFusion:
         bm25_only_id = uuid4()
         vector_only_id = uuid4()
 
+        # bm25_results: (content_id, title, type, namespace, bm25_score)
         bm25_results = [
-            (common_id, "Common Result", "youtube", 0.9),
-            (bm25_only_id, "BM25 Only", "bookmark", 0.7),
+            (common_id, "Common Result", "youtube", "default", 0.9),
+            (bm25_only_id, "BM25 Only", "bookmark", "default", 0.7),
         ]
 
+        # vector_results: (content_id, title, type, namespace, chunk_text, similarity)
         vector_results = [
-            (common_id, "Common Result", "youtube", "Some chunk text", 0.95),
-            (vector_only_id, "Vector Only", "note", "Different chunk", 0.8),
+            (common_id, "Common Result", "youtube", "default", "Some chunk text", 0.95),
+            (vector_only_id, "Vector Only", "note", "default", "Different chunk", 0.8),
         ]
 
         results = rrf_fusion(bm25_results, vector_results, k=60)
@@ -91,7 +93,8 @@ class TestRRFFusion:
     def test_rrf_fusion_bm25_only(self):
         """Test RRF with only BM25 results."""
         id1 = uuid4()
-        bm25_results = [(id1, "Title", "youtube", 0.9)]
+        # bm25_results: (content_id, title, type, namespace, bm25_score)
+        bm25_results = [(id1, "Title", "youtube", "default", 0.9)]
 
         results = rrf_fusion(bm25_results, [], k=60)
 
@@ -102,7 +105,8 @@ class TestRRFFusion:
     def test_rrf_fusion_vector_only(self):
         """Test RRF with only vector results."""
         id1 = uuid4()
-        vector_results = [(id1, "Title", "note", "Chunk", 0.9)]
+        # vector_results: (content_id, title, type, namespace, chunk_text, similarity)
+        vector_results = [(id1, "Title", "note", "default", "Chunk", 0.9)]
 
         results = rrf_fusion([], vector_results, k=60)
 
@@ -117,8 +121,8 @@ class TestRRFFusion:
         id2 = uuid4()
 
         # Both at rank 1 in their respective lists
-        bm25_results = [(id1, "Title 1", "youtube", 0.9)]
-        vector_results = [(id1, "Title 1", "youtube", "Chunk", 0.9)]
+        bm25_results = [(id1, "Title 1", "youtube", "default", 0.9)]
+        vector_results = [(id1, "Title 1", "youtube", "default", "Chunk", 0.9)]
 
         results = rrf_fusion(bm25_results, vector_results, k=60)
 
@@ -130,8 +134,8 @@ class TestRRFFusion:
         """Test that RRF preserves chunk text from vector results."""
         common_id = uuid4()
 
-        bm25_results = [(common_id, "Title", "youtube", 0.9)]
-        vector_results = [(common_id, "Title", "youtube", "Important chunk text", 0.9)]
+        bm25_results = [(common_id, "Title", "youtube", "default", 0.9)]
+        vector_results = [(common_id, "Title", "youtube", "default", "Important chunk text", 0.9)]
 
         results = rrf_fusion(bm25_results, vector_results, k=60)
 
@@ -140,8 +144,8 @@ class TestRRFFusion:
     def test_rrf_fusion_custom_k(self):
         """Test RRF with custom k value."""
         id1 = uuid4()
-        bm25_results = [(id1, "Title", "youtube", 0.9)]
-        vector_results = [(id1, "Title", "youtube", "Chunk", 0.9)]
+        bm25_results = [(id1, "Title", "youtube", "default", 0.9)]
+        vector_results = [(id1, "Title", "youtube", "default", "Chunk", 0.9)]
 
         # With k=1, score should be higher
         results_k1 = rrf_fusion(bm25_results, vector_results, k=1)
@@ -172,6 +176,7 @@ class TestHybridSearch:
             mock_db = AsyncMock()
             mock_db.bm25_search = AsyncMock(return_value=sample_bm25_results)
             mock_db.vector_search = AsyncMock(return_value=sample_vector_results)
+            mock_db.get_quality_scores = AsyncMock(return_value={})
             mock_get_db.return_value = mock_db
 
             mock_embed.return_value = mock_embedding
@@ -189,9 +194,9 @@ class TestHybridSearch:
         mock_embedding: list[float],
     ):
         """Test that hybrid search respects the limit parameter."""
-        # Create many results
-        bm25_results = [(uuid4(), f"Title {i}", "youtube", 0.9 - i * 0.1) for i in range(10)]
-        vector_results = [(uuid4(), f"Vector {i}", "note", "Chunk", 0.9 - i * 0.1) for i in range(10)]
+        # Create many results with namespace included
+        bm25_results = [(uuid4(), f"Title {i}", "youtube", "default", 0.9 - i * 0.1) for i in range(10)]
+        vector_results = [(uuid4(), f"Vector {i}", "note", "default", "Chunk", 0.9 - i * 0.1) for i in range(10)]
 
         with patch("knowledge.search.get_settings") as mock_get_settings, \
              patch("knowledge.search.get_db") as mock_get_db, \
@@ -202,6 +207,7 @@ class TestHybridSearch:
             mock_db = AsyncMock()
             mock_db.bm25_search = AsyncMock(return_value=bm25_results)
             mock_db.vector_search = AsyncMock(return_value=vector_results)
+            mock_db.get_quality_scores = AsyncMock(return_value={})
             mock_get_db.return_value = mock_db
 
             mock_embed.return_value = mock_embedding
@@ -266,9 +272,10 @@ class TestBM25OnlySearch:
         test_settings: Settings,
     ):
         """Test BM25-only search assigns correct ranks."""
+        # bm25_results: (content_id, title, type, namespace, bm25_score)
         bm25_results = [
-            (uuid4(), "First", "youtube", 0.9),
-            (uuid4(), "Second", "bookmark", 0.8),
+            (uuid4(), "First", "youtube", "default", 0.9),
+            (uuid4(), "Second", "bookmark", "default", 0.8),
         ]
 
         with patch("knowledge.search.get_settings") as mock_get_settings, \
@@ -322,8 +329,9 @@ class TestVectorOnlySearch:
         mock_embedding: list[float],
     ):
         """Test vector-only search preserves chunk text."""
+        # vector_results: (content_id, title, type, namespace, chunk_text, similarity)
         vector_results = [
-            (uuid4(), "Title", "youtube", "Important chunk content", 0.9),
+            (uuid4(), "Title", "youtube", "default", "Important chunk content", 0.9),
         ]
 
         with patch("knowledge.search.get_settings") as mock_get_settings, \

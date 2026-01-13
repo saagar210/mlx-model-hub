@@ -1,13 +1,22 @@
-"""Content validation for ingestion."""
+"""Content validation for ingestion (P16: Input Validation Enhancement)."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
+
+from knowledge.exceptions import (
+    InvalidFilepathError,
+    InvalidNamespaceError,
+    InvalidQueryError,
+    InvalidURLError,
+)
 
 
 # Regex to match YAML frontmatter at the start of content
@@ -297,3 +306,386 @@ def extract_title_from_content(content: str, max_length: int = 100) -> str | Non
             return line
 
     return None
+
+
+# =============================================================================
+# URL Validation (P16)
+# =============================================================================
+
+
+# Patterns that indicate local/private networks
+BLOCKED_URL_PATTERNS = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "192.168.",
+    "10.",
+    "172.16.", "172.17.", "172.18.", "172.19.",
+    "172.20.", "172.21.", "172.22.", "172.23.",
+    "172.24.", "172.25.", "172.26.", "172.27.",
+    "172.28.", "172.29.", "172.30.", "172.31.",
+    "169.254.",  # Link-local
+    "[::1]",  # IPv6 localhost
+    "[::]",  # IPv6 any
+]
+
+# Allowed URL schemes
+ALLOWED_SCHEMES = {"http", "https"}
+
+
+def validate_url(url: str, allow_private: bool = False) -> str:
+    """
+    Validate and sanitize a URL.
+
+    Args:
+        url: The URL to validate
+        allow_private: Whether to allow private/local URLs (default False)
+
+    Returns:
+        The validated URL
+
+    Raises:
+        InvalidURLError: If the URL is invalid or unsafe
+    """
+    if not url:
+        raise InvalidURLError("URL cannot be empty")
+
+    url = url.strip()
+
+    # Basic protocol check
+    if not url.startswith(("http://", "https://")):
+        raise InvalidURLError("URL must start with http:// or https://")
+
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        raise InvalidURLError(f"Invalid URL format: {e}")
+
+    # Validate scheme
+    if parsed.scheme not in ALLOWED_SCHEMES:
+        raise InvalidURLError(f"Invalid URL scheme: {parsed.scheme}")
+
+    # Validate host
+    if not parsed.netloc:
+        raise InvalidURLError("URL must have a host")
+
+    # Check for blocked patterns (SSRF protection)
+    if not allow_private:
+        host_lower = parsed.netloc.lower()
+        for pattern in BLOCKED_URL_PATTERNS:
+            if pattern in host_lower:
+                raise InvalidURLError(
+                    "Local/private URLs not allowed",
+                    details={"blocked_pattern": pattern},
+                )
+
+    # Check for suspicious characters
+    if any(c in url for c in ["\x00", "\r", "\n", "\t"]):
+        raise InvalidURLError("URL contains invalid characters")
+
+    return url
+
+
+def is_url_safe(url: str) -> bool:
+    """
+    Check if URL is safe to fetch without raising exceptions.
+
+    Args:
+        url: The URL to check
+
+    Returns:
+        True if safe, False otherwise
+    """
+    try:
+        validate_url(url)
+        return True
+    except InvalidURLError:
+        return False
+
+
+# =============================================================================
+# Filepath Validation (P16)
+# =============================================================================
+
+
+# Characters not allowed in paths
+FORBIDDEN_PATH_CHARS = set('\x00<>"|?*')
+
+
+def validate_filepath(
+    filepath: str,
+    base_dir: Path | None = None,
+    allow_absolute: bool = False,
+) -> Path:
+    """
+    Validate and normalize a filepath.
+
+    Args:
+        filepath: The path to validate
+        base_dir: Optional base directory for relative path resolution
+        allow_absolute: Whether to allow absolute paths (default False)
+
+    Returns:
+        The validated Path object
+
+    Raises:
+        InvalidFilepathError: If the path is invalid or unsafe
+    """
+    if not filepath:
+        raise InvalidFilepathError("Filepath cannot be empty")
+
+    filepath = filepath.strip()
+
+    # Check for forbidden characters
+    if any(c in filepath for c in FORBIDDEN_PATH_CHARS):
+        raise InvalidFilepathError("Filepath contains invalid characters")
+
+    # Check for null bytes
+    if "\x00" in filepath:
+        raise InvalidFilepathError("Filepath contains null byte")
+
+    path = Path(filepath)
+
+    # Check for absolute paths
+    if path.is_absolute() and not allow_absolute:
+        raise InvalidFilepathError("Absolute paths not allowed")
+
+    # Check for path traversal
+    parts = path.parts
+    if ".." in parts:
+        raise InvalidFilepathError("Path traversal not allowed")
+
+    # If base_dir specified, ensure path stays within it
+    if base_dir:
+        base_resolved = base_dir.resolve()
+        try:
+            full_path = (base_dir / path).resolve()
+            if not str(full_path).startswith(str(base_resolved)):
+                raise InvalidFilepathError("Path escapes base directory")
+        except Exception as e:
+            raise InvalidFilepathError(f"Invalid path resolution: {e}")
+
+    return path
+
+
+def sanitize_filename(filename: str, max_length: int = 255) -> str:
+    """
+    Sanitize a filename by removing dangerous characters.
+
+    Args:
+        filename: The filename to sanitize
+        max_length: Maximum length for the filename
+
+    Returns:
+        Sanitized filename
+    """
+    if not filename:
+        return "unnamed"
+
+    # Remove path separators
+    filename = filename.replace("/", "_").replace("\\", "_")
+
+    # Remove dangerous characters
+    filename = re.sub(r'[<>:"|?*\x00-\x1f]', "", filename)
+
+    # Remove leading/trailing dots and spaces
+    filename = filename.strip(". ")
+
+    # Truncate if too long
+    if len(filename) > max_length:
+        # Preserve extension
+        parts = filename.rsplit(".", 1)
+        if len(parts) == 2 and len(parts[1]) < 10:
+            name, ext = parts
+            filename = name[: max_length - len(ext) - 1] + "." + ext
+        else:
+            filename = filename[:max_length]
+
+    return filename or "unnamed"
+
+
+# =============================================================================
+# Namespace Validation (P16)
+# =============================================================================
+
+
+# Valid namespace pattern: alphanumeric, dash, underscore, asterisk for wildcard
+NAMESPACE_PATTERN = re.compile(r"^[\w\-*]{1,100}$")
+
+
+def validate_namespace(namespace: str | None) -> str | None:
+    """
+    Validate a namespace string.
+
+    Args:
+        namespace: The namespace to validate (can be None)
+
+    Returns:
+        The validated namespace or None
+
+    Raises:
+        InvalidNamespaceError: If the namespace format is invalid
+    """
+    if namespace is None:
+        return None
+
+    namespace = namespace.strip()
+
+    if not namespace:
+        return None
+
+    if not NAMESPACE_PATTERN.match(namespace):
+        raise InvalidNamespaceError(
+            "Invalid namespace format - use alphanumeric, dash, underscore, or wildcard (*)",
+            details={"namespace": namespace[:50]},
+        )
+
+    return namespace
+
+
+# =============================================================================
+# Query Validation (P16)
+# =============================================================================
+
+
+def validate_search_query(
+    query: str,
+    min_length: int = 1,
+    max_length: int = 1000,
+) -> str:
+    """
+    Validate and sanitize a search query.
+
+    Args:
+        query: The search query to validate
+        min_length: Minimum query length
+        max_length: Maximum query length
+
+    Returns:
+        The validated and sanitized query
+
+    Raises:
+        InvalidQueryError: If the query is invalid
+    """
+    if not query:
+        raise InvalidQueryError("Query cannot be empty")
+
+    # Normalize whitespace
+    query = " ".join(query.split())
+
+    if len(query) < min_length:
+        raise InvalidQueryError(
+            f"Query too short (minimum {min_length} characters)",
+            details={"length": len(query), "min_length": min_length},
+        )
+
+    if len(query) > max_length:
+        raise InvalidQueryError(
+            f"Query too long (maximum {max_length} characters)",
+            details={"length": len(query), "max_length": max_length},
+        )
+
+    return query
+
+
+# =============================================================================
+# Tag Validation (P16)
+# =============================================================================
+
+
+TAG_PATTERN = re.compile(r"^[\w\-]{1,50}$")
+
+
+def validate_tag(tag: str) -> str:
+    """
+    Validate and sanitize a single tag.
+
+    Args:
+        tag: The tag to validate
+
+    Returns:
+        The sanitized tag
+
+    Raises:
+        ValueError: If the tag is invalid
+    """
+    tag = tag.strip().lower()
+
+    if not tag:
+        raise ValueError("Tag cannot be empty")
+
+    # Remove invalid characters
+    sanitized = re.sub(r"[^\w\-]", "", tag)
+
+    # Truncate if too long
+    sanitized = sanitized[:50]
+
+    if not sanitized:
+        raise ValueError("Tag contains no valid characters")
+
+    return sanitized
+
+
+def validate_tags(
+    tags: list[str],
+    max_count: int = 50,
+) -> list[str]:
+    """
+    Validate and sanitize a list of tags.
+
+    Args:
+        tags: The list of tags to validate
+        max_count: Maximum number of tags allowed
+
+    Returns:
+        List of sanitized, unique tags
+    """
+    validated = []
+    seen = set()
+
+    for tag in tags:
+        try:
+            sanitized = validate_tag(tag)
+            if sanitized not in seen:
+                validated.append(sanitized)
+                seen.add(sanitized)
+        except ValueError:
+            # Skip invalid tags silently
+            continue
+
+        if len(validated) >= max_count:
+            break
+
+    return validated
+
+
+# =============================================================================
+# Content Size Validation (P16)
+# =============================================================================
+
+
+def validate_content_size(
+    content: str | bytes,
+    max_size: int,
+    name: str = "content",
+) -> None:
+    """
+    Validate that content doesn't exceed size limit.
+
+    Args:
+        content: The content to check
+        max_size: Maximum allowed size in bytes
+        name: Name for error messages
+
+    Raises:
+        ValueError: If content exceeds size limit
+    """
+    if isinstance(content, str):
+        size = len(content.encode("utf-8"))
+    else:
+        size = len(content)
+
+    if size > max_size:
+        raise ValueError(
+            f"{name} exceeds maximum size ({size:,} bytes > {max_size:,} bytes)"
+        )

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # =============================================================================
 # Search Schemas
@@ -24,9 +26,34 @@ class SearchMode(str, Enum):
 class SearchRequest(BaseModel):
     """Search request."""
 
-    query: str = Field(..., min_length=1, description="Search query")
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=1000,
+        description="Search query (max 1000 characters)"
+    )
     limit: int = Field(10, ge=1, le=100, description="Number of results")
     mode: SearchMode = Field(SearchMode.HYBRID, description="Search mode")
+    namespace: str | None = Field(default=None, max_length=100)
+
+    @field_validator("query")
+    @classmethod
+    def sanitize_query(cls, v: str) -> str:
+        """Sanitize search query."""
+        # Normalize whitespace
+        v = " ".join(v.split())
+        return v.strip()
+
+    @field_validator("namespace")
+    @classmethod
+    def validate_namespace(cls, v: str | None) -> str | None:
+        """Validate namespace format."""
+        if v is None:
+            return v
+        # Only allow alphanumeric, dash, underscore, asterisk (for wildcards)
+        if not re.match(r"^[\w\-*]+$", v):
+            raise ValueError("Invalid namespace format - use alphanumeric, dash, underscore only")
+        return v
 
 
 class SearchResultItem(BaseModel):
@@ -43,12 +70,16 @@ class SearchResultItem(BaseModel):
 
 
 class SearchResponse(BaseModel):
-    """Search response."""
+    """Search response with degradation status (P27)."""
 
     query: str
     results: list[SearchResultItem]
     total: int
     mode: str
+    # Degradation status (P27: Graceful Degradation)
+    degraded: bool = False
+    search_mode: str = "hybrid"  # hybrid, bm25_only, vector_only
+    warnings: list[str] = []
 
 
 # =============================================================================
@@ -67,7 +98,12 @@ class ConfidenceLevel(str, Enum):
 class AskRequest(BaseModel):
     """Q&A request."""
 
-    query: str = Field(..., min_length=1, description="Question to answer")
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=2000,
+        description="Question to answer (max 2000 characters)"
+    )
     limit: int = Field(10, ge=1, le=50, description="Search results to consider")
 
 

@@ -1,7 +1,11 @@
-"""Content routes."""
+"""Content routes.
+
+Provides CRUD operations for content items in the knowledge base.
+"""
 
 from __future__ import annotations
 
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
@@ -12,6 +16,9 @@ from knowledge.api.schemas import (
     ContentListResponse,
 )
 from knowledge.db import get_db
+from knowledge.security import sanitize_error_message, is_production
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -89,7 +96,9 @@ async def list_content(
             page_size=page_size,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Failed to list content")
+        error_msg = sanitize_error_message(e, production=is_production())
+        raise HTTPException(status_code=500, detail=error_msg) from e
 
 
 @router.get("/{content_id}", response_model=ContentDetailResponse)
@@ -128,7 +137,9 @@ async def get_content(content_id: UUID) -> ContentDetailResponse:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception(f"Failed to get content: {content_id}")
+        error_msg = sanitize_error_message(e, production=is_production())
+        raise HTTPException(status_code=500, detail=error_msg) from e
 
 
 @router.delete("/{content_id}")
@@ -157,4 +168,6 @@ async def delete_content(content_id: UUID) -> dict:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception(f"Failed to delete content: {content_id}")
+        error_msg = sanitize_error_message(e, production=is_production())
+        raise HTTPException(status_code=500, detail=error_msg) from e

@@ -90,10 +90,14 @@ def mock_embedding() -> list[float]:
 @pytest.fixture
 def client(mock_db: MagicMock, mock_ollama_healthy: Any, mock_settings: Settings) -> TestClient:
     """Create test client with mocked dependencies."""
+    # Mock the HybridSearchResponse for the search route
+    from knowledge.search import HybridSearchResponse
+    mock_search_response = HybridSearchResponse(results=[], degraded=False, search_mode="hybrid")
+
     with patch("knowledge.api.routes.health.get_db", AsyncMock(return_value=mock_db)), \
-         patch("knowledge.api.routes.health.check_ollama_health", AsyncMock(return_value=mock_ollama_healthy)), \
+         patch("knowledge.api.routes.health._check_ollama", AsyncMock(return_value=mock_ollama_healthy)), \
          patch("knowledge.api.routes.content.get_db", AsyncMock(return_value=mock_db)), \
-         patch("knowledge.api.routes.search.hybrid_search", AsyncMock(return_value=[])), \
+         patch("knowledge.api.routes.search.hybrid_search_with_status", AsyncMock(return_value=mock_search_response)), \
          patch("knowledge.api.routes.search.search_bm25_only", AsyncMock(return_value=[])), \
          patch("knowledge.api.routes.search.search_vector_only", AsyncMock(return_value=[])), \
          patch("knowledge.reranker.preload_reranker", AsyncMock()):
@@ -125,8 +129,12 @@ class TestHealthEndpoints:
 
         data = response.json()
         assert "status" in data
-        assert "services" in data
-        assert isinstance(data["services"], list)
+        assert "components" in data
+        assert isinstance(data["components"], list)
+        # New health response includes version, uptime, and system metrics
+        assert "version" in data
+        assert "uptime_seconds" in data
+        assert "system" in data
 
     def test_liveness_probe(self, client: TestClient):
         """Test Kubernetes liveness probe."""
@@ -202,7 +210,7 @@ class TestSearchEndpoints:
 
     def test_search_with_results(self, client: TestClient, mock_embedding: list[float]):
         """Test search returning actual results."""
-        from knowledge.search import SearchResult
+        from knowledge.search import SearchResult, HybridSearchResponse
 
         mock_results = [
             SearchResult(
@@ -215,8 +223,13 @@ class TestSearchEndpoints:
                 vector_rank=2,
             )
         ]
+        mock_response = HybridSearchResponse(
+            results=mock_results,
+            degraded=False,
+            search_mode="hybrid",
+        )
 
-        with patch("knowledge.api.routes.search.hybrid_search", AsyncMock(return_value=mock_results)):
+        with patch("knowledge.api.routes.search.hybrid_search_with_status", AsyncMock(return_value=mock_response)):
             response = client.post("/search", json={
                 "query": "test query",
                 "limit": 10,
@@ -229,6 +242,8 @@ class TestSearchEndpoints:
             assert len(data["results"]) == 1
             assert data["results"][0]["title"] == "Test Result"
             assert data["results"][0]["score"] == 0.85
+            assert data["degraded"] is False
+            assert data["search_mode"] == "hybrid"
 
 
 class TestContentEndpoints:
@@ -402,7 +417,7 @@ class TestErrorHandling:
     def test_search_handles_internal_error(self, client: TestClient):
         """Test search endpoint handles internal errors gracefully."""
         with patch(
-            "knowledge.api.routes.search.hybrid_search",
+            "knowledge.api.routes.search.hybrid_search_with_status",
             AsyncMock(side_effect=Exception("Database connection failed"))
         ):
             response = client.post("/search", json={
@@ -439,7 +454,7 @@ class TestIntegrationWithMockedServices:
 
     def test_full_search_flow(self, client: TestClient, mock_embedding: list[float]):
         """Test complete search flow: query -> search -> results."""
-        from knowledge.search import SearchResult
+        from knowledge.search import SearchResult, HybridSearchResponse
 
         content_id = uuid4()
         mock_results = [
@@ -462,8 +477,13 @@ class TestIntegrationWithMockedServices:
                 vector_rank=3,
             ),
         ]
+        mock_response = HybridSearchResponse(
+            results=mock_results,
+            degraded=False,
+            search_mode="hybrid",
+        )
 
-        with patch("knowledge.api.routes.search.hybrid_search", AsyncMock(return_value=mock_results)):
+        with patch("knowledge.api.routes.search.hybrid_search_with_status", AsyncMock(return_value=mock_response)):
             response = client.post("/search", json={
                 "query": "machine learning basics",
                 "limit": 10,
@@ -486,28 +506,32 @@ class TestIntegrationWithMockedServices:
     ):
         """Test health endpoint aggregates all service statuses."""
         with patch("knowledge.api.routes.health.get_db", AsyncMock(return_value=mock_db)), \
-             patch("knowledge.api.routes.health.check_ollama_health", AsyncMock(return_value=mock_ollama_healthy)):
+             patch("knowledge.api.routes.health._check_ollama", AsyncMock(return_value=mock_ollama_healthy)):
             response = client.get("/health")
             assert response.status_code == 200
 
             data = response.json()
             assert data["status"] == "healthy"
 
-            # Should have PostgreSQL and Ollama services
-            service_names = [s["name"] for s in data["services"]]
-            assert "PostgreSQL" in service_names
-            assert "Ollama" in service_names
+            # Should have database and ollama components
+            component_names = [c["name"] for c in data["components"]]
+            assert "database" in component_names
+            assert "ollama" in component_names
 
-            # All services should be healthy
-            for service in data["services"]:
-                assert service["status"] == "healthy"
+            # All components should be healthy
+            for component in data["components"]:
+                assert component["status"] == "healthy"
 
-    def test_health_reports_unhealthy_when_service_down(
+    def test_health_reports_degraded_when_ollama_down(
         self,
         client: TestClient,
         mock_db: MagicMock
     ):
-        """Test health endpoint reports unhealthy when a service is down."""
+        """Test health endpoint reports degraded when Ollama is down.
+
+        Note: Ollama being down is a degraded state, not unhealthy,
+        because the system can still function with BM25-only search.
+        """
         from knowledge.embeddings import OllamaStatus
 
         unhealthy_ollama = OllamaStatus(
@@ -517,9 +541,8 @@ class TestIntegrationWithMockedServices:
         )
 
         with patch("knowledge.api.routes.health.get_db", AsyncMock(return_value=mock_db)), \
-             patch("knowledge.api.routes.health.check_ollama_health", AsyncMock(return_value=unhealthy_ollama)):
+             patch("knowledge.api.routes.health._check_ollama", AsyncMock(return_value=unhealthy_ollama)):
             # Clear health cache to get fresh result
-            from knowledge.api.routes.health import _health_cache
             import knowledge.api.routes.health as health_module
             health_module._health_cache = None
 
@@ -527,8 +550,9 @@ class TestIntegrationWithMockedServices:
             assert response.status_code == 200
 
             data = response.json()
-            assert data["status"] == "unhealthy"
+            # Ollama down = degraded (not unhealthy) because system still works
+            assert data["status"] == "degraded"
 
-            # Find Ollama service
-            ollama_service = next(s for s in data["services"] if s["name"] == "Ollama")
-            assert ollama_service["status"] == "unhealthy"
+            # Find Ollama component
+            ollama_component = next(c for c in data["components"] if c["name"] == "ollama")
+            assert ollama_component["status"] == "degraded"

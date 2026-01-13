@@ -1,0 +1,253 @@
+# KAS RAG Evaluation Test Queries
+# Each query has expected characteristics for evaluation
+#
+# Scoring:
+# - context_relevancy: Are retrieved chunks relevant to the query?
+# - answer_relevancy: Does the answer address the query?
+# - faithfulness: Is the answer grounded in the retrieved context?
+
+queries:
+  # =============================================================================
+  # Framework Knowledge
+  # =============================================================================
+  - id: framework-001
+    query: "How do I create a FastAPI dependency?"
+    category: frameworks
+    expected_keywords:
+      - Depends
+      - dependency injection
+      - callable
+    expected_namespaces:
+      - frameworks
+    difficulty: easy
+
+  - id: framework-002
+    query: "What is the difference between Pydantic v1 and v2?"
+    category: frameworks
+    expected_keywords:
+      - model_validator
+      - field_validator
+      - ConfigDict
+    expected_namespaces:
+      - frameworks
+    difficulty: medium
+
+  - id: framework-003
+    query: "How does LangChain handle document loading?"
+    category: frameworks
+    expected_keywords:
+      - DocumentLoader
+      - load
+      - Document
+    expected_namespaces:
+      - frameworks
+    difficulty: medium
+
+  # =============================================================================
+  # RAG Knowledge
+  # =============================================================================
+  - id: rag-001
+    query: "What is RAG and how does it work?"
+    category: ai-ml
+    expected_keywords:
+      - retrieval
+      - augmented
+      - generation
+      - context
+    expected_namespaces:
+      - ai-research
+      - ai-ml
+    difficulty: easy
+
+  - id: rag-002
+    query: "How do I evaluate RAG system quality?"
+    category: ai-ml
+    expected_keywords:
+      - RAGAS
+      - faithfulness
+      - relevancy
+      - metrics
+    expected_namespaces:
+      - ai-research
+      - best-practices
+    difficulty: medium
+
+  - id: rag-003
+    query: "What are hybrid search strategies for RAG?"
+    category: ai-ml
+    expected_keywords:
+      - BM25
+      - vector
+      - semantic
+      - fusion
+    expected_namespaces:
+      - ai-ml
+      - frameworks
+    difficulty: medium
+
+  # =============================================================================
+  # Agent Knowledge
+  # =============================================================================
+  - id: agent-001
+    query: "How do I implement tool use with Claude?"
+    category: agents
+    expected_keywords:
+      - tool
+      - function
+      - anthropic
+    expected_namespaces:
+      - agent-frameworks
+      - best-practices
+    difficulty: easy
+
+  - id: agent-002
+    query: "What is the ReAct pattern for agents?"
+    category: agents
+    expected_keywords:
+      - reason
+      - action
+      - observation
+      - loop
+    expected_namespaces:
+      - agent-frameworks
+      - ai-research
+    difficulty: medium
+
+  - id: agent-003
+    query: "How does LangGraph handle state in agents?"
+    category: agents
+    expected_keywords:
+      - state
+      - graph
+      - node
+      - edge
+    expected_namespaces:
+      - agent-frameworks
+    difficulty: hard
+
+  # =============================================================================
+  # Infrastructure Knowledge
+  # =============================================================================
+  - id: infra-001
+    query: "How do I deploy a Docker container?"
+    category: infrastructure
+    expected_keywords:
+      - docker
+      - container
+      - run
+      - image
+    expected_namespaces:
+      - infrastructure
+      - tools
+    difficulty: easy
+
+  - id: infra-002
+    query: "What is Kubernetes pod scheduling?"
+    category: infrastructure
+    expected_keywords:
+      - pod
+      - node
+      - scheduler
+      - affinity
+    expected_namespaces:
+      - infrastructure
+    difficulty: medium
+
+  # =============================================================================
+  # MCP Knowledge
+  # =============================================================================
+  - id: mcp-001
+    query: "What is the Model Context Protocol?"
+    category: mcp
+    expected_keywords:
+      - MCP
+      - server
+      - tool
+      - protocol
+    expected_namespaces:
+      - tools
+      - projects/mcp-servers
+    difficulty: easy
+
+  - id: mcp-002
+    query: "How do I create an MCP server?"
+    category: mcp
+    expected_keywords:
+      - server
+      - tool
+      - handler
+      - stdio
+    expected_namespaces:
+      - projects/mcp-servers
+      - tools
+    difficulty: medium
+
+  # =============================================================================
+  # Best Practices
+  # =============================================================================
+  - id: best-001
+    query: "What are prompt engineering best practices?"
+    category: best-practices
+    expected_keywords:
+      - prompt
+      - chain-of-thought
+      - few-shot
+    expected_namespaces:
+      - best-practices
+    difficulty: easy
+
+  - id: best-002
+    query: "How do I secure an LLM application?"
+    category: best-practices
+    expected_keywords:
+      - injection
+      - validation
+      - OWASP
+    expected_namespaces:
+      - best-practices
+    difficulty: medium
+
+  # =============================================================================
+  # Edge Cases / Challenging
+  # =============================================================================
+  - id: edge-001
+    query: "What embedding models work best with Ollama?"
+    category: tools
+    expected_keywords:
+      - nomic
+      - embed
+      - ollama
+    expected_namespaces:
+      - tools
+      - ai-ml
+    difficulty: hard
+
+  - id: edge-002
+    query: "How do I implement streaming with FastAPI and LLMs?"
+    category: frameworks
+    expected_keywords:
+      - streaming
+      - SSE
+      - async
+      - yield
+    expected_namespaces:
+      - frameworks
+    difficulty: hard
+
+  - id: edge-003
+    query: "What is the FSRS algorithm for spaced repetition?"
+    category: learning
+    expected_keywords:
+      - FSRS
+      - spaced
+      - repetition
+      - memory
+    expected_namespaces: []  # May not have content
+    difficulty: hard
+    notes: "Test case for missing knowledge"
+
+# Evaluation settings
+settings:
+  default_limit: 5
+  min_confidence: 0.3
+  required_keyword_overlap: 0.5  # At least 50% of keywords should appear

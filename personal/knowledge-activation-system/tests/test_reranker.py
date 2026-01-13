@@ -27,7 +27,7 @@ class TestLocalReranker:
         """Test reranker initialization doesn't load model immediately."""
         from knowledge.reranker import LocalReranker
 
-        with patch("knowledge.reranker.CrossEncoder", MagicMock()) as mock_ce:
+        with patch("sentence_transformers.CrossEncoder", MagicMock()) as mock_ce:
             reranker = LocalReranker(model_name="test-model")
 
             # Model should not be loaded yet
@@ -37,11 +37,12 @@ class TestLocalReranker:
     def test_lazy_loading_on_first_use(self):
         """Test model is loaded on first prediction call."""
         from knowledge.reranker import LocalReranker
+        import numpy as np
 
         mock_model = MagicMock()
-        mock_model.predict.return_value = [0.5]
+        mock_model.predict.return_value = np.array([0.5])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce, \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce, \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -59,7 +60,7 @@ class TestLocalReranker:
 
         mock_model = MagicMock()
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce, \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce, \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -74,7 +75,7 @@ class TestLocalReranker:
 
         mock_model = MagicMock()
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce, \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce, \
              patch("torch.backends.mps.is_available", return_value=True):
 
             reranker = LocalReranker(model_name="test-model")
@@ -91,7 +92,7 @@ class TestLocalReranker:
 
         mock_model = MagicMock()
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce, \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce, \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=True):
 
@@ -107,7 +108,7 @@ class TestLocalReranker:
 
         mock_model = MagicMock()
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce, \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce, \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -123,7 +124,7 @@ class TestLocalReranker:
 
         mock_model = MagicMock()
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce:
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce:
             # Even if MPS/CUDA available, explicit device should be used
             reranker = LocalReranker(model_name="test-model", device="cpu")
             reranker._load_model()
@@ -143,7 +144,7 @@ class TestRerankerPrediction:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.9, 0.5, 0.3])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -170,7 +171,7 @@ class TestRerankerPrediction:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.8, 0.6])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -200,7 +201,7 @@ class TestRerankerPrediction:
         # Return scores in reverse order to test sorting
         mock_model.predict.return_value = np.array([0.3, 0.9, 0.6])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -229,7 +230,7 @@ class TestRerankerPrediction:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.3, 0.9, 0.6, 0.4])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -254,7 +255,7 @@ class TestRerankerPrediction:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.8])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -284,7 +285,7 @@ class TestRerankerPrediction:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.8])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -328,7 +329,7 @@ class TestAsyncReranking:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.2, 0.8])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -353,7 +354,7 @@ class TestAsyncReranking:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.3, 0.9, 0.6])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -440,7 +441,7 @@ class TestRerankResultsConvenience:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.95, 0.75])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -473,7 +474,7 @@ class TestRerankResultsConvenience:
         mock_model = MagicMock()
         mock_model.predict.return_value = np.array([0.9])
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model), \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -508,16 +509,25 @@ class TestErrorHandling:
     def test_import_error_when_sentence_transformers_missing(self):
         """Test proper error when sentence-transformers not installed."""
         from knowledge.reranker import LocalReranker
+        import sys
 
-        with patch.dict("sys.modules", {"sentence_transformers": None}):
-            # Force reimport to trigger ImportError path
-            with patch("knowledge.reranker.CrossEncoder", side_effect=ImportError("No module")):
-                reranker = LocalReranker(model_name="test-model")
+        # Remove the module from sys.modules to simulate not installed
+        saved_module = sys.modules.get("sentence_transformers")
+        sys.modules["sentence_transformers"] = None
 
-                with pytest.raises(ImportError) as exc_info:
-                    reranker._load_model()
+        try:
+            reranker = LocalReranker(model_name="test-model")
 
-                assert "sentence-transformers" in str(exc_info.value)
+            with pytest.raises(ImportError) as exc_info:
+                reranker._load_model()
+
+            assert "sentence-transformers" in str(exc_info.value)
+        finally:
+            # Restore module
+            if saved_module is not None:
+                sys.modules["sentence_transformers"] = saved_module
+            else:
+                sys.modules.pop("sentence_transformers", None)
 
     def test_model_already_loaded_skips_reload(self):
         """Test _load_model doesn't reload if already loaded."""
@@ -525,7 +535,7 @@ class TestErrorHandling:
 
         mock_model = MagicMock()
 
-        with patch("knowledge.reranker.CrossEncoder", return_value=mock_model) as mock_ce, \
+        with patch("sentence_transformers.CrossEncoder", return_value=mock_model) as mock_ce, \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 
@@ -545,7 +555,7 @@ class TestErrorHandling:
         reranker_module._reranker = None
         reranker_module._preload_task = None
 
-        with patch("knowledge.reranker.CrossEncoder", side_effect=Exception("Model load failed")), \
+        with patch("sentence_transformers.CrossEncoder", side_effect=Exception("Model load failed")), \
              patch("torch.backends.mps.is_available", return_value=False), \
              patch("torch.cuda.is_available", return_value=False):
 

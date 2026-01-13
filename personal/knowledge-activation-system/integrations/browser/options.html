@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Engine Settings</title>
+  <link rel="stylesheet" href="styles/options.css">
+</head>
+<body>
+  <div class="options">
+    <header class="header">
+      <h1>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        Knowledge Engine Settings
+      </h1>
+    </header>
+
+    <main class="main">
+      <!-- Connection Settings -->
+      <section class="section">
+        <h2 class="section-title">Connection</h2>
+        <div class="form-group">
+          <label for="api-url">API URL</label>
+          <input type="url" id="api-url" class="input" placeholder="http://localhost:8000">
+          <p class="help-text">URL of your Knowledge Engine API server</p>
+        </div>
+        <div class="form-group">
+          <label for="api-key">API Key (Optional)</label>
+          <input type="password" id="api-key" class="input" placeholder="Enter API key">
+          <p class="help-text">API key for authentication if required</p>
+        </div>
+        <div class="form-group">
+          <label for="namespace">Namespace</label>
+          <input type="text" id="namespace" class="input" placeholder="browser">
+          <p class="help-text">Namespace for organizing your clipped content</p>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-secondary" id="test-connection">
+            Test Connection
+          </button>
+          <span class="connection-status" id="connection-status"></span>
+        </div>
+      </section>
+
+      <!-- Behavior Settings -->
+      <section class="section">
+        <h2 class="section-title">Behavior</h2>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="auto-extract">
+            <span>Auto-extract content on clip</span>
+          </label>
+          <p class="help-text">Automatically extract main content from pages</p>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="show-notifications">
+            <span>Show notifications</span>
+          </label>
+          <p class="help-text">Display notifications for clip actions</p>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="extract-images">
+            <span>Extract images</span>
+          </label>
+          <p class="help-text">Include image URLs in clipped content metadata</p>
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="extract-links">
+            <span>Extract links</span>
+          </label>
+          <p class="help-text">Include page links in clipped content metadata</p>
+        </div>
+      </section>
+
+      <!-- Keyboard Shortcuts -->
+      <section class="section">
+        <h2 class="section-title">Keyboard Shortcuts</h2>
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <span class="shortcut-name">Clip Page</span>
+            <kbd>Alt+Shift+K</kbd>
+          </div>
+          <div class="shortcut-item">
+            <span class="shortcut-name">Clip Selection</span>
+            <kbd>Alt+Shift+S</kbd>
+          </div>
+        </div>
+        <p class="help-text">
+          You can customize these shortcuts in your browser's extension settings.
+        </p>
+      </section>
+
+      <!-- Data Management -->
+      <section class="section">
+        <h2 class="section-title">Data</h2>
+        <div class="form-group">
+          <button class="btn btn-secondary" id="clear-recent">
+            Clear Recent Clips
+          </button>
+          <p class="help-text">Clear the recent clips history stored locally</p>
+        </div>
+        <div class="form-group">
+          <button class="btn btn-secondary" id="export-settings">
+            Export Settings
+          </button>
+          <button class="btn btn-secondary" id="import-settings">
+            Import Settings
+          </button>
+          <input type="file" id="import-file" accept=".json" style="display: none;">
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <button class="btn btn-primary" id="save-settings">
+        Save Settings
+      </button>
+      <button class="btn btn-secondary" id="reset-settings">
+        Reset to Defaults
+      </button>
+    </footer>
+  </div>
+
+  <script src="src/options.js" type="module"></script>
+</body>
+</html>

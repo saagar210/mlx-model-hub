@@ -1,0 +1,24 @@
+{
+  "name": "obsidian-knowledge-engine",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for Knowledge Engine integration",
+  "main": "main.js",
+  "scripts": {
+    "dev": "esbuild src/main.ts --bundle --outfile=main.js --format=cjs --external:obsidian --sourcemap --watch",
+    "build": "esbuild src/main.ts --bundle --outfile=main.js --format=cjs --external:obsidian --minify",
+    "version": "node version-bump.mjs && git add manifest.json versions.json"
+  },
+  "keywords": [
+    "obsidian",
+    "knowledge",
+    "search",
+    "ai",
+    "rag"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "typescript": "^5.4.0"
+  }
+}

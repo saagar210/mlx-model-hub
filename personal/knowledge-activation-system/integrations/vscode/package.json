@@ -1,0 +1,135 @@
+{
+  "name": "vscode-knowledge-engine",
+  "displayName": "Knowledge Engine",
+  "description": "Search your knowledge base and get AI-powered answers directly in VS Code",
+  "version": "0.1.0",
+  "publisher": "knowledge-engine",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "knowledge",
+    "search",
+    "ai",
+    "rag",
+    "documentation"
+  ],
+  "activationEvents": [
+    "onCommand:knowledgeEngine.search",
+    "onCommand:knowledgeEngine.ask",
+    "onCommand:knowledgeEngine.ingestSelection"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "knowledgeEngine.search",
+        "title": "Knowledge Engine: Search",
+        "icon": "$(search)"
+      },
+      {
+        "command": "knowledgeEngine.ask",
+        "title": "Knowledge Engine: Ask Question"
+      },
+      {
+        "command": "knowledgeEngine.ingestSelection",
+        "title": "Knowledge Engine: Save Selection to Knowledge Base"
+      },
+      {
+        "command": "knowledgeEngine.ingestFile",
+        "title": "Knowledge Engine: Save Current File"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "knowledgeEngine.search",
+        "key": "ctrl+shift+k",
+        "mac": "cmd+shift+k"
+      },
+      {
+        "command": "knowledgeEngine.ask",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "knowledgeEngine.ingestSelection",
+          "when": "editorHasSelection",
+          "group": "knowledgeEngine"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Knowledge Engine",
+      "properties": {
+        "knowledgeEngine.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "URL of the Knowledge Engine API server"
+        },
+        "knowledgeEngine.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for authentication (optional)"
+        },
+        "knowledgeEngine.namespace": {
+          "type": "string",
+          "default": "vscode",
+          "description": "Namespace for saved content"
+        },
+        "knowledgeEngine.maxResults": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum search results to show"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "knowledge-engine",
+          "title": "Knowledge Engine",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "knowledge-engine": [
+        {
+          "id": "ke-search",
+          "name": "Search",
+          "type": "webview"
+        },
+        {
+          "id": "ke-recent",
+          "name": "Recent"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "node ./out/test/runTest.js",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0"
+  }
+}

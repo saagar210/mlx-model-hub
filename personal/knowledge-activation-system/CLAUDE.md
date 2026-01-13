@@ -1,5 +1,17 @@
 # Knowledge Activation System
 
+## Quick Start for New Session
+
+**READ FIRST:** `docs/SESSION_HANDOFF.md` contains complete context including:
+- What KAS is and why it exists
+- Completed work (P1-P10)
+- 28 remaining priorities (P11-P38) with full details
+- Key files reference
+- Execution order recommendations
+
+**Current Phase:** Production Readiness (P11-P38)
+**Next Priority:** P11 - Database Index Optimization
+
 ## Project Overview
 A hybrid Obsidian-centric personal knowledge management system with:
 - AI-powered semantic + keyword hybrid search
@@ -64,7 +76,28 @@ mypy src/
 
 ## Planning Documents
 
+- `docs/SESSION_HANDOFF.md` - **START HERE** - Complete context for new sessions
+- `docs/PROJECT_STATUS.md` - Overall project status and metrics
 - `docs/IMPLEMENTATION_PLAN.md` - Full phased implementation plan
 - `docs/DATABASE_SCHEMA.md` - Complete PostgreSQL schema
 - `docs/ARCHITECTURE.md` - System architecture and data flow
 - `docs/DECISIONS.md` - All user decisions captured during planning
+
+## Current Status (2026-01-13)
+
+**Completed:** P1-P10 (Core system, optimizations, analytics)
+**In Progress:** Production Readiness Roadmap (P11-P38)
+
+### Critical Path Priorities:
+1. P11 - Database Index Optimization
+2. P12 - Connection Pool Management
+3. P14 - Error Handling Standardization
+4. P15 - Logging Infrastructure
+5. P17 - Authentication System
+6. P37 - Backup & Recovery
+
+### Test Status:
+- 237 tests passing
+- 2 skipped (integration tests requiring live services)
+
+Run tests: `pytest tests/ -v`

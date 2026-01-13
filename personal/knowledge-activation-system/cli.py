@@ -386,8 +386,66 @@ def health() -> None:
 
 
 @app.command()
-def config() -> None:
-    """Show current configuration."""
+def config(
+    validate: Annotated[bool, typer.Option("--validate", help="Validate configuration")] = False,
+    show_all: Annotated[bool, typer.Option("--all", "-a", help="Show all settings")] = False,
+) -> None:
+    """Show or validate current configuration."""
+    if validate:
+        # Validate configuration
+        console.print("[bold cyan]Validating Configuration...[/bold cyan]")
+        console.print()
+
+        errors = []
+        warnings = []
+
+        try:
+            settings = get_settings()
+
+            # Check database URL
+            if not settings.database_url:
+                errors.append("DATABASE_URL not set")
+            elif "localhost" in settings.database_url or "127.0.0.1" in settings.database_url:
+                warnings.append("Using local database (OK for dev)")
+
+            # Check Ollama URL
+            if not settings.ollama_url:
+                errors.append("OLLAMA_URL not set")
+
+            # Check vault path
+            from pathlib import Path
+
+            vault = Path(settings.vault_path)
+            if not vault.exists():
+                warnings.append(f"Vault path does not exist: {settings.vault_path}")
+
+            # Pool settings
+            if settings.db_pool_max < settings.db_pool_min:
+                errors.append("db_pool_max must be >= db_pool_min")
+
+        except Exception as e:
+            errors.append(f"Configuration load failed: {e}")
+
+        # Print results
+        if errors:
+            for err in errors:
+                console.print(f"[red]✗ ERROR: {err}[/red]")
+
+        if warnings:
+            for warn in warnings:
+                console.print(f"[yellow]⚠ WARNING: {warn}[/yellow]")
+
+        if not errors and not warnings:
+            console.print("[green]✓ Configuration is valid![/green]")
+        elif not errors:
+            console.print()
+            console.print("[green]✓ Configuration is valid (with warnings)[/green]")
+        else:
+            console.print()
+            console.print("[red]✗ Configuration has errors[/red]")
+            raise typer.Exit(1)
+        return
+
     settings = get_settings()
 
     console.print()
@@ -417,7 +475,293 @@ def config() -> None:
     table.add_row("BM25 Candidates", str(settings.bm25_candidates))
     table.add_row("Vector Candidates", str(settings.vector_candidates))
 
+    if show_all:
+        # Show all settings
+        console.print()
+        console.print("[bold]Additional Settings:[/bold]")
+        table.add_row("Rate Limit Enabled", str(settings.rate_limit_enabled))
+        table.add_row("Rate Limit Requests", str(settings.rate_limit_requests))
+        table.add_row("Require API Key", str(settings.require_api_key))
+        table.add_row("Log Format", settings.log_format)
+        table.add_row("Log Level", settings.log_level)
+
     console.print(table)
+
+
+@app.command()
+def doctor() -> None:
+    """Run diagnostics on all KAS components."""
+
+    async def _doctor():
+        console.print()
+        console.print("[bold cyan]KAS Diagnostics[/bold cyan]")
+        console.print()
+
+        checks: list[tuple[str, bool, str]] = []
+
+        # Check 1: Configuration
+        try:
+            settings = get_settings()
+            checks.append(("Configuration", True, "Loaded successfully"))
+        except Exception as e:
+            checks.append(("Configuration", False, str(e)[:60]))
+
+        # Check 2: PostgreSQL
+        try:
+            db = await get_db()
+            db_health = await db.check_health()
+            if db_health["status"] == "healthy":
+                checks.append((
+                    "PostgreSQL",
+                    True,
+                    f"{db_health.get('content_count', 0)} items, {db_health.get('chunk_count', 0)} chunks",
+                ))
+            else:
+                checks.append(("PostgreSQL", False, db_health.get("error", "Unhealthy")))
+        except Exception as e:
+            checks.append(("PostgreSQL", False, str(e)[:60]))
+
+        # Check 3: Ollama
+        try:
+            ollama_status = await check_ollama_health()
+            if ollama_status.healthy:
+                checks.append((
+                    "Ollama",
+                    True,
+                    f"{len(ollama_status.models_loaded)} models loaded",
+                ))
+            else:
+                checks.append(("Ollama", False, ollama_status.error or "Not healthy"))
+        except Exception as e:
+            checks.append(("Ollama", False, str(e)[:60]))
+
+        # Check 4: Embedding Model
+        try:
+            settings = get_settings()
+            ollama_status = await check_ollama_health()
+            if settings.embedding_model in ollama_status.models_loaded:
+                checks.append(("Embedding Model", True, settings.embedding_model))
+            else:
+                checks.append((
+                    "Embedding Model",
+                    False,
+                    f"{settings.embedding_model} not loaded",
+                ))
+        except Exception as e:
+            checks.append(("Embedding Model", False, str(e)[:60]))
+
+        # Check 5: Vault Path
+        try:
+            from pathlib import Path
+
+            settings = get_settings()
+            vault = Path(settings.vault_path)
+            if vault.exists():
+                file_count = len(list(vault.rglob("*.md")))
+                checks.append(("Obsidian Vault", True, f"{file_count} markdown files"))
+            else:
+                checks.append(("Obsidian Vault", False, "Path does not exist"))
+        except Exception as e:
+            checks.append(("Obsidian Vault", False, str(e)[:60]))
+
+        # Check 6: API Server
+        try:
+            import httpx
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get("http://localhost:8000/health", timeout=5.0)
+                if response.status_code == 200:
+                    checks.append(("API Server", True, "Running on port 8000"))
+                else:
+                    checks.append(("API Server", False, f"Status {response.status_code}"))
+        except Exception:
+            checks.append(("API Server", False, "Not running"))
+
+        # Display results
+        all_ok = True
+        for name, ok, details in checks:
+            status = "[green]✓[/green]" if ok else "[red]✗[/red]"
+            status_text = "[green]OK[/green]" if ok else "[red]FAIL[/red]"
+            console.print(f"{status} {name}: {status_text}")
+            console.print(f"  [dim]{details}[/dim]")
+            if not ok:
+                all_ok = False
+
+        console.print()
+        if all_ok:
+            console.print("[bold green]All checks passed![/bold green]")
+        else:
+            console.print("[bold yellow]Some checks failed. Review above for details.[/bold yellow]")
+            raise typer.Exit(1)
+
+        await close_db()
+        await close_embedding_service()
+
+    run_async(_doctor())
+
+
+@app.command()
+def maintenance(
+    vacuum: Annotated[bool, typer.Option("--vacuum", help="Run VACUUM ANALYZE on database")] = False,
+    reindex: Annotated[bool, typer.Option("--reindex", help="Rebuild search indexes")] = False,
+    cleanup: Annotated[bool, typer.Option("--cleanup", help="Clean up orphaned chunks")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", "-n", help="Show what would be done")] = False,
+) -> None:
+    """Database maintenance tasks."""
+    if not any([vacuum, reindex, cleanup]):
+        console.print("[yellow]Specify at least one maintenance task:[/yellow]")
+        console.print("  --vacuum   Run VACUUM ANALYZE")
+        console.print("  --reindex  Rebuild search indexes")
+        console.print("  --cleanup  Clean up orphaned chunks")
+        raise typer.Exit(1)
+
+    async def _maintenance():
+        try:
+            db = await get_db()
+
+            if vacuum:
+                console.print("[bold]Running VACUUM ANALYZE...[/bold]")
+                if dry_run:
+                    console.print("[dim]Would run: VACUUM ANALYZE[/dim]")
+                else:
+                    async with db._pool.acquire() as conn:
+                        await conn.execute("VACUUM ANALYZE")
+                    console.print("[green]✓[/green] VACUUM ANALYZE complete")
+
+            if reindex:
+                console.print("[bold]Rebuilding indexes...[/bold]")
+                indexes = [
+                    "idx_chunks_content_id",
+                    "idx_content_namespace",
+                    "idx_content_type",
+                ]
+                for idx in indexes:
+                    if dry_run:
+                        console.print(f"[dim]Would run: REINDEX INDEX {idx}[/dim]")
+                    else:
+                        try:
+                            async with db._pool.acquire() as conn:
+                                await conn.execute(f"REINDEX INDEX {idx}")
+                            console.print(f"[green]✓[/green] Reindexed {idx}")
+                        except Exception as e:
+                            console.print(f"[yellow]⚠[/yellow] {idx}: {e}")
+
+            if cleanup:
+                console.print("[bold]Cleaning up orphaned chunks...[/bold]")
+                if dry_run:
+                    async with db._pool.acquire() as conn:
+                        orphaned = await conn.fetchval("""
+                            SELECT COUNT(*) FROM chunks c
+                            LEFT JOIN content ct ON c.content_id = ct.id
+                            WHERE ct.id IS NULL
+                        """)
+                    console.print(f"[dim]Would delete {orphaned} orphaned chunks[/dim]")
+                else:
+                    async with db._pool.acquire() as conn:
+                        result = await conn.execute("""
+                            DELETE FROM chunks c
+                            USING (
+                                SELECT c.id FROM chunks c
+                                LEFT JOIN content ct ON c.content_id = ct.id
+                                WHERE ct.id IS NULL
+                            ) orphans
+                            WHERE c.id = orphans.id
+                        """)
+                        # Parse the result to get count
+                        count = result.split()[-1] if result else "0"
+                    console.print(f"[green]✓[/green] Deleted {count} orphaned chunks")
+
+            console.print()
+            console.print("[bold green]Maintenance complete![/bold green]")
+
+        finally:
+            await close_db()
+
+    run_async(_maintenance())
+
+
+@app.command("export")
+def export_cmd(
+    output: Annotated[str, typer.Option("--output", "-o", help="Output file path")] = "kas-export.json",
+    format: Annotated[str, typer.Option("--format", "-f", help="Format: json, jsonl")] = "json",
+    namespace: Annotated[str | None, typer.Option("--namespace", "-ns", help="Filter by namespace")] = None,
+    include_embeddings: Annotated[bool, typer.Option("--embeddings", help="Include embedding vectors")] = False,
+) -> None:
+    """Export knowledge base content."""
+    import httpx
+
+    console.print(f"[bold]Exporting to {output}...[/bold]")
+
+    try:
+        with httpx.Client(timeout=300.0) as client:
+            response = client.post(
+                "http://localhost:8000/api/v1/export",
+                json={
+                    "format": format,
+                    "namespace": namespace,
+                    "include_chunks": True,
+                    "include_embeddings": include_embeddings,
+                },
+            )
+
+            if response.status_code != 200:
+                console.print(f"[red]Export failed: {response.text}[/red]")
+                raise typer.Exit(1)
+
+            with open(output, "wb") as f:
+                f.write(response.content)
+
+        console.print(f"[green]✓[/green] Exported to {output}")
+
+    except httpx.RequestError as e:
+        console.print(f"[red]API not available: {e}[/red]")
+        console.print("[dim]Make sure the KAS API is running[/dim]")
+        raise typer.Exit(1)
+
+
+@app.command("import")
+def import_cmd(
+    input_file: Annotated[str, typer.Argument(help="Input file path")],
+    skip_existing: Annotated[bool, typer.Option("--skip-existing", help="Skip existing items")] = True,
+) -> None:
+    """Import content from backup file."""
+    import httpx
+    from pathlib import Path
+
+    path = Path(input_file)
+    if not path.exists():
+        console.print(f"[red]File not found: {input_file}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]Importing from {input_file}...[/bold]")
+
+    try:
+        with httpx.Client(timeout=300.0) as client:
+            with open(path, "rb") as f:
+                files = {"file": (path.name, f, "application/json")}
+                response = client.post(
+                    "http://localhost:8000/api/v1/export/import",
+                    files=files,
+                    params={"skip_existing": skip_existing},
+                )
+
+            if response.status_code != 200:
+                console.print(f"[red]Import failed: {response.text}[/red]")
+                raise typer.Exit(1)
+
+            result = response.json()
+
+        console.print(f"[green]✓[/green] Import complete")
+        console.print(f"  Total: {result['total']}")
+        console.print(f"  Imported: {result['imported']}")
+        console.print(f"  Skipped: {result['skipped']}")
+        if result.get("errors"):
+            console.print(f"  [yellow]Errors: {len(result['errors'])}[/yellow]")
+
+    except httpx.RequestError as e:
+        console.print(f"[red]API not available: {e}[/red]")
+        console.print("[dim]Make sure the KAS API is running[/dim]")
+        raise typer.Exit(1)
 
 
 # =============================================================================
@@ -870,6 +1214,179 @@ def review_suspend_cmd(
             await close_db()
 
     run_async(_suspend())
+
+
+# =============================================================================
+# Project Commands
+# =============================================================================
+
+
+@app.command()
+def context(
+    project_path: Annotated[str, typer.Argument(help="Path to project directory")] = ".",
+    limit: Annotated[int, typer.Option("--limit", "-n", help="Number of context items")] = 5,
+    output: Annotated[str, typer.Option("--output", "-o", help="Output format: markdown, json")] = "markdown",
+) -> None:
+    """
+    Generate context from knowledge base for a project.
+
+    Detects project namespace and retrieves relevant knowledge for
+    session preloading.
+    """
+    from pathlib import Path
+    import json as json_module
+    import httpx
+
+    project = Path(project_path).resolve()
+
+    if not project.exists():
+        console.print(f"[red]Directory not found: {project}[/red]")
+        raise typer.Exit(1)
+
+    # Detect project name from directory
+    project_name = project.name
+    namespace = f"projects/{project_name}"
+
+    # Check for CLAUDE.md to extract project context
+    claude_md = project / "CLAUDE.md"
+    project_description = None
+    if claude_md.exists():
+        content = claude_md.read_text()
+        # Extract first paragraph after # heading
+        lines = content.split("\n")
+        for i, line in enumerate(lines):
+            if line.startswith("# "):
+                # Look for description in next non-empty lines
+                for j in range(i + 1, min(i + 10, len(lines))):
+                    if lines[j].strip() and not lines[j].startswith("#"):
+                        project_description = lines[j].strip()
+                        break
+                break
+
+    console.print(f"[bold]Project:[/bold] {project_name}")
+    console.print(f"[bold]Namespace:[/bold] {namespace}")
+    if project_description:
+        console.print(f"[dim]{project_description}[/dim]")
+    console.print()
+
+    # Search for relevant content
+    try:
+        # Try project namespace first
+        response = httpx.get(
+            "http://localhost:8000/api/v1/search",
+            params={"q": project_name, "namespace": f"{namespace}*", "limit": limit},
+            timeout=10.0,
+        )
+        results = response.json().get("results", [])
+
+        # If no results, try broader search
+        if not results:
+            response = httpx.get(
+                "http://localhost:8000/api/v1/search",
+                params={"q": project_name, "limit": limit},
+                timeout=10.0,
+            )
+            results = response.json().get("results", [])
+
+        if not results:
+            console.print("[yellow]No relevant context found for this project.[/yellow]")
+            console.print(f"[dim]Use kas_capture with namespace='{namespace}' to add knowledge.[/dim]")
+            return
+
+        if output == "json":
+            console.print(json_module.dumps(results, indent=2))
+        else:
+            # Markdown output
+            console.print(f"## Context for {project_name}\n")
+            for i, r in enumerate(results, 1):
+                ns = r.get("namespace") or "default"
+                title = r.get("title", "Untitled")
+                chunk = r.get("chunk_text", "")[:300]
+                console.print(f"### {i}. {title}")
+                console.print(f"*Namespace: {ns}*\n")
+                console.print(f"{chunk}...\n")
+                console.print("---\n")
+
+    except httpx.RequestError as e:
+        console.print(f"[red]KAS API not available: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
+def init(
+    project_path: Annotated[str, typer.Argument(help="Path to project directory")] = ".",
+    force: Annotated[bool, typer.Option("--force", "-f", help="Overwrite existing config")] = False,
+) -> None:
+    """Initialize KAS integration in a project.
+
+    Creates .claude/mcp_settings.json for MCP server connection.
+    """
+    from pathlib import Path
+    import json
+    import shutil
+
+    project = Path(project_path).resolve()
+
+    if not project.exists():
+        console.print(f"[red]Directory not found: {project}[/red]")
+        raise typer.Exit(1)
+
+    if not project.is_dir():
+        console.print(f"[red]Not a directory: {project}[/red]")
+        raise typer.Exit(1)
+
+    claude_dir = project / ".claude"
+    mcp_settings = claude_dir / "mcp_settings.json"
+
+    # Check for existing config
+    if mcp_settings.exists() and not force:
+        console.print(f"[yellow]MCP settings already exist: {mcp_settings}[/yellow]")
+        console.print("[dim]Use --force to overwrite[/dim]")
+        raise typer.Exit(1)
+
+    # Create .claude directory
+    claude_dir.mkdir(exist_ok=True)
+
+    # Write MCP settings
+    settings = {
+        "mcpServers": {
+            "kas": {
+                "command": "node",
+                "args": ["/Users/d/claude-code/personal/knowledge-activation-system/mcp-server/dist/index.js"],
+                "env": {
+                    "KAS_API_URL": "http://localhost:8000"
+                }
+            }
+        }
+    }
+
+    with open(mcp_settings, "w") as f:
+        json.dump(settings, f, indent=2)
+
+    console.print(f"[green]✓[/green] Created {mcp_settings}")
+
+    # Copy integration guide if docs folder exists
+    docs_dir = project / "docs"
+    if docs_dir.exists():
+        template_guide = Path("/Users/d/claude-code/templates/kas-project/docs/KAS_INTEGRATION.md")
+        if template_guide.exists():
+            dest_guide = docs_dir / "KAS_INTEGRATION.md"
+            if not dest_guide.exists() or force:
+                shutil.copy(template_guide, dest_guide)
+                console.print(f"[green]✓[/green] Created {dest_guide}")
+
+    console.print()
+    console.print("[bold]KAS integration initialized![/bold]")
+    console.print()
+    console.print("Next steps:")
+    console.print("  1. Start a new Claude Code session in this project")
+    console.print("  2. Use kas_search, kas_ask, kas_capture tools")
+    console.print()
+    console.print("[dim]Available MCP tools:[/dim]")
+    console.print("  kas_search   - Search knowledge base")
+    console.print("  kas_ask      - Q&A with citations")
+    console.print("  kas_capture  - Save new learnings")
+    console.print("  kas_stats    - Check KAS health")
 
 
 if __name__ == "__main__":

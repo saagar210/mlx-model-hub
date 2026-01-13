@@ -1,6 +1,14 @@
-"""Search and Q&A routes."""
+"""Search and Q&A routes.
+
+Provides search functionality with:
+- Hybrid search (BM25 + vector)
+- AI-powered Q&A with citations
+- Search result summarization
+"""
 
 from __future__ import annotations
+
+import logging
 
 from fastapi import APIRouter, HTTPException
 
@@ -16,7 +24,14 @@ from knowledge.api.schemas import (
 )
 from knowledge.qa import ask as qa_ask
 from knowledge.qa import search_and_summarize
-from knowledge.search import hybrid_search, search_bm25_only, search_vector_only
+from knowledge.search import (
+    hybrid_search_with_status,
+    search_bm25_only,
+    search_vector_only,
+)
+from knowledge.security import sanitize_error_message, is_production
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -27,14 +42,28 @@ async def search(request: SearchRequest) -> SearchResponse:
     Search the knowledge base.
 
     Supports hybrid (BM25 + vector), BM25-only, or vector-only search modes.
+
+    When hybrid search is used, the system will gracefully degrade to BM25-only
+    if the embedding service (Ollama) is unavailable. Check the 'degraded' and
+    'search_mode' fields in the response to see if degradation occurred.
     """
     try:
+        degraded = False
+        search_mode = request.mode.value
+        warnings: list[str] = []
+
         if request.mode == SearchMode.HYBRID:
-            results = await hybrid_search(request.query, limit=request.limit)
+            response = await hybrid_search_with_status(request.query, limit=request.limit)
+            results = response.results
+            degraded = response.degraded
+            search_mode = response.search_mode
+            warnings = response.warnings
         elif request.mode == SearchMode.BM25:
             results = await search_bm25_only(request.query, limit=request.limit)
+            search_mode = "bm25_only"
         else:
             results = await search_vector_only(request.query, limit=request.limit)
+            search_mode = "vector_only"
 
         return SearchResponse(
             query=request.query,
@@ -53,9 +82,14 @@ async def search(request: SearchRequest) -> SearchResponse:
             ],
             total=len(results),
             mode=request.mode.value,
+            degraded=degraded,
+            search_mode=search_mode,
+            warnings=warnings,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception(f"Search failed for: {request.query[:50]}...")
+        error_msg = sanitize_error_message(e, production=is_production())
+        raise HTTPException(status_code=500, detail=error_msg) from e
 
 
 @router.post("/ask", response_model=AskResponse)
@@ -87,7 +121,9 @@ async def ask(request: AskRequest) -> AskResponse:
             error=result.error,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception(f"Ask failed for: {request.query[:50]}...")
+        error_msg = sanitize_error_message(e, production=is_production())
+        raise HTTPException(status_code=500, detail=error_msg) from e
 
 
 @router.post("/summarize", response_model=AskResponse)
@@ -118,4 +154,6 @@ async def summarize(request: AskRequest) -> AskResponse:
             error=result.error,
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception(f"Summarize failed for: {request.query[:50]}...")
+        error_msg = sanitize_error_message(e, production=is_production())
+        raise HTTPException(status_code=500, detail=error_msg) from e
