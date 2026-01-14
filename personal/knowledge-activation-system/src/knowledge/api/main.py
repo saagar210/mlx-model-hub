@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from knowledge.ai import close_ai_provider
 from knowledge.api.middleware import APIVersionMiddleware, MetricsMiddleware, SecurityMiddleware
-from knowledge.api.routes import auth, batch, content, export, health, integration, metrics, namespaces, review, search, webhooks
+from knowledge.api.routes import auth, batch, content, export, health, integration, metrics, namespaces, review, search, tuning, webhooks
 from knowledge.config import get_settings
 from knowledge.db import close_db
 from knowledge.embeddings import close_embedding_service
@@ -98,6 +98,7 @@ app.include_router(namespaces.router)  # Namespace management (/api/v1/namespace
 app.include_router(batch.router)  # Batch operations (/api/v1/batch)
 app.include_router(export.router)  # Export/Import (/api/v1/export)
 app.include_router(webhooks.router)  # Webhooks (/api/v1/webhooks)
+app.include_router(tuning.router)  # Search tuning (/api/v1/tuning)
 
 
 @app.get("/")

@@ -167,9 +167,14 @@ class TestHybridSearch:
         sample_vector_results: list[tuple],
     ):
         """Test that hybrid search calls both BM25 and vector search."""
+        # Mock cache to bypass caching
+        mock_cache = AsyncMock()
+        mock_cache.is_connected = False  # Disable cache
+
         with patch("knowledge.search.get_settings") as mock_get_settings, \
              patch("knowledge.search.get_db") as mock_get_db, \
-             patch("knowledge.search.embed_text") as mock_embed:
+             patch("knowledge.search.embed_text") as mock_embed, \
+             patch("knowledge.search.get_cache", AsyncMock(return_value=mock_cache)):
 
             mock_get_settings.return_value = test_settings
 

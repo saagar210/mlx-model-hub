@@ -588,6 +588,36 @@ def validate_search_query(
     return query
 
 
+def sanitize_query(query: str, max_length: int = 1000) -> str:
+    """
+    Sanitize a search query for safe database usage.
+
+    This function always returns a sanitized string (never raises).
+    For validation with errors, use validate_search_query instead.
+
+    Args:
+        query: The search query to sanitize
+        max_length: Maximum query length (excess truncated)
+
+    Returns:
+        A sanitized query string
+    """
+    if not query:
+        return ""
+
+    # Normalize whitespace
+    query = " ".join(query.split())
+
+    # Truncate if too long
+    if len(query) > max_length:
+        query = query[:max_length]
+
+    # Remove null bytes
+    query = query.replace("\x00", "")
+
+    return query
+
+
 # =============================================================================
 # Tag Validation (P16)
 # =============================================================================

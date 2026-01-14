@@ -300,6 +300,60 @@ else:
 
 
 # =============================================================================
+# Cache Metrics
+# =============================================================================
+
+if PROMETHEUS_AVAILABLE:
+    cache_hits_total = Counter(
+        "kas_cache_hits_total",
+        "Total cache hits",
+        ["cache_type"],  # search, embedding, rerank, expansion
+    )
+
+    cache_misses_total = Counter(
+        "kas_cache_misses_total",
+        "Total cache misses",
+        ["cache_type"],
+    )
+
+    cache_errors_total = Counter(
+        "kas_cache_errors_total",
+        "Total cache errors",
+        ["cache_type", "operation"],  # get, set, delete
+    )
+
+    cache_connected = Gauge(
+        "kas_cache_connected",
+        "Cache connection status (1=connected, 0=disconnected)",
+    )
+else:
+    cache_hits_total = _StubMetric()
+    cache_misses_total = _StubMetric()
+    cache_errors_total = _StubMetric()
+    cache_connected = _StubMetric()
+
+
+# =============================================================================
+# Query Expansion Metrics
+# =============================================================================
+
+if PROMETHEUS_AVAILABLE:
+    query_expansion_total = Counter(
+        "kas_query_expansion_total",
+        "Total query expansions performed",
+    )
+
+    query_expansion_terms_added = Histogram(
+        "kas_query_expansion_terms_added",
+        "Number of terms added by query expansion",
+        buckets=[0, 1, 2, 3, 4, 5],
+    )
+else:
+    query_expansion_total = _StubMetric()
+    query_expansion_terms_added = _StubMetric()
+
+
+# =============================================================================
 # Helper Functions
 # =============================================================================
 
@@ -366,3 +420,39 @@ def record_rerank_metrics(duration: float) -> None:
 
     rerank_requests_total.inc()
     rerank_duration_seconds.observe(duration)
+
+
+def record_cache_hit(cache_type: str) -> None:
+    """Record a cache hit."""
+    if not PROMETHEUS_AVAILABLE:
+        return
+    cache_hits_total.labels(cache_type=cache_type).inc()
+
+
+def record_cache_miss(cache_type: str) -> None:
+    """Record a cache miss."""
+    if not PROMETHEUS_AVAILABLE:
+        return
+    cache_misses_total.labels(cache_type=cache_type).inc()
+
+
+def record_cache_error(cache_type: str, operation: str) -> None:
+    """Record a cache error."""
+    if not PROMETHEUS_AVAILABLE:
+        return
+    cache_errors_total.labels(cache_type=cache_type, operation=operation).inc()
+
+
+def update_cache_connection_status(connected: bool) -> None:
+    """Update cache connection status metric."""
+    if not PROMETHEUS_AVAILABLE:
+        return
+    cache_connected.set(1 if connected else 0)
+
+
+def record_query_expansion(terms_added: int) -> None:
+    """Record a query expansion operation."""
+    if not PROMETHEUS_AVAILABLE:
+        return
+    query_expansion_total.inc()
+    query_expansion_terms_added.observe(terms_added)

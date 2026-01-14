@@ -1,7 +1,10 @@
-"""Hybrid search with RRF fusion (P27: Graceful Degradation)."""
+"""Hybrid search with RRF fusion, caching, and query expansion."""
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -11,6 +14,8 @@ from knowledge.db import Database, get_db
 from knowledge.embeddings import embed_text
 from knowledge.exceptions import CircuitOpenError
 from knowledge.logging import get_logger
+from knowledge.cache import get_cache, CacheType
+from knowledge.query_expansion import expand_query, ExpandedQuery
 
 logger = get_logger(__name__)
 
@@ -44,6 +49,9 @@ class HybridSearchResponse:
     degraded: bool = False
     search_mode: str = "hybrid"  # hybrid, bm25_only, vector_only
     warnings: list[str] = field(default_factory=list)
+    cached: bool = False  # Whether result was served from cache
+    query_expanded: bool = False  # Whether query expansion was applied
+    expanded_terms: list[str] = field(default_factory=list)  # Terms added by expansion
 
 
 def rrf_fusion(
@@ -187,6 +195,8 @@ async def hybrid_search_with_status(
     namespace: str | None = None,
     min_score: float | None = None,
     quality_boost: bool = True,
+    use_cache: bool = True,
+    use_expansion: bool = True,
     settings: Settings | None = None,
     db: Database | None = None,
 ) -> HybridSearchResponse:
@@ -194,6 +204,7 @@ async def hybrid_search_with_status(
     Perform hybrid search with graceful degradation (P27).
 
     Falls back to BM25-only search if vector search fails (Ollama down, circuit open, etc.).
+    Supports caching and query expansion for improved performance and recall.
 
     Args:
         query: Search query text
@@ -201,6 +212,8 @@ async def hybrid_search_with_status(
         namespace: Optional namespace filter (exact match or prefix with *)
         min_score: Optional minimum score threshold
         quality_boost: Apply quality score boosting (default True)
+        use_cache: Enable result caching (default True)
+        use_expansion: Enable query expansion (default True)
         settings: Optional settings override
         db: Optional database instance override
 
@@ -211,22 +224,79 @@ async def hybrid_search_with_status(
     db = db or await get_db()
     limit = limit or settings.search_default_limit
 
+    # Check cache first
+    cache = await get_cache()
+    cache_key = (query, limit, namespace, min_score, quality_boost)
+
+    if use_cache and cache.is_connected:
+        cached_result = await cache.get(CacheType.SEARCH, *cache_key)
+        if cached_result:
+            logger.debug("search_cache_hit", query=query[:50])
+            # Reconstruct response from cache
+            results = [
+                SearchResult(
+                    content_id=UUID(r["content_id"]),
+                    title=r["title"],
+                    content_type=r["content_type"],
+                    score=r["score"],
+                    chunk_text=r.get("chunk_text"),
+                    namespace=r.get("namespace"),
+                    vector_similarity=r.get("vector_similarity"),
+                    bm25_score=r.get("bm25_score"),
+                )
+                for r in cached_result["results"]
+            ]
+            return HybridSearchResponse(
+                results=results,
+                degraded=cached_result.get("degraded", False),
+                search_mode=cached_result.get("search_mode", "hybrid"),
+                warnings=cached_result.get("warnings", []),
+                cached=True,
+                query_expanded=cached_result.get("query_expanded", False),
+                expanded_terms=cached_result.get("expanded_terms", []),
+            )
+
+    # Apply query expansion
+    expanded: ExpandedQuery | None = None
+    search_query = query
+    if use_expansion and settings.search_enable_query_expansion:
+        expanded = await expand_query(query)
+        if expanded.expansion_applied:
+            search_query = expanded.expanded
+            logger.debug(
+                "query_expansion_applied",
+                original=query[:50],
+                terms_added=expanded.terms_added,
+            )
+
     warnings: list[str] = []
     degraded = False
     search_mode = "hybrid"
     vector_results: list[tuple[UUID, str, str, str | None, str | None, float]] = []
-
-    # BM25 search (always attempt - this is our fallback)
     bm25_results: list[tuple[UUID, str, str, str | None, float]] = []
+
+    # Run BM25 search and embedding generation in parallel for better performance
+    # BM25 uses expanded query, vector uses original query
+    async def run_bm25() -> list[tuple[UUID, str, str, str | None, float]]:
+        return await db.bm25_search(search_query, limit=settings.bm25_candidates, namespace=namespace)
+
+    async def run_embedding() -> list[float]:
+        return await embed_text(query)
+
+    # Execute in parallel
+    bm25_task = asyncio.create_task(run_bm25())
+    embedding_task = asyncio.create_task(run_embedding())
+
+    # Gather BM25 results
     try:
-        bm25_results = await db.bm25_search(query, limit=settings.bm25_candidates, namespace=namespace)
+        bm25_results = await bm25_task
     except Exception as e:
         logger.error("bm25_search_failed", error=str(e), query=query[:50])
         warnings.append(f"BM25 search failed: {str(e)[:100]}")
 
-    # Vector search (may fail if Ollama is down)
+    # Gather embedding and run vector search
     try:
-        query_embedding = await embed_text(query)
+        query_embedding = await embedding_task
         vector_results = await db.vector_search(
             query_embedding, limit=settings.vector_candidates, namespace=namespace
         )
@@ -303,13 +373,43 @@ async def hybrid_search_with_status(
     if min_score is not None:
         combined = [r for r in combined if r.score >= min_score]
 
-    # Return response with degradation info
-    return HybridSearchResponse(
+    # Build response
+    response = HybridSearchResponse(
         results=combined[:limit],
         degraded=degraded,
         search_mode=search_mode,
         warnings=warnings,
+        cached=False,
+        query_expanded=expanded.expansion_applied if expanded else False,
+        expanded_terms=expanded.terms_added if expanded else [],
     )
+
+    # Cache the results
+    if use_cache and cache.is_connected and response.results:
+        cache_data = {
+            "results": [
+                {
+                    "content_id": str(r.content_id),
+                    "title": r.title,
+                    "content_type": r.content_type,
+                    "score": r.score,
+                    "chunk_text": r.chunk_text,
+                    "namespace": r.namespace,
+                    "vector_similarity": r.vector_similarity,
+                    "bm25_score": r.bm25_score,
+                }
+                for r in response.results
+            ],
+            "degraded": response.degraded,
+            "search_mode": response.search_mode,
+            "warnings": response.warnings,
+            "query_expanded": response.query_expanded,
+            "expanded_terms": response.expanded_terms,
+        }
+        await cache.set(CacheType.SEARCH, cache_data, *cache_key)
+        logger.debug("search_cache_set", query=query[:50])
+
+    return response
 
 
 async def search_bm25_only(

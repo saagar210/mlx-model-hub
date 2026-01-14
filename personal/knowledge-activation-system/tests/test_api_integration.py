@@ -556,3 +556,628 @@ class TestIntegrationWithMockedServices:
             # Find Ollama component
             ollama_component = next(c for c in data["components"] if c["name"] == "ollama")
             assert ollama_component["status"] == "degraded"
+
+
+# =============================================================================
+# Batch Operations Tests
+# =============================================================================
+
+
+class TestBatchSearchEndpoint:
+    """Tests for batch search endpoint."""
+
+    def test_batch_search_single_query(self, client: TestClient):
+        """Test batch search with single query."""
+        from knowledge.search import HybridSearchResponse
+
+        mock_response = HybridSearchResponse(results=[], degraded=False, search_mode="hybrid")
+
+        with patch("knowledge.api.routes.batch.hybrid_search_with_status", AsyncMock(return_value=mock_response)):
+            response = client.post("/api/v1/batch/search", json={
+                "queries": [
+                    {"query": "test query", "limit": 10, "mode": "hybrid"}
+                ]
+            })
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total_queries"] == 1
+            assert data["succeeded"] == 1
+            assert data["failed"] == 0
+            assert len(data["results"]) == 1
+
+    def test_batch_search_multiple_queries(self, client: TestClient):
+        """Test batch search with multiple queries."""
+        from knowledge.search import HybridSearchResponse, SearchResult
+
+        mock_response = HybridSearchResponse(
+            results=[
+                SearchResult(
+                    content_id=uuid4(),
+                    title="Test",
+                    content_type="youtube",
+                    score=0.8,
+                )
+            ],
+            degraded=False,
+            search_mode="hybrid",
+        )
+
+        with patch("knowledge.api.routes.batch.hybrid_search_with_status", AsyncMock(return_value=mock_response)), \
+             patch("knowledge.api.routes.batch.search_bm25_only", AsyncMock(return_value=[])), \
+             patch("knowledge.api.routes.batch.search_vector_only", AsyncMock(return_value=[])):
+            response = client.post("/api/v1/batch/search", json={
+                "queries": [
+                    {"query": "python tutorial", "limit": 5, "mode": "hybrid"},
+                    {"query": "fastapi guide", "limit": 5, "mode": "bm25"},
+                    {"query": "machine learning", "limit": 5, "mode": "vector"},
+                ]
+            })
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total_queries"] == 3
+            assert data["succeeded"] == 3
+            assert data["failed"] == 0
+
+    def test_batch_search_max_queries_limit(self, client: TestClient):
+        """Test batch search respects max queries limit."""
+        # More than 10 queries should fail validation
+        queries = [{"query": f"test {i}", "limit": 5, "mode": "hybrid"} for i in range(11)]
+
+        response = client.post("/api/v1/batch/search", json={"queries": queries})
+        assert response.status_code == 422  # Validation error
+
+    def test_batch_search_empty_queries(self, client: TestClient):
+        """Test batch search with empty queries list."""
+        response = client.post("/api/v1/batch/search", json={"queries": []})
+        assert response.status_code == 422  # Validation error
+
+    def test_batch_search_handles_partial_failure(self, client: TestClient):
+        """Test batch search handles partial failures gracefully."""
+        from knowledge.search import HybridSearchResponse
+
+        call_count = [0]
+
+        async def mock_search(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 2:
+                raise Exception("Search failed")
+            return HybridSearchResponse(results=[], degraded=False, search_mode="hybrid")
+
+        with patch("knowledge.api.routes.batch.hybrid_search_with_status", AsyncMock(side_effect=mock_search)):
+            response = client.post("/api/v1/batch/search", json={
+                "queries": [
+                    {"query": "query1", "limit": 5, "mode": "hybrid"},
+                    {"query": "query2", "limit": 5, "mode": "hybrid"},
+                    {"query": "query3", "limit": 5, "mode": "hybrid"},
+                ]
+            })
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total_queries"] == 3
+            assert data["succeeded"] == 2
+            assert data["failed"] == 1
+            assert len(data["errors"]) == 1
+
+
+class TestBatchDeleteEndpoint:
+    """Tests for batch delete endpoint."""
+
+    def test_batch_delete_content(self, client: TestClient, mock_db: MagicMock):
+        """Test batch delete content."""
+        mock_db.delete_content = AsyncMock(return_value=True)
+
+        with patch("knowledge.api.routes.batch.get_db", AsyncMock(return_value=mock_db)):
+            content_ids = [str(uuid4()), str(uuid4())]
+            response = client.request("DELETE", "/api/v1/batch/content", json={"ids": content_ids})
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total"] == 2
+            assert data["deleted"] == 2
+            assert data["not_found"] == 0
+
+    def test_batch_delete_with_not_found(self, client: TestClient, mock_db: MagicMock):
+        """Test batch delete handles not found items."""
+        # First delete succeeds, second returns not found
+        mock_db.delete_content = AsyncMock(side_effect=[True, False])
+
+        with patch("knowledge.api.routes.batch.get_db", AsyncMock(return_value=mock_db)):
+            content_ids = [str(uuid4()), str(uuid4())]
+            response = client.request("DELETE", "/api/v1/batch/content", json={"ids": content_ids})
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total"] == 2
+            assert data["deleted"] == 1
+            assert data["not_found"] == 1
+
+    def test_batch_delete_max_ids_limit(self, client: TestClient):
+        """Test batch delete respects max IDs limit."""
+        # More than 100 IDs should fail validation
+        ids = [str(uuid4()) for _ in range(101)]
+
+        response = client.request("DELETE", "/api/v1/batch/content", json={"ids": ids})
+        assert response.status_code == 422
+
+
+# =============================================================================
+# Tuning API Tests
+# =============================================================================
+
+
+class TestTuningWeightsEndpoint:
+    """Tests for search weight tuning endpoints."""
+
+    def test_get_search_weights(self, client: TestClient):
+        """Test getting current search weights."""
+        # Reset runtime config first
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.get("/api/v1/tuning/weights")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "bm25_weight" in data
+        assert "vector_weight" in data
+        assert "rrf_k" in data
+        assert "query_expansion_enabled" in data
+        # Check default values are reasonable
+        assert 0 <= data["bm25_weight"] <= 1
+        assert 0 <= data["vector_weight"] <= 1
+        assert data["rrf_k"] >= 1
+
+    def test_update_search_weights(self, client: TestClient):
+        """Test updating search weights."""
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.patch("/api/v1/tuning/weights", json={
+            "bm25_weight": 0.7,
+            "vector_weight": 0.3,
+        })
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["success"] is True
+        assert "0.7" in data["message"] or "bm25_weight" in data["message"]
+        assert data["current"]["bm25_weight"] == 0.7
+        assert data["current"]["vector_weight"] == 0.3
+
+    def test_update_weights_validation(self, client: TestClient):
+        """Test weight update validation."""
+        # Weight > 1 should fail
+        response = client.patch("/api/v1/tuning/weights", json={
+            "bm25_weight": 1.5,
+        })
+        assert response.status_code == 422
+
+        # Weight < 0 should fail
+        response = client.patch("/api/v1/tuning/weights", json={
+            "vector_weight": -0.1,
+        })
+        assert response.status_code == 422
+
+    def test_update_weights_no_changes(self, client: TestClient):
+        """Test update with no changes specified."""
+        response = client.patch("/api/v1/tuning/weights", json={})
+        assert response.status_code == 400
+        assert "No changes" in response.json()["detail"]
+
+    def test_reset_search_weights(self, client: TestClient):
+        """Test resetting search weights to defaults."""
+        import knowledge.api.routes.tuning as tuning_module
+
+        # First set some custom values
+        tuning_module._runtime_config["search_bm25_weight"] = 0.9
+        tuning_module._runtime_config["rrf_k"] = 30
+
+        # Then reset
+        response = client.post("/api/v1/tuning/weights/reset")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["success"] is True
+        assert "reset" in data["message"].lower()
+
+        # Config should be cleared
+        assert "search_bm25_weight" not in tuning_module._runtime_config
+        assert "rrf_k" not in tuning_module._runtime_config
+
+    def test_update_rrf_k(self, client: TestClient):
+        """Test updating RRF constant."""
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.patch("/api/v1/tuning/weights", json={
+            "rrf_k": 80,
+        })
+        assert response.status_code == 200
+        assert response.json()["current"]["rrf_k"] == 80
+
+    def test_update_query_expansion(self, client: TestClient):
+        """Test enabling/disabling query expansion."""
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.patch("/api/v1/tuning/weights", json={
+            "query_expansion_enabled": False,
+        })
+        assert response.status_code == 200
+        assert response.json()["current"]["query_expansion_enabled"] is False
+
+
+class TestTuningCacheEndpoint:
+    """Tests for cache TTL tuning endpoints."""
+
+    def test_get_cache_ttl(self, client: TestClient):
+        """Test getting cache TTL configuration."""
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.get("/api/v1/tuning/cache")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "search_ttl" in data
+        assert "embedding_ttl" in data
+        assert "rerank_ttl" in data
+
+    def test_update_cache_ttl(self, client: TestClient):
+        """Test updating cache TTLs."""
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.patch("/api/v1/tuning/cache", json={
+            "search_ttl": 600,
+            "embedding_ttl": 43200,
+        })
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["search_ttl"] == 600
+        assert data["embedding_ttl"] == 43200
+
+    def test_update_cache_ttl_validation(self, client: TestClient):
+        """Test cache TTL validation bounds."""
+        # TTL > max should fail
+        response = client.patch("/api/v1/tuning/cache", json={
+            "search_ttl": 100000,  # > 86400
+        })
+        assert response.status_code == 422
+
+    def test_get_all_tuning(self, client: TestClient):
+        """Test getting all tunable configuration."""
+        import knowledge.api.routes.tuning as tuning_module
+        tuning_module._runtime_config.clear()
+
+        response = client.get("/api/v1/tuning/all")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "search" in data
+        assert "cache" in data
+        assert "bm25_weight" in data["search"]
+        assert "search_ttl" in data["cache"]
+
+
+# =============================================================================
+# Export API Tests
+# =============================================================================
+
+
+class TestExportEndpoints:
+    """Tests for export/import endpoints."""
+
+    def test_export_json_format(self, client: TestClient, mock_db: MagicMock):
+        """Test JSON export format."""
+        # Mock iterate to return empty results
+        async def mock_iterate(*args, **kwargs):
+            return
+            yield  # Make it an async generator
+
+        mock_db.iterate = mock_iterate
+
+        with patch("knowledge.api.routes.export.get_db", AsyncMock(return_value=mock_db)):
+            response = client.post("/api/v1/export", json={
+                "format": "json",
+                "include_chunks": True,
+            })
+            assert response.status_code == 200
+            assert "application/json" in response.headers["content-type"]
+
+            data = response.json()
+            assert "metadata" in data
+            assert "items" in data
+            assert data["metadata"]["version"] == "1.0"
+
+    def test_export_jsonl_format(self, client: TestClient, mock_db: MagicMock):
+        """Test JSONL export format."""
+        async def mock_iterate(*args, **kwargs):
+            return
+            yield
+
+        mock_db.iterate = mock_iterate
+
+        with patch("knowledge.api.routes.export.get_db", AsyncMock(return_value=mock_db)):
+            response = client.post("/api/v1/export", json={
+                "format": "jsonl",
+            })
+            assert response.status_code == 200
+            assert "ndjson" in response.headers["content-type"]
+
+    def test_export_with_namespace_filter(self, client: TestClient, mock_db: MagicMock):
+        """Test export with namespace filter."""
+        async def mock_iterate(*args, **kwargs):
+            return
+            yield
+
+        mock_db.iterate = mock_iterate
+
+        with patch("knowledge.api.routes.export.get_db", AsyncMock(return_value=mock_db)):
+            response = client.post("/api/v1/export", json={
+                "format": "json",
+                "namespace": "project-a",
+            })
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["metadata"]["namespace"] == "project-a"
+
+    def test_import_json_file(self, client: TestClient, mock_db: MagicMock):
+        """Test importing JSON backup file."""
+        import io
+
+        mock_db.fetchrow = AsyncMock(return_value=None)  # Item doesn't exist
+        mock_db.execute = AsyncMock()
+
+        export_data = {
+            "metadata": {"version": "1.0", "total_items": 1},
+            "items": [
+                {
+                    "id": str(uuid4()),
+                    "title": "Test Item",
+                    "content_type": "bookmark",
+                    "namespace": "default",
+                }
+            ]
+        }
+
+        with patch("knowledge.api.routes.export.get_db", AsyncMock(return_value=mock_db)):
+            response = client.post(
+                "/api/v1/export/import",
+                files={"file": ("backup.json", io.BytesIO(json.dumps(export_data).encode()), "application/json")},
+            )
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total"] == 1
+
+    def test_import_invalid_json(self, client: TestClient):
+        """Test importing invalid JSON fails gracefully."""
+        import io
+
+        response = client.post(
+            "/api/v1/export/import",
+            files={"file": ("backup.json", io.BytesIO(b"not valid json"), "application/json")},
+        )
+        assert response.status_code == 400
+        assert "Invalid JSON" in response.json()["detail"]
+
+    def test_import_skip_existing(self, client: TestClient, mock_db: MagicMock):
+        """Test import skips existing items when skip_existing=true."""
+        import io
+
+        content_id = str(uuid4())
+
+        # Item exists
+        mock_db.fetchrow = AsyncMock(return_value={"id": content_id})
+
+        export_data = {
+            "items": [
+                {"id": content_id, "title": "Existing", "content_type": "bookmark", "namespace": "default"}
+            ]
+        }
+
+        with patch("knowledge.api.routes.export.get_db", AsyncMock(return_value=mock_db)):
+            response = client.post(
+                "/api/v1/export/import?skip_existing=true",
+                files={"file": ("backup.json", io.BytesIO(json.dumps(export_data).encode()), "application/json")},
+            )
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["total"] == 1
+            assert data["skipped"] == 1
+            assert data["imported"] == 0
+
+
+# =============================================================================
+# Webhooks API Tests
+# =============================================================================
+
+
+class TestWebhooksEndpoints:
+    """Tests for webhook management endpoints."""
+
+    def setup_method(self):
+        """Clear webhooks before each test."""
+        import knowledge.api.routes.webhooks as webhooks_module
+        webhooks_module._webhooks.clear()
+        webhooks_module._deliveries.clear()
+
+    def test_create_webhook(self, client: TestClient):
+        """Test creating a new webhook."""
+        response = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created", "content.updated"],
+            "secret": "my-secret-key-12345",
+        })
+        assert response.status_code == 200
+
+        data = response.json()
+        assert "id" in data
+        assert data["url"] == "https://example.com/webhook"
+        assert data["status"] == "active"
+        assert "content.created" in data["events"]
+        assert "content.updated" in data["events"]
+
+    def test_create_webhook_invalid_url(self, client: TestClient):
+        """Test creating webhook with invalid URL."""
+        response = client.post("/api/v1/webhooks", json={
+            "url": "not-a-valid-url",
+            "events": ["content.created"],
+        })
+        assert response.status_code == 422
+
+    def test_create_webhook_empty_events(self, client: TestClient):
+        """Test creating webhook with no events fails."""
+        response = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": [],
+        })
+        assert response.status_code == 422
+
+    def test_list_webhooks(self, client: TestClient):
+        """Test listing all webhooks."""
+        # Create a webhook first
+        client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/hook1",
+            "events": ["content.created"],
+        })
+
+        response = client.get("/api/v1/webhooks")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert len(data) == 1
+        assert data[0]["url"] == "https://example.com/hook1"
+
+    def test_get_webhook_by_id(self, client: TestClient):
+        """Test getting a specific webhook."""
+        # Create first
+        create_resp = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+        })
+        webhook_id = create_resp.json()["id"]
+
+        response = client.get(f"/api/v1/webhooks/{webhook_id}")
+        assert response.status_code == 200
+        assert response.json()["id"] == webhook_id
+
+    def test_get_webhook_not_found(self, client: TestClient):
+        """Test getting non-existent webhook."""
+        response = client.get("/api/v1/webhooks/nonexistent-id")
+        assert response.status_code == 404
+
+    def test_update_webhook(self, client: TestClient):
+        """Test updating a webhook."""
+        # Create first
+        create_resp = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+        })
+        webhook_id = create_resp.json()["id"]
+
+        response = client.patch(f"/api/v1/webhooks/{webhook_id}", json={
+            "url": "https://newurl.com/webhook",
+            "events": ["content.deleted"],
+        })
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["url"] == "https://newurl.com/webhook"
+        assert "content.deleted" in data["events"]
+
+    def test_update_webhook_status(self, client: TestClient):
+        """Test pausing a webhook."""
+        create_resp = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+        })
+        webhook_id = create_resp.json()["id"]
+
+        response = client.patch(f"/api/v1/webhooks/{webhook_id}", json={
+            "status": "paused",
+        })
+        assert response.status_code == 200
+        assert response.json()["status"] == "paused"
+
+    def test_delete_webhook(self, client: TestClient):
+        """Test deleting a webhook."""
+        create_resp = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+        })
+        webhook_id = create_resp.json()["id"]
+
+        response = client.delete(f"/api/v1/webhooks/{webhook_id}")
+        assert response.status_code == 200
+        assert response.json()["deleted"] is True
+
+        # Verify it's gone
+        get_resp = client.get(f"/api/v1/webhooks/{webhook_id}")
+        assert get_resp.status_code == 404
+
+    def test_delete_webhook_not_found(self, client: TestClient):
+        """Test deleting non-existent webhook."""
+        response = client.delete("/api/v1/webhooks/nonexistent-id")
+        assert response.status_code == 404
+
+    def test_test_webhook(self, client: TestClient):
+        """Test sending test event to webhook."""
+        import httpx
+
+        create_resp = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+        })
+        webhook_id = create_resp.json()["id"]
+
+        # Mock the HTTP request
+        with patch("knowledge.api.routes.webhooks.httpx.AsyncClient") as mock_client:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+
+            response = client.post(f"/api/v1/webhooks/{webhook_id}/test")
+            assert response.status_code == 200
+
+            data = response.json()
+            assert data["success"] is True
+            assert data["status_code"] == 200
+
+    def test_get_webhook_deliveries(self, client: TestClient):
+        """Test getting webhook delivery history."""
+        create_resp = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+        })
+        webhook_id = create_resp.json()["id"]
+
+        response = client.get(f"/api/v1/webhooks/{webhook_id}/deliveries")
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+
+    def test_webhook_with_metadata(self, client: TestClient):
+        """Test creating webhook with custom metadata."""
+        response = client.post("/api/v1/webhooks", json={
+            "url": "https://example.com/webhook",
+            "events": ["content.created"],
+            "metadata": {"project": "kas", "environment": "test"},
+        })
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["metadata"]["project"] == "kas"
+        assert data["metadata"]["environment"] == "test"
+
+
+# =============================================================================
+# Import statement at module level for json
+# =============================================================================
+import json

@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: 'KAS Dashboards'
+    orgId: 1
+    folder: 'KAS'
+    folderUid: 'kas-folder'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

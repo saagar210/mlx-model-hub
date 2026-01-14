@@ -143,6 +143,23 @@ class Settings(BaseSettings):
     circuit_breaker_half_open_max_calls: int = 3
 
     # =========================================================================
+    # Redis Caching
+    # =========================================================================
+    redis_url: str = "redis://localhost:6379/0"
+    redis_enabled: bool = True
+    cache_ttl_search: int = 300  # 5 minutes for search results
+    cache_ttl_embedding: int = 86400  # 24 hours for embeddings
+    cache_ttl_rerank: int = 600  # 10 minutes for rerank results
+    cache_max_size: int = 10000  # Max cached items per type
+
+    # =========================================================================
+    # Search Tuning
+    # =========================================================================
+    search_bm25_weight: float = 0.5  # Weight for BM25 in hybrid search
+    search_vector_weight: float = 0.5  # Weight for vector in hybrid search
+    search_enable_query_expansion: bool = True  # Enable synonym expansion
+
+    # =========================================================================
     # Validation
     # =========================================================================
     @model_validator(mode="after")

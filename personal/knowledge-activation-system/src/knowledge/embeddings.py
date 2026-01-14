@@ -1,13 +1,17 @@
-"""Embeddings via Ollama."""
+"""Embeddings via Ollama with Redis caching."""
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from dataclasses import dataclass
 
 import httpx
 
 from knowledge.config import Settings, get_settings
+from knowledge.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -201,10 +205,42 @@ async def close_embedding_service() -> None:
         _embedding_service = None
 
 
-async def embed_text(text: str) -> list[float]:
-    """Convenience function to embed text using global service."""
+async def embed_text(text: str, use_cache: bool = True) -> list[float]:
+    """
+    Embed text using global service with optional Redis caching.
+
+    Args:
+        text: Text to embed
+        use_cache: Whether to use Redis cache (default True)
+
+    Returns:
+        768-dimensional embedding vector
+    """
+    # Import here to avoid circular dependency
+    from knowledge.cache import get_cache, CacheType
+
+    cache = await get_cache()
+
+    # Create cache key from text hash
+    text_hash = hashlib.sha256(text.encode()).hexdigest()[:32]
+
+    # Check cache first
+    if use_cache and cache.is_connected:
+        cached = await cache.get(CacheType.EMBEDDING, text_hash)
+        if cached is not None:
+            logger.debug("embedding_cache_hit", text_preview=text[:50])
+            return cached
+
+    # Generate embedding
     service = await get_embedding_service()
-    return await service.embed_text(text)
+    embedding = await service.embed_text(text)
+
+    # Cache the result
+    if use_cache and cache.is_connected:
+        await cache.set(CacheType.EMBEDDING, embedding, text_hash)
+        logger.debug("embedding_cached", text_preview=text[:50])
+
+    return embedding
 
 
 async def embed_batch(texts: list[str], batch_size: int = 10) -> list[list[float]]:
