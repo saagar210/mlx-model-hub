@@ -25,6 +25,44 @@ logger = get_logger(__name__)
 
 
 # =============================================================================
+# Valid Scopes
+# =============================================================================
+
+# Whitelist of valid API scopes
+VALID_SCOPES: set[str] = {
+    "read",      # Read content, search, Q&A
+    "write",     # Create/update content
+    "delete",    # Delete content
+    "admin",     # Full admin access (grants all scopes)
+    "export",    # Export data
+    "import",    # Import data
+    "review",    # Access review/FSRS features
+    "analytics", # Access analytics data
+}
+
+
+def validate_scopes(scopes: list[str]) -> list[str]:
+    """Validate that all scopes are in the allowed list.
+
+    Args:
+        scopes: List of scopes to validate
+
+    Returns:
+        Validated list of scopes
+
+    Raises:
+        ValueError: If any scope is invalid
+    """
+    invalid = set(scopes) - VALID_SCOPES
+    if invalid:
+        raise ValueError(
+            f"Invalid scope(s): {', '.join(sorted(invalid))}. "
+            f"Valid scopes: {', '.join(sorted(VALID_SCOPES))}"
+        )
+    return scopes
+
+
+# =============================================================================
 # Models
 # =============================================================================
 
@@ -208,7 +246,15 @@ def require_scope(scope: str):
 
     Returns:
         FastAPI dependency function
+
+    Raises:
+        ValueError: If scope is not in VALID_SCOPES
     """
+    # Validate scope at dependency creation time (fail fast)
+    if scope not in VALID_SCOPES:
+        raise ValueError(
+            f"Invalid scope '{scope}'. Valid scopes: {', '.join(sorted(VALID_SCOPES))}"
+        )
 
     async def check_scope(
         api_key: APIKey | None = Depends(get_api_key),
@@ -278,11 +324,17 @@ async def create_api_key_record(
 
     Returns:
         Tuple of (plaintext_key, key_id)
+
+    Raises:
+        ValueError: If any scope is invalid
     """
     key, key_hash = generate_api_key()
 
     if scopes is None:
         scopes = ["read"]
+    else:
+        # Validate scopes against whitelist
+        validate_scopes(scopes)
 
     db = await get_db()
     async with db.acquire() as conn:

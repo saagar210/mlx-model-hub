@@ -1,4 +1,17 @@
-"""Configuration management using pydantic-settings."""
+"""Configuration management using pydantic-settings.
+
+This module provides centralized configuration for the Knowledge Activation System.
+All settings can be overridden via environment variables with KNOWLEDGE_ prefix.
+
+Example:
+    # Override database URL via environment variable
+    export KNOWLEDGE_DATABASE_URL="postgresql://user:pass@host:5432/db"
+
+    # Or create a .env file:
+    KNOWLEDGE_DATABASE_URL=postgresql://user:pass@host:5432/db
+    KNOWLEDGE_REDIS_URL=redis://localhost:6379/0
+    KNOWLEDGE_LOG_LEVEL=DEBUG
+"""
 
 from functools import lru_cache
 from pathlib import Path
@@ -9,7 +22,29 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings loaded from environment variables.
+
+    All settings can be overridden via environment variables with the
+    KNOWLEDGE_ prefix (e.g., KNOWLEDGE_DATABASE_URL).
+
+    Configuration Groups:
+        - Database: PostgreSQL connection and pool settings
+        - Ollama/Embeddings: Embedding model and service settings
+        - OpenRouter/LLM: AI model provider settings
+        - Obsidian: Vault path and folder configuration
+        - Search: Hybrid search tuning parameters
+        - Chunking: Content chunking settings
+        - Ingestion: Content ingestion settings
+        - Review/FSRS: Spaced repetition settings
+        - API Security: Authentication and rate limiting
+        - Logging: Log format and level settings
+        - Redis Caching: Cache TTL and connection settings
+
+    Validation:
+        Settings are validated on load. Invalid configurations will raise
+        ValueError with descriptive error messages including all validation
+        failures.
+    """
 
     model_config = SettingsConfigDict(
         env_prefix="KNOWLEDGE_",
@@ -162,17 +197,87 @@ class Settings(BaseSettings):
     # =========================================================================
     # Validation
     # =========================================================================
+
+    # Valid log levels for validation
+    _VALID_LOG_LEVELS: set[str] = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
     @model_validator(mode="after")
     def validate_settings(self) -> "Settings":
-        """Validate setting combinations."""
+        """Validate setting combinations and required values."""
+        errors: list[str] = []
+
+        # --- Required URL validation (non-empty) ---
+        if not self.database_url or not self.database_url.strip():
+            errors.append("database_url cannot be empty")
+        if not self.ollama_url or not self.ollama_url.strip():
+            errors.append("ollama_url cannot be empty")
+        if self.redis_enabled and (not self.redis_url or not self.redis_url.strip()):
+            errors.append("redis_url cannot be empty when redis_enabled is True")
+
+        # --- Path validation ---
+        vault = Path(self.vault_path).expanduser()
+        if not vault.is_absolute():
+            errors.append(f"vault_path must be absolute, got: {self.vault_path}")
+
+        # --- Timeout validation (must be positive) ---
+        timeout_fields = [
+            ("ollama_timeout", self.ollama_timeout),
+            ("llm_timeout", self.llm_timeout),
+            ("db_pool_timeout", self.db_pool_timeout),
+            ("db_command_timeout", self.db_command_timeout),
+            ("api_request_timeout", self.api_request_timeout),
+            ("ingest_timeout", self.ingest_timeout),
+            ("url_fetch_timeout", self.url_fetch_timeout),
+        ]
+        for name, value in timeout_fields:
+            if value <= 0:
+                errors.append(f"{name} must be positive, got: {value}")
+
+        # --- Log level validation ---
+        if self.log_level.upper() not in self._VALID_LOG_LEVELS:
+            errors.append(
+                f"log_level must be one of {self._VALID_LOG_LEVELS}, got: {self.log_level}"
+            )
+
+        # --- Pool size validation ---
         if self.db_pool_min > self.db_pool_max:
-            raise ValueError("db_pool_min cannot exceed db_pool_max")
+            errors.append("db_pool_min cannot exceed db_pool_max")
+        if self.db_pool_min < 1:
+            errors.append("db_pool_min must be at least 1")
+
+        # --- Search limit validation ---
         if self.search_default_limit > self.search_max_limit:
-            raise ValueError("search_default_limit cannot exceed search_max_limit")
+            errors.append("search_default_limit cannot exceed search_max_limit")
+        if self.search_default_limit < 1:
+            errors.append("search_default_limit must be at least 1")
+
+        # --- Retry validation ---
         if self.db_retry_attempts < 1:
-            raise ValueError("db_retry_attempts must be at least 1")
+            errors.append("db_retry_attempts must be at least 1")
+        if self.embedding_max_retries < 1:
+            errors.append("embedding_max_retries must be at least 1")
+
+        # --- Rate limit validation ---
         if self.rate_limit_burst < self.rate_limit_requests:
-            raise ValueError("rate_limit_burst should be >= rate_limit_requests")
+            errors.append("rate_limit_burst should be >= rate_limit_requests")
+
+        # --- Weight validation ---
+        total_weight = self.search_bm25_weight + self.search_vector_weight
+        if abs(total_weight - 1.0) > 0.001:
+            errors.append(
+                f"search_bm25_weight + search_vector_weight must equal 1.0, got: {total_weight}"
+            )
+
+        # --- Confidence threshold validation ---
+        if not (0 <= self.confidence_low < self.confidence_high <= 1):
+            errors.append(
+                "confidence thresholds must satisfy: 0 <= confidence_low < confidence_high <= 1"
+            )
+
+        # Raise all errors at once
+        if errors:
+            raise ValueError("Configuration validation failed:\n  - " + "\n  - ".join(errors))
+
         return self
 
     # =========================================================================

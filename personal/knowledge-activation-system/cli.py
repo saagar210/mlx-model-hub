@@ -21,7 +21,14 @@ from knowledge.search import SearchResult, hybrid_search, search_bm25_only, sear
 
 
 def mask_database_url(url: str) -> str:
-    """Mask password in database URL for display."""
+    """Mask password in database URL for display.
+
+    Args:
+        url: Database connection URL potentially containing credentials
+
+    Returns:
+        URL with password replaced by ***
+    """
     try:
         parsed = urlparse(url)
         if parsed.password:
@@ -34,8 +41,8 @@ def mask_database_url(url: str) -> str:
                 netloc += f":{parsed.port}"
             return urlunparse(parsed._replace(netloc=netloc))
         return url
-    except Exception:
-        # Fallback: try to mask any password-like patterns
+    except (ValueError, AttributeError):
+        # Fallback: try to mask any password-like patterns via regex
         import re
 
         return re.sub(r":([^:@]+)@", ":***@", url)
@@ -50,8 +57,65 @@ console = Console()
 
 
 def run_async(coro):
-    """Run async function in sync context."""
+    """Run async coroutine in synchronous CLI context.
+
+    Wrapper around asyncio.run() for running async functions from
+    synchronous typer command handlers.
+
+    Args:
+        coro: Coroutine object to execute
+
+    Returns:
+        Result of the coroutine execution
+    """
     return asyncio.run(coro)
+
+
+# CLI constants for validation
+MAX_QUERY_LENGTH = 2000  # Maximum query length in characters
+MIN_QUERY_LENGTH = 1  # Minimum query length
+MAX_LIMIT = 100  # Maximum results limit
+MIN_LIMIT = 1  # Minimum results limit
+VALID_SEARCH_MODES = {"hybrid", "bm25", "vector"}
+
+
+def validate_query(query: str) -> None:
+    """Validate search query length and content.
+
+    Args:
+        query: User-provided search query
+
+    Raises:
+        typer.Exit: If query is invalid
+    """
+    if not query or len(query.strip()) < MIN_QUERY_LENGTH:
+        console.print("[red]Error: Query cannot be empty[/red]")
+        raise typer.Exit(1)
+    if len(query) > MAX_QUERY_LENGTH:
+        console.print(
+            f"[red]Error: Query too long ({len(query)} chars). "
+            f"Maximum is {MAX_QUERY_LENGTH} characters.[/red]"
+        )
+        raise typer.Exit(1)
+
+
+def validate_limit(limit: int, context: str = "results") -> int:
+    """Validate and constrain limit parameter.
+
+    Args:
+        limit: User-provided limit
+        context: What the limit is for (for error messages)
+
+    Returns:
+        Validated limit (clamped to valid range)
+    """
+    if limit < MIN_LIMIT:
+        console.print(f"[yellow]Warning: Limit must be at least {MIN_LIMIT}. Using {MIN_LIMIT}.[/yellow]")
+        return MIN_LIMIT
+    if limit > MAX_LIMIT:
+        console.print(f"[yellow]Warning: Limit cannot exceed {MAX_LIMIT}. Using {MAX_LIMIT}.[/yellow]")
+        return MAX_LIMIT
+    return limit
 
 
 @app.command()
@@ -69,6 +133,13 @@ def search(
     ] = "mixedbread-ai/mxbai-rerank-base-v1",
 ) -> None:
     """Search your knowledge base using hybrid search."""
+    # Validate inputs
+    validate_query(query)
+    limit = validate_limit(limit, "search results")
+
+    if mode not in VALID_SEARCH_MODES:
+        console.print(f"[red]Error: Invalid mode '{mode}'. Valid modes: {', '.join(VALID_SEARCH_MODES)}[/red]")
+        raise typer.Exit(1)
 
     async def _search():
         try:
@@ -328,6 +399,7 @@ def health() -> None:
         console.print()
 
         all_healthy = True
+        suggestions: list[str] = []
 
         # Check PostgreSQL
         try:
@@ -342,10 +414,23 @@ def health() -> None:
             else:
                 console.print("[red]✗[/red] PostgreSQL: [red]Unhealthy[/red]")
                 console.print(f"  Error: {db_health.get('error', 'Unknown')}")
+                suggestions.append("Check PostgreSQL logs: docker compose logs db")
                 all_healthy = False
+        except ConnectionRefusedError:
+            console.print("[red]✗[/red] PostgreSQL: [red]Connection Refused[/red]")
+            suggestions.append("Start PostgreSQL: docker compose up -d db")
+            suggestions.append("Check if port 5432 is available: lsof -i :5432")
+            all_healthy = False
         except Exception as e:
             console.print("[red]✗[/red] PostgreSQL: [red]Connection Failed[/red]")
             console.print(f"  Error: {e}")
+            error_str = str(e).lower()
+            if "password" in error_str or "authentication" in error_str:
+                suggestions.append("Check database credentials in .env file")
+            elif "connection" in error_str or "refused" in error_str:
+                suggestions.append("Start PostgreSQL: docker compose up -d db")
+            else:
+                suggestions.append("Check database URL: python cli.py config")
             all_healthy = False
 
         console.print()
@@ -364,10 +449,17 @@ def health() -> None:
             else:
                 console.print("[red]✗[/red] Ollama: [red]Unhealthy[/red]")
                 console.print(f"  Error: {ollama_status.error}")
+                if "not found" in (ollama_status.error or "").lower():
+                    settings = get_settings()
+                    suggestions.append(f"Pull embedding model: ollama pull {settings.embedding_model}")
+                elif "connect" in (ollama_status.error or "").lower():
+                    suggestions.append("Start Ollama: ollama serve")
                 all_healthy = False
         except Exception as e:
             console.print("[red]✗[/red] Ollama: [red]Connection Failed[/red]")
             console.print(f"  Error: {e}")
+            suggestions.append("Start Ollama: ollama serve")
+            suggestions.append("Check Ollama URL in config: python cli.py config")
             all_healthy = False
 
         console.print()
@@ -377,6 +469,11 @@ def health() -> None:
             console.print("[bold green]All services healthy![/bold green]")
         else:
             console.print("[bold red]Some services are unhealthy[/bold red]")
+            if suggestions:
+                console.print()
+                console.print("[bold yellow]Suggested fixes:[/bold yellow]")
+                for suggestion in suggestions:
+                    console.print(f"  → {suggestion}")
             raise typer.Exit(1)
 
         await close_db()
@@ -471,7 +568,7 @@ def config(
 
     # Search
     table.add_row("RRF k", str(settings.rrf_k))
-    table.add_row("Search Limit", str(settings.search_limit))
+    table.add_row("Search Limit", str(settings.search_default_limit))
     table.add_row("BM25 Candidates", str(settings.bm25_candidates))
     table.add_row("Vector Candidates", str(settings.vector_candidates))
 

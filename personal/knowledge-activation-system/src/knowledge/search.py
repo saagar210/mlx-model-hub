@@ -291,8 +291,15 @@ async def hybrid_search_with_status(
     try:
         bm25_results = await bm25_task
     except Exception as e:
-        logger.error("bm25_search_failed", error=str(e), query=query[:50])
-        warnings.append(f"BM25 search failed: {str(e)[:100]}")
+        logger.error(
+            "bm25_search_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            query=query[:50],
+            query_length=len(query),
+            namespace=namespace,
+        )
+        warnings.append(f"BM25 search failed: {type(e).__name__}: {str(e)[:100]}")
 
     # Gather embedding and run vector search
     try:
@@ -306,13 +313,23 @@ async def hybrid_search_with_status(
             reason="circuit_open",
             circuit=str(e),
             query=query[:50],
+            query_length=len(query),
+            namespace=namespace,
         )
         warnings.append("Semantic search unavailable: embedding service circuit open")
         degraded = True
         search_mode = "bm25_only"
     except Exception as e:
-        logger.error("vector_search_failed", error=str(e), query=query[:50])
-        warnings.append(f"Semantic search failed: {str(e)[:100]}")
+        logger.error(
+            "vector_search_failed",
+            error=str(e),
+            error_type=type(e).__name__,
+            query=query[:50],
+            query_length=len(query),
+            namespace=namespace,
+            embedding_generated=len(locals().get('query_embedding', [])) > 0,
+        )
+        warnings.append(f"Semantic search failed: {type(e).__name__}: {str(e)[:100]}")
         degraded = True
         search_mode = "bm25_only"
 
