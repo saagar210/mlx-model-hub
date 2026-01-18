@@ -636,13 +636,19 @@ def doctor() -> None:
         try:
             settings = get_settings()
             ollama_status = await check_ollama_health()
-            if settings.embedding_model in ollama_status.models_loaded:
-                checks.append(("Embedding Model", True, settings.embedding_model))
+            # Check if embedding model is loaded (handle :latest suffix)
+            model_name = settings.embedding_model
+            model_loaded = any(
+                m.startswith(model_name) or model_name in m
+                for m in ollama_status.models_loaded
+            )
+            if model_loaded:
+                checks.append(("Embedding Model", True, model_name))
             else:
                 checks.append((
                     "Embedding Model",
                     False,
-                    f"{settings.embedding_model} not loaded",
+                    f"{model_name} not loaded. Run: ollama pull {model_name}",
                 ))
         except Exception as e:
             checks.append(("Embedding Model", False, str(e)[:60]))
