@@ -9,12 +9,12 @@ Expands user queries with:
 
 from __future__ import annotations
 
-import re
 import logging
+import re
 from dataclasses import dataclass
 
+from knowledge.cache import CacheType, get_cache
 from knowledge.config import get_settings
-from knowledge.cache import get_cache, CacheType
 
 logger = logging.getLogger(__name__)
 
@@ -292,4 +292,4 @@ def add_synonym(primary: str, synonyms: list[str]) -> None:
     for syn in normalized_synonyms:
         _REVERSE_SYNONYMS[syn] = primary
 
-    logger.info("synonyms_added", primary=primary, count=len(synonyms))
+    logger.info("synonyms_added", primary=primary, count=len(synonyms))  # type: ignore[call-arg]

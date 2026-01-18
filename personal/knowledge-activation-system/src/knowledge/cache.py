@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, TypeVar, Generic
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, TypeVar
 
 import redis.asyncio as redis
 from redis.asyncio.connection import ConnectionPool
@@ -58,10 +58,10 @@ class RedisCache:
     - Cache statistics tracking
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.settings = get_settings()
         self._pool: ConnectionPool | None = None
-        self._client: redis.Redis | None = None
+        self._client: redis.Redis | None = None  # type: ignore[type-arg]
         self._stats: dict[CacheType, CacheStats] = {
             ct: CacheStats() for ct in CacheType
         }
@@ -82,7 +82,7 @@ class RedisCache:
             self._client = redis.Redis(connection_pool=self._pool)
 
             # Test connection
-            await self._client.ping()
+            await self._client.ping()  # type: ignore[misc]
             self._connected = True
             logger.info("redis_connected", url=self.settings.redis_url)
             return True
@@ -141,7 +141,7 @@ class RedisCache:
         Returns:
             Cached value or None if not found/error
         """
-        if not self._connected:
+        if not self._connected or self._client is None:
             return None
 
         key = self._make_key(cache_type, *args)
@@ -177,7 +177,7 @@ class RedisCache:
         Returns:
             True if successful
         """
-        if not self._connected:
+        if not self._connected or self._client is None:
             return False
 
         key = self._make_key(cache_type, *args)
@@ -195,7 +195,7 @@ class RedisCache:
 
     async def delete(self, cache_type: CacheType, *args: Any) -> bool:
         """Delete a specific cache entry."""
-        if not self._connected:
+        if not self._connected or self._client is None:
             return False
 
         key = self._make_key(cache_type, *args)
@@ -217,7 +217,7 @@ class RedisCache:
         Returns:
             Number of keys deleted
         """
-        if not self._connected:
+        if not self._connected or self._client is None:
             return 0
 
         try:
@@ -226,7 +226,7 @@ class RedisCache:
             else:
                 pattern = "kas:*"
 
-            keys = []
+            keys: list[str] = []
             async for key in self._client.scan_iter(match=pattern, count=100):
                 keys.append(key)
 
@@ -253,7 +253,7 @@ class RedisCache:
 
     async def get_info(self) -> dict[str, Any] | None:
         """Get Redis server info."""
-        if not self._connected:
+        if not self._connected or self._client is None:
             return None
 
         try:
@@ -294,7 +294,7 @@ async def close_cache() -> None:
 
 
 # Decorator for caching function results
-def cached(cache_type: CacheType):
+def cached(cache_type: CacheType) -> Any:  # type: ignore[no-untyped-def]
     """
     Decorator to cache async function results.
 
@@ -303,8 +303,8 @@ def cached(cache_type: CacheType):
         async def get_embedding(text: str) -> list[float]:
             ...
     """
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+    def decorator(func: Any) -> Any:
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             cache = await get_cache()
 
             # Create cache key from function name and arguments

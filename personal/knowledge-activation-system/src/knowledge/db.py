@@ -162,7 +162,7 @@ class Database:
 
         for attempt in range(self.settings.db_retry_attempts):
             try:
-                return await operation(*args, **kwargs)
+                return await operation(*args, **kwargs)  # type: ignore[misc]
             except asyncpg.PostgresConnectionError as e:
                 last_error = e
                 if attempt < self.settings.db_retry_attempts - 1:
@@ -199,7 +199,7 @@ class Database:
         try:
             async with self._pool.acquire(timeout=self.settings.db_pool_timeout) as conn:
                 yield conn
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             stats = self.get_pool_stats()
             raise ConnectionPoolExhaustedError(
                 "Timeout waiting for connection",
@@ -222,7 +222,7 @@ class Database:
             async with self._pool.acquire(timeout=self.settings.db_pool_timeout) as conn:
                 async with conn.transaction():
                     yield conn
-        except asyncio.TimeoutError as e:
+        except TimeoutError as e:
             raise ConnectionPoolExhaustedError(
                 "Timeout waiting for connection",
                 cause=e,
@@ -340,7 +340,7 @@ class Database:
 
             # Auto-enroll in review queue
             if add_to_review:
-                from fsrs import Card
+                from fsrs import Card  # type: ignore[import-untyped]
 
                 card = Card()
                 fsrs_state = json.dumps(card.to_dict())

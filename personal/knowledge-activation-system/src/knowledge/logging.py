@@ -68,7 +68,7 @@ def configure_logging(
 
     # Add request ID processor if enabled
     if include_request_id:
-        shared_processors.insert(0, add_request_id)
+        shared_processors.insert(0, add_request_id)  # type: ignore[arg-type]
 
     # Add contextvars processor for bound context
     shared_processors.insert(0, structlog.contextvars.merge_contextvars)
@@ -154,7 +154,7 @@ class LoggingContext:
         self.kwargs = kwargs
         self._token: Any = None
 
-    def __enter__(self) -> "LoggingContext":
+    def __enter__(self) -> LoggingContext:
         bind_context(**self.kwargs)
         return self
 

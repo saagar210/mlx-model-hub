@@ -18,7 +18,6 @@ from knowledge.exceptions import (
     InvalidURLError,
 )
 
-
 # Regex to match YAML frontmatter at the start of content
 YAML_FRONTMATTER_PATTERN = re.compile(r'^---\n(.*?)\n---\n?', re.DOTALL)
 

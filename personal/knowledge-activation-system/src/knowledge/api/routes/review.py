@@ -18,7 +18,6 @@ from knowledge.api.schemas import (
 from knowledge.review import (
     ReviewRating,
     add_to_review_queue,
-    create_fsrs_card,
     get_due_items,
     get_item_state,
     get_review_engine,
@@ -147,7 +146,7 @@ async def get_next_intervals(content_id: UUID) -> ReviewIntervalsResponse:
 
 
 @router.post("/{content_id}/add")
-async def add_to_queue(content_id: UUID) -> dict:
+async def add_to_queue(content_id: UUID) -> dict[str, str]:
     """
     Add a content item to the review queue.
 
@@ -162,7 +161,7 @@ async def add_to_queue(content_id: UUID) -> dict:
 
 
 @router.post("/{content_id}/suspend")
-async def suspend_review(content_id: UUID) -> dict:
+async def suspend_review(content_id: UUID) -> dict[str, str]:
     """
     Suspend an item from the review queue.
 
@@ -177,7 +176,7 @@ async def suspend_review(content_id: UUID) -> dict:
 
 
 @router.post("/{content_id}/unsuspend")
-async def unsuspend_review(content_id: UUID) -> dict:
+async def unsuspend_review(content_id: UUID) -> dict[str, str]:
     """
     Unsuspend an item in the review queue.
 
@@ -192,7 +191,7 @@ async def unsuspend_review(content_id: UUID) -> dict:
 
 
 @router.delete("/{content_id}")
-async def remove_from_review(content_id: UUID) -> dict:
+async def remove_from_review(content_id: UUID) -> dict[str, str]:
     """
     Remove an item from the review queue entirely.
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import Enum
-from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -137,7 +137,7 @@ class ChunkInput(BaseModel):
     """Input for a content chunk."""
 
     text: str = Field(..., min_length=1, max_length=50000, description="Chunk text content")
-    metadata: dict = Field(default_factory=dict, description="Optional chunk metadata")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Optional chunk metadata")
 
 
 class ContentCreate(BaseModel):
@@ -150,7 +150,7 @@ class ContentCreate(BaseModel):
     source_ref: str | None = Field(default=None, max_length=2000, description="Source reference/URL")
     namespace: str | None = Field(default=None, max_length=100, description="Content namespace")
     tags: list[str] = Field(default_factory=list, max_length=50, description="Content tags")
-    metadata: dict = Field(default_factory=dict, description="Additional metadata")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
     chunks: list[ChunkInput] | None = Field(default=None, description="Pre-chunked content")
 
     @field_validator("title")
@@ -234,7 +234,7 @@ class ContentDetailResponse(BaseModel):
     title: str
     summary: str | None = None
     tags: list[str] = []
-    metadata: dict = {}
+    metadata: dict[str, Any] = {}
     created_at: datetime
     updated_at: datetime
     chunk_count: int = 0
@@ -265,7 +265,7 @@ class ServiceHealth(BaseModel):
 
     name: str
     status: str
-    details: dict = {}
+    details: dict[str, Any] = {}
 
 
 class HealthResponse(BaseModel):

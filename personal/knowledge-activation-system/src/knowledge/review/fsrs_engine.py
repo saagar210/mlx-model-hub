@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from fsrs import Card, Rating, Scheduler, State
+from fsrs import Card, Rating, Scheduler, State  # type: ignore[import-untyped]
 
 from knowledge.review.models import NextIntervals, ReviewRating, ReviewResult
 
@@ -246,12 +245,10 @@ class ReviewEngine:
             # FSRS retention formula: R = e^(-t/S)
             # where t = days since last review, S = stability
             due_str = card_state.get("due")
-            last_review_str = card_state.get("last_review")
 
             if not due_str:
                 return None
 
-            from datetime import timedelta
             import math
 
             now = datetime.now(UTC)

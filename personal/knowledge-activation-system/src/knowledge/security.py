@@ -155,10 +155,10 @@ def resolve_safe_path(
     # Check if resolved path is within base
     try:
         resolved.relative_to(base)
-    except ValueError:
+    except ValueError as e:
         raise PathSecurityError(
             f"Path traversal detected: {user_path} escapes {base_path}"
-        )
+        ) from e
 
     # Check for symlinks if not allowed
     if not allow_symlinks:
@@ -309,8 +309,8 @@ def validate_uuid(value: str) -> str:
     try:
         from uuid import UUID
         return str(UUID(value))
-    except (ValueError, AttributeError):
-        raise InputValidationError(f"Invalid UUID: {value}")
+    except (ValueError, AttributeError) as e:
+        raise InputValidationError(f"Invalid UUID: {value}") from e
 
 
 def validate_content_type(content_type: str) -> str:

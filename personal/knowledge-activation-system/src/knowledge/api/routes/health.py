@@ -94,6 +94,7 @@ async def check_database_health() -> ComponentHealth:
         latency = (time.time() - start) * 1000
 
         pool_stats = db.get_pool_stats()
+        pool_dict = pool_stats.to_dict() if pool_stats else {}
 
         if health["status"] == "healthy":
             return ComponentHealth(
@@ -101,10 +102,10 @@ async def check_database_health() -> ComponentHealth:
                 status=HealthStatus.HEALTHY,
                 latency_ms=round(latency, 2),
                 details={
-                    "pool_size": pool_stats.get("size", 0),
-                    "pool_available": pool_stats.get("free_size", 0),
-                    "pool_min": pool_stats.get("min_size", 0),
-                    "pool_max": pool_stats.get("max_size", 0),
+                    "pool_size": pool_dict.get("size", 0),
+                    "pool_available": pool_dict.get("free_size", 0),
+                    "pool_min": pool_dict.get("min_size", 0),
+                    "pool_max": pool_dict.get("max_size", 0),
                     "content_count": health.get("content_count", 0),
                     "chunk_count": health.get("chunk_count", 0),
                     "extensions": health.get("extensions", []),
@@ -329,7 +330,7 @@ async def readiness() -> dict[str, str | bool]:
         raise HTTPException(
             status_code=503,
             detail=f"Not ready: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/api/v1/health")

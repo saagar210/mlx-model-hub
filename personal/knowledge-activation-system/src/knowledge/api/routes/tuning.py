@@ -6,10 +6,12 @@ without requiring application restart.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from knowledge.config import get_settings, Settings
+from knowledge.config import get_settings
 from knowledge.logging import get_logger
 
 logger = get_logger(__name__)
@@ -78,12 +80,12 @@ class CacheTTLUpdate(BaseModel):
 _runtime_config: dict = {}
 
 
-def _get_runtime_value(key: str, default: any) -> any:
+def _get_runtime_value(key: str, default: Any) -> Any:
     """Get runtime config value, falling back to settings."""
     return _runtime_config.get(key, default)
 
 
-def _set_runtime_value(key: str, value: any) -> None:
+def _set_runtime_value(key: str, value: Any) -> None:
     """Set runtime config value."""
     _runtime_config[key] = value
 
@@ -122,7 +124,6 @@ async def update_search_weights(update: SearchWeightsUpdate) -> TuningResponse:
 
     For permanent changes, update environment variables or config files.
     """
-    settings = get_settings()
     changes = []
 
     if update.bm25_weight is not None:
@@ -160,8 +161,6 @@ async def reset_search_weights() -> TuningResponse:
 
     Clears all runtime overrides and uses values from settings/env.
     """
-    settings = get_settings()
-
     # Clear runtime overrides for search weights
     keys_to_clear = [
         "search_bm25_weight",

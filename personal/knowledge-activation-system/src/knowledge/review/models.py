@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-from fsrs import State
+from fsrs import State  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field
 
 
@@ -21,7 +21,7 @@ class ReviewRating(str, Enum):
     EASY = "easy"  # Recalled effortlessly (4)
 
     @classmethod
-    def from_int(cls, value: int) -> "ReviewRating":
+    def from_int(cls, value: int) -> ReviewRating:
         """Convert integer rating (1-4) to ReviewRating."""
         mapping = {
             1: cls.AGAIN,
@@ -48,7 +48,7 @@ class FSRSState:
     step: int | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FSRSState":
+    def from_dict(cls, data: dict[str, Any]) -> FSRSState:
         """Create FSRSState from dictionary."""
         due = data.get("due")
         if isinstance(due, str):
@@ -175,7 +175,7 @@ class NextIntervals(BaseModel):
     easy: datetime
 
     @classmethod
-    def from_dict(cls, intervals: dict[ReviewRating, datetime]) -> "NextIntervals":
+    def from_dict(cls, intervals: dict[ReviewRating, datetime]) -> NextIntervals:
         """Create from dictionary mapping."""
         return cls(
             again=intervals[ReviewRating.AGAIN],

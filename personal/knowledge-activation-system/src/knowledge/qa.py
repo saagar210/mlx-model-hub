@@ -210,7 +210,7 @@ async def ask(
                 generate_answer(query, context),
                 timeout=settings.llm_timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             # Return partial result with citations but no AI answer
             return QAResult(
                 query=query,

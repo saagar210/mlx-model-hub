@@ -122,8 +122,8 @@ async def fetch_transcript(
         formatted_lines = []
         for entry in transcript_data:
             # Handle both dict-style and object-style access
-            start = entry.start if hasattr(entry, "start") else entry["start"]
-            text = entry.text if hasattr(entry, "text") else entry["text"]
+            start = entry.start if hasattr(entry, "start") else entry["start"]  # type: ignore[index]
+            text = entry.text if hasattr(entry, "text") else entry["text"]  # type: ignore[index]
             timestamp = format_timestamp(start)
             text = text.strip()
             if text:

@@ -29,7 +29,7 @@ from knowledge.search import (
     search_bm25_only,
     search_vector_only,
 )
-from knowledge.security import sanitize_error_message, is_production
+from knowledge.security import is_production, sanitize_error_message
 
 logger = logging.getLogger(__name__)
 

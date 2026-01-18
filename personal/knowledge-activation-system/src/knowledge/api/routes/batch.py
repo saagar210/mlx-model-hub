@@ -17,7 +17,6 @@ from knowledge.api.schemas import SearchMode, SearchResponse, SearchResultItem
 from knowledge.db import get_db
 from knowledge.logging import get_logger
 from knowledge.search import (
-    HybridSearchResponse,
     hybrid_search_with_status,
     search_bm25_only,
     search_vector_only,
@@ -188,7 +187,7 @@ async def batch_delete_content(
 
     for content_id in request.ids:
         try:
-            result = await db.delete_content(content_id)
+            result = await db.soft_delete_content(content_id)
             if result:
                 deleted += 1
             else:

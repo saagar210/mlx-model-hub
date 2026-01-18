@@ -12,17 +12,16 @@ import asyncio
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, HttpUrl
 
 from knowledge.api.auth import require_scope
-from knowledge.config import get_settings
 from knowledge.logging import get_logger
 
 logger = get_logger(__name__)
@@ -133,7 +132,7 @@ async def create_webhook(
     for subscribed events with HMAC-SHA256 signature if secret provided.
     """
     webhook_id = str(uuid4())
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     webhook = {
         "id": webhook_id,
@@ -275,7 +274,7 @@ async def test_webhook(
 
     test_payload = {
         "event": "webhook.test",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "webhook_id": webhook_id,
         "test": True,
     }
@@ -355,7 +354,7 @@ async def _deliver_with_retry(
     """Deliver webhook with exponential backoff retry."""
     full_payload = {
         "event": event,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "data": payload,
     }
 
@@ -371,7 +370,7 @@ async def _deliver_with_retry(
                 "status_code": result.get("status_code"),
                 "success": result["success"],
                 "error": result.get("error"),
-                "delivered_at": datetime.now(timezone.utc).isoformat(),
+                "delivered_at": datetime.now(UTC).isoformat(),
             })
 
             # Trim old deliveries (keep last 1000 per webhook)
@@ -379,7 +378,7 @@ async def _deliver_with_retry(
                 _deliveries[:] = _deliveries[-5000:]
 
         if result["success"]:
-            webhook["last_triggered"] = datetime.now(timezone.utc).isoformat()
+            webhook["last_triggered"] = datetime.now(UTC).isoformat()
             webhook["failure_count"] = 0
             return
 

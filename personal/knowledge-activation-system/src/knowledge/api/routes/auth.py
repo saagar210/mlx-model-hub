@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from knowledge.api.auth import (
@@ -57,7 +57,7 @@ class RevokeKeyResponse(BaseModel):
 
 @router.get("/me")
 async def get_current_user(
-    api_key: APIKey | None = Depends(get_api_key),
+    api_key: APIKey | None = Depends(get_api_key),  # noqa: B008
 ) -> CurrentUserResponse:
     """
     Get information about the current API key.
@@ -102,7 +102,7 @@ async def create_key(request: CreateKeyRequest) -> CreateKeyResponse:
     # Calculate expiration if set
     expires_at = None
     if request.expires_in_days:
-        expires_at = datetime.now(timezone.utc) + timedelta(days=request.expires_in_days)
+        expires_at = datetime.now(UTC) + timedelta(days=request.expires_in_days)
 
     logger.info(
         "api_key_created_via_api",
@@ -182,5 +182,5 @@ async def revoke_key(key_id: UUID) -> RevokeKeyResponse:
     return RevokeKeyResponse(
         id=key_id,
         revoked=True,
-        revoked_at=datetime.now(timezone.utc),
+        revoked_at=datetime.now(UTC),
     )

@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
+from knowledge.cache import CacheType, get_cache
 from knowledge.config import Settings, get_settings
 from knowledge.db import Database, get_db
 from knowledge.embeddings import embed_text
 from knowledge.exceptions import CircuitOpenError
 from knowledge.logging import get_logger
-from knowledge.cache import get_cache, CacheType
-from knowledge.query_expansion import expand_query, ExpandedQuery
+from knowledge.query_expansion import ExpandedQuery, expand_query
 
 logger = get_logger(__name__)
 

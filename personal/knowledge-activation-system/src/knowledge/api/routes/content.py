@@ -16,7 +16,7 @@ from knowledge.api.schemas import (
     ContentListResponse,
 )
 from knowledge.db import get_db
-from knowledge.security import sanitize_error_message, is_production
+from knowledge.security import is_production, sanitize_error_message
 
 logger = logging.getLogger(__name__)
 

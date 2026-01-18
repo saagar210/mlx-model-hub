@@ -9,8 +9,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from fsrs import State
-
 from knowledge.db import get_db
 from knowledge.review.fsrs_engine import (
     create_fsrs_card,

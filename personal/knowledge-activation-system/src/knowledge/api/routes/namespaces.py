@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from knowledge.db import get_db
-from knowledge.security import sanitize_error_message, is_production
+from knowledge.security import is_production, sanitize_error_message
 
 logger = logging.getLogger(__name__)
 

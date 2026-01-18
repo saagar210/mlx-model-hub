@@ -6,6 +6,8 @@ All metrics use the 'kas_' prefix for namespace clarity.
 
 from __future__ import annotations
 
+from typing import Any
+
 try:
     from prometheus_client import Counter, Gauge, Histogram, Info
 
@@ -15,7 +17,6 @@ except ImportError:
 
 from knowledge.config import get_settings
 
-
 # =============================================================================
 # Stub Classes (when prometheus-client not installed)
 # =============================================================================
@@ -24,25 +25,25 @@ from knowledge.config import get_settings
 class _StubMetric:
     """Stub metric that does nothing when prometheus is unavailable."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: object, **kwargs: object) -> None:
         pass
 
-    def labels(self, *args, **kwargs):
+    def labels(self, *args: object, **kwargs: object) -> _StubMetric:
         return self
 
-    def inc(self, *args, **kwargs):
+    def inc(self, *args: object, **kwargs: object) -> None:
         pass
 
-    def dec(self, *args, **kwargs):
+    def dec(self, *args: object, **kwargs: object) -> None:
         pass
 
-    def set(self, *args, **kwargs):
+    def set(self, *args: object, **kwargs: object) -> None:
         pass
 
-    def observe(self, *args, **kwargs):
+    def observe(self, *args: object, **kwargs: object) -> None:
         pass
 
-    def info(self, *args, **kwargs):
+    def info(self, *args: object, **kwargs: object) -> None:
         pass
 
 
@@ -58,7 +59,7 @@ if PROMETHEUS_AVAILABLE:
         "environment": "production",
     })
 else:
-    app_info = _StubMetric()
+    app_info = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -85,9 +86,9 @@ if PROMETHEUS_AVAILABLE:
         ["method"],
     )
 else:
-    http_requests_total = _StubMetric()
-    http_request_duration_seconds = _StubMetric()
-    http_requests_in_progress = _StubMetric()
+    http_requests_total = _StubMetric()  # type: ignore[assignment]
+    http_request_duration_seconds = _StubMetric()  # type: ignore[assignment]
+    http_requests_in_progress = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -114,9 +115,9 @@ if PROMETHEUS_AVAILABLE:
         buckets=[0, 1, 2, 5, 10, 20, 50, 100],
     )
 else:
-    search_requests_total = _StubMetric()
-    search_duration_seconds = _StubMetric()
-    search_results_count = _StubMetric()
+    search_requests_total = _StubMetric()  # type: ignore[assignment]
+    search_duration_seconds = _StubMetric()  # type: ignore[assignment]
+    search_results_count = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -141,9 +142,9 @@ if PROMETHEUS_AVAILABLE:
         buckets=[1, 5, 10, 25, 50, 100],
     )
 else:
-    embedding_requests_total = _StubMetric()
-    embedding_duration_seconds = _StubMetric()
-    embedding_batch_size = _StubMetric()
+    embedding_requests_total = _StubMetric()  # type: ignore[assignment]
+    embedding_duration_seconds = _StubMetric()  # type: ignore[assignment]
+    embedding_batch_size = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -162,8 +163,8 @@ if PROMETHEUS_AVAILABLE:
         buckets=[0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
     )
 else:
-    rerank_requests_total = _StubMetric()
-    rerank_duration_seconds = _StubMetric()
+    rerank_requests_total = _StubMetric()  # type: ignore[assignment]
+    rerank_duration_seconds = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -192,10 +193,10 @@ if PROMETHEUS_AVAILABLE:
         "Items due for review",
     )
 else:
-    content_total = _StubMetric()
-    chunks_total = _StubMetric()
-    review_items_active = _StubMetric()
-    review_items_due = _StubMetric()
+    content_total = _StubMetric()  # type: ignore[assignment]
+    chunks_total = _StubMetric()  # type: ignore[assignment]
+    review_items_active = _StubMetric()  # type: ignore[assignment]
+    review_items_due = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -223,10 +224,10 @@ if PROMETHEUS_AVAILABLE:
         "Maximum database pool size",
     )
 else:
-    db_pool_size = _StubMetric()
-    db_pool_available = _StubMetric()
-    db_pool_min = _StubMetric()
-    db_pool_max = _StubMetric()
+    db_pool_size = _StubMetric()  # type: ignore[assignment]
+    db_pool_available = _StubMetric()  # type: ignore[assignment]
+    db_pool_min = _StubMetric()  # type: ignore[assignment]
+    db_pool_max = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -246,8 +247,8 @@ if PROMETHEUS_AVAILABLE:
         ["circuit"],
     )
 else:
-    circuit_breaker_state = _StubMetric()
-    circuit_breaker_failures = _StubMetric()
+    circuit_breaker_state = _StubMetric()  # type: ignore[assignment]
+    circuit_breaker_failures = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -266,8 +267,8 @@ if PROMETHEUS_AVAILABLE:
         "Remaining rate limit tokens (sampled)",
     )
 else:
-    rate_limit_exceeded_total = _StubMetric()
-    rate_limit_remaining = _StubMetric()
+    rate_limit_exceeded_total = _StubMetric()  # type: ignore[assignment]
+    rate_limit_remaining = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -294,9 +295,9 @@ if PROMETHEUS_AVAILABLE:
         ["content_type", "error_type"],
     )
 else:
-    ingest_requests_total = _StubMetric()
-    ingest_duration_seconds = _StubMetric()
-    ingest_failures_total = _StubMetric()
+    ingest_requests_total = _StubMetric()  # type: ignore[assignment]
+    ingest_duration_seconds = _StubMetric()  # type: ignore[assignment]
+    ingest_failures_total = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -327,10 +328,10 @@ if PROMETHEUS_AVAILABLE:
         "Cache connection status (1=connected, 0=disconnected)",
     )
 else:
-    cache_hits_total = _StubMetric()
-    cache_misses_total = _StubMetric()
-    cache_errors_total = _StubMetric()
-    cache_connected = _StubMetric()
+    cache_hits_total = _StubMetric()  # type: ignore[assignment]
+    cache_misses_total = _StubMetric()  # type: ignore[assignment]
+    cache_errors_total = _StubMetric()  # type: ignore[assignment]
+    cache_connected = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -349,8 +350,8 @@ if PROMETHEUS_AVAILABLE:
         buckets=[0, 1, 2, 3, 4, 5],
     )
 else:
-    query_expansion_total = _StubMetric()
-    query_expansion_terms_added = _StubMetric()
+    query_expansion_total = _StubMetric()  # type: ignore[assignment]
+    query_expansion_terms_added = _StubMetric()  # type: ignore[assignment]
 
 
 # =============================================================================
@@ -358,7 +359,7 @@ else:
 # =============================================================================
 
 
-def update_db_pool_metrics(pool_stats: dict) -> None:
+def update_db_pool_metrics(pool_stats: dict[str, int]) -> None:
     """Update database pool metrics from stats dict."""
     if not PROMETHEUS_AVAILABLE:
         return
@@ -369,14 +370,16 @@ def update_db_pool_metrics(pool_stats: dict) -> None:
     db_pool_max.set(pool_stats.get("max_size", 0))
 
 
-def update_content_metrics(stats: dict) -> None:
+def update_content_metrics(stats: dict[str, Any]) -> None:
     """Update content metrics from stats dict."""
     if not PROMETHEUS_AVAILABLE:
         return
 
     # Update type-specific content counts
-    for content_type, count in stats.get("content_by_type", {}).items():
-        content_total.labels(type=content_type).set(count)
+    content_by_type = stats.get("content_by_type", {})
+    if isinstance(content_by_type, dict):
+        for content_type, count in content_by_type.items():
+            content_total.labels(type=content_type).set(count)
 
     chunks_total.set(stats.get("total_chunks", 0))
     review_items_active.set(stats.get("review_active", 0))

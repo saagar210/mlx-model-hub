@@ -9,12 +9,13 @@ Provides endpoints for:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from enum import Enum
-from typing import AsyncIterator
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -111,7 +112,7 @@ async def export_content(
 
         export_data = {
             "metadata": ExportMetadata(
-                exported_at=datetime.now(timezone.utc).isoformat(),
+                exported_at=datetime.now(UTC).isoformat(),
                 total_items=count,
                 namespace=request.namespace,
                 content_types=request.content_types,
@@ -127,7 +128,7 @@ async def export_content(
 
         # First line is metadata (will update count at end via separate request)
         metadata = ExportMetadata(
-            exported_at=datetime.now(timezone.utc).isoformat(),
+            exported_at=datetime.now(UTC).isoformat(),
             total_items=0,  # Will be actual count in footer
             namespace=request.namespace,
             content_types=request.content_types,
@@ -145,11 +146,11 @@ async def export_content(
     if request.format == ExportFormat.JSONL:
         generator = generate_jsonl()
         media_type = "application/x-ndjson"
-        filename = f"kas-export-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.jsonl"
+        filename = f"kas-export-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.jsonl"
     else:
         generator = generate_json()
         media_type = "application/json"
-        filename = f"kas-export-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.json"
+        filename = f"kas-export-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.json"
 
     logger.info(
         "export_started",
@@ -167,9 +168,9 @@ async def export_content(
 
 @router.post("/import", response_model=ImportResult)
 async def import_content(
-    file: UploadFile = File(...),
+    file: UploadFile = File(...),  # noqa: B008
     skip_existing: bool = True,
-    _: bool = Depends(require_scope("write")),
+    _: bool = Depends(require_scope("write")),  # noqa: B008
 ) -> ImportResult:
     """
     Import content from a backup file.
@@ -239,7 +240,7 @@ async def import_content(
 # =============================================================================
 
 
-async def _export_items(db, request: ExportRequest) -> AsyncIterator[dict]:
+async def _export_items(db: Any, request: ExportRequest) -> AsyncIterator[dict]:
     """Generate export items from database."""
     # Get content with optional filters
     query = """
@@ -283,7 +284,7 @@ async def _export_items(db, request: ExportRequest) -> AsyncIterator[dict]:
         yield item
 
 
-async def _get_chunks(db, content_id: UUID, include_embeddings: bool) -> list[dict]:
+async def _get_chunks(db: Any, content_id: UUID, include_embeddings: bool) -> list[dict]:
     """Get chunks for a content item."""
     if include_embeddings:
         query = """
@@ -329,7 +330,7 @@ def _parse_jsonl(content: str) -> list[dict]:
     return items
 
 
-async def _import_item(db, item: dict, skip_existing: bool) -> str:
+async def _import_item(db: Any, item: dict, skip_existing: bool) -> str:
     """Import a single item. Returns 'imported', 'skipped', or raises."""
     content_id = item.get("id")
 

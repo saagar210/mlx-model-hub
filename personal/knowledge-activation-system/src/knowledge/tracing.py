@@ -6,8 +6,9 @@ Integrates with Jaeger, Zipkin, or any OTLP-compatible backend.
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Generator
+from typing import Any
 
 from knowledge.config import get_settings
 from knowledge.logging import get_logger
@@ -38,7 +39,7 @@ class _StubSpan:
     def set_status(self, status: Any) -> None:
         pass
 
-    def __enter__(self) -> "_StubSpan":
+    def __enter__(self) -> _StubSpan:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -151,7 +152,9 @@ def _instrument_libraries() -> None:
 
     # AsyncPG instrumentation
     try:
-        from opentelemetry.instrumentation.asyncpg import AsyncPGInstrumentor
+        from opentelemetry.instrumentation.asyncpg import (  # type: ignore[import-not-found]
+            AsyncPGInstrumentor,
+        )
 
         AsyncPGInstrumentor().instrument()
         logger.debug("instrumented_asyncpg")
@@ -160,7 +163,9 @@ def _instrument_libraries() -> None:
 
     # HTTPX instrumentation
     try:
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+        from opentelemetry.instrumentation.httpx import (  # type: ignore[import-not-found]
+            HTTPXClientInstrumentor,
+        )
 
         HTTPXClientInstrumentor().instrument()
         logger.debug("instrumented_httpx")
@@ -297,7 +302,6 @@ def get_trace_context() -> dict[str, str]:
         return {}
 
     try:
-        from opentelemetry import trace
         from opentelemetry.propagate import inject
 
         context: dict[str, str] = {}

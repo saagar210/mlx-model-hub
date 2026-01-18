@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from time import time
-from typing import Callable, TypeVar, Generic, Any
+from typing import Any, Generic, TypeVar
 
 from knowledge.config import get_settings
 from knowledge.exceptions import CircuitOpenError
@@ -34,7 +35,7 @@ class CircuitBreakerConfig:
     half_open_max_calls: int = 3  # Successful calls to close
 
     @classmethod
-    def from_settings(cls) -> "CircuitBreakerConfig":
+    def from_settings(cls) -> CircuitBreakerConfig:
         """Create config from application settings."""
         settings = get_settings()
         return cls(
@@ -164,9 +165,9 @@ class CircuitBreaker(Generic[T]):
 
         # Execute the call
         try:
-            result = await func(*args, **kwargs)
+            result = await func(*args, **kwargs)  # type: ignore[misc]
             await self._on_success()
-            return result
+            return result  # type: ignore[return-value]
         except Exception as e:
             await self._on_failure(e)
             raise

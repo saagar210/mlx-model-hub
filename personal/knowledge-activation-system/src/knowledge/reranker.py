@@ -60,11 +60,11 @@ class LocalReranker:
 
         try:
             from sentence_transformers import CrossEncoder
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "sentence-transformers required for reranking. "
                 "Install with: uv pip install sentence-transformers"
-            )
+            ) from err
 
         # Auto-detect device
         if self._device is None:
@@ -128,7 +128,7 @@ class LocalReranker:
 
         # Combine with original results
         reranked = []
-        for result, score in zip(results, scores):
+        for result, score in zip(results, scores, strict=True):
             reranked.append(
                 RerankResult(
                     result=result,
@@ -178,7 +178,7 @@ class LocalReranker:
 
         # Combine with original results
         reranked = []
-        for result, score in zip(results, scores):
+        for result, score in zip(results, scores, strict=True):
             reranked.append(
                 RerankResult(
                     result=result,
@@ -198,7 +198,7 @@ class LocalReranker:
 
 # Global reranker instance (lazy loaded)
 _reranker: LocalReranker | None = None
-_preload_task: asyncio.Task | None = None
+_preload_task: asyncio.Task[None] | None = None
 
 
 def get_reranker(
@@ -232,7 +232,7 @@ async def preload_reranker(
     global _preload_task
     logger.info(f"Starting reranker model preload: {model_name}")
 
-    async def _preload():
+    async def _preload() -> None:
         try:
             reranker = get_reranker(model_name)
             # Load model in thread pool to avoid blocking startup
@@ -336,7 +336,6 @@ class LlamaIndexReranker:
         Returns:
             Reranked list of NodeWithScore
         """
-        from llama_index.core.schema import NodeWithScore
 
         if not nodes or query_bundle is None:
             return nodes
@@ -356,7 +355,7 @@ class LlamaIndexReranker:
 
         # Update and sort
         reranked = []
-        for node, score in zip(nodes, scores):
+        for node, score in zip(nodes, scores, strict=True):
             if hasattr(node, "score"):
                 node.score = float(score)
             reranked.append((node, float(score)))

@@ -667,7 +667,7 @@ class TestBatchDeleteEndpoint:
 
     def test_batch_delete_content(self, client: TestClient, mock_db: MagicMock):
         """Test batch delete content."""
-        mock_db.delete_content = AsyncMock(return_value=True)
+        mock_db.soft_delete_content = AsyncMock(return_value=True)
 
         with patch("knowledge.api.routes.batch.get_db", AsyncMock(return_value=mock_db)):
             content_ids = [str(uuid4()), str(uuid4())]
@@ -682,7 +682,7 @@ class TestBatchDeleteEndpoint:
     def test_batch_delete_with_not_found(self, client: TestClient, mock_db: MagicMock):
         """Test batch delete handles not found items."""
         # First delete succeeds, second returns not found
-        mock_db.delete_content = AsyncMock(side_effect=[True, False])
+        mock_db.soft_delete_content = AsyncMock(side_effect=[True, False])
 
         with patch("knowledge.api.routes.batch.get_db", AsyncMock(return_value=mock_db)):
             content_ids = [str(uuid4()), str(uuid4())]

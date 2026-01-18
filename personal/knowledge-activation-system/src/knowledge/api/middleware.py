@@ -13,17 +13,17 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import HTTPException, Request, Response
 from fastapi.security import APIKeyHeader
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from knowledge.config import get_settings
-from knowledge.exceptions import RateLimitError
 from knowledge.logging import get_logger
-from knowledge.security import secure_compare, set_request_id, clear_request_id
+from knowledge.security import clear_request_id, secure_compare, set_request_id
 
 logger = get_logger(__name__)
 

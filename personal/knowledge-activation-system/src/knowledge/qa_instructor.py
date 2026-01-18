@@ -57,7 +57,7 @@ class QAResponse(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_confidence_consistency(self) -> "QAResponse":
+    def validate_confidence_consistency(self) -> QAResponse:
         """Ensure confidence_level matches confidence score."""
         if self.confidence < 0.3:
             expected_level = "low"
@@ -67,7 +67,7 @@ class QAResponse(BaseModel):
             expected_level = "high"
 
         if self.confidence_level != expected_level:
-            self.confidence_level = expected_level
+            self.confidence_level = expected_level  # type: ignore[assignment]
 
         return self
 

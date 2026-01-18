@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
-from typing import Any, Callable, Coroutine
+from typing import Any
 from zoneinfo import ZoneInfo
 
 from knowledge.config import get_settings

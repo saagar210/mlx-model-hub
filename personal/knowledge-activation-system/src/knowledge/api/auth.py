@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, Header, Request
@@ -14,7 +14,6 @@ from pydantic import BaseModel
 from knowledge.config import get_settings
 from knowledge.db import get_db
 from knowledge.exceptions import (
-    AuthError,
     InsufficientScopeError,
     InvalidAPIKeyError,
     MissingAPIKeyError,
@@ -232,7 +231,7 @@ async def get_api_key(
         )
 
 
-def require_scope(scope: str):
+def require_scope(scope: str) -> Any:
     """
     Create a dependency that requires a specific scope.
 
@@ -257,7 +256,7 @@ def require_scope(scope: str):
         )
 
     async def check_scope(
-        api_key: APIKey | None = Depends(get_api_key),
+        api_key: APIKey | None = Depends(get_api_key),  # noqa: B008
     ) -> APIKey | None:
         """Check if API key has required scope."""
         # No key and not required = allow anonymous
@@ -286,7 +285,7 @@ def require_scope(scope: str):
     return check_scope
 
 
-def require_admin():
+def require_admin() -> Any:
     """
     Create a dependency that requires admin scope.
 

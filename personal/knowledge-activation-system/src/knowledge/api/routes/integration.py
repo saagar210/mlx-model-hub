@@ -15,7 +15,6 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -24,7 +23,7 @@ from knowledge.db import get_db
 from knowledge.embeddings import check_ollama_health
 from knowledge.reranker import rerank_results
 from knowledge.search import hybrid_search
-from knowledge.security import sanitize_filename, sanitize_error_message, is_production
+from knowledge.security import is_production, sanitize_error_message, sanitize_filename
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +308,7 @@ async def ingest_research(request: ResearchIngestRequest) -> ResearchIngestRespo
         frontmatter = [
             "---",
             f"title: {request.title}",
-            f"type: research",
+            "type: research",
             f"source: {request.source}",
             f"tags: [{', '.join(all_tags)}]",
             f"created_at: '{datetime.now(UTC).isoformat()}'",
@@ -436,7 +435,6 @@ async def ingest_document(request: DocumentCreateRequest) -> DocumentCreateRespo
         from knowledge.chunking import (
             ChunkingStrategy,
             chunk_content,
-            get_strategy_for_content_type,
         )
         from knowledge.config import get_settings
         from knowledge.embeddings import embed_text
@@ -810,7 +808,7 @@ async def quick_capture(request: QuickCaptureRequest) -> QuickCaptureResponse:
         frontmatter = [
             "---",
             f'title: "{title}"',
-            f"type: capture",
+            "type: capture",
             f"source: {request.source}",
             f"namespace: {request.namespace}",
             f"tags: [{', '.join(all_tags)}]",
@@ -889,8 +887,9 @@ async def capture_url(
         POST /api/v1/capture/url?url=https://example.com&tags=article,read-later
     """
     try:
-        import httpx
         from pathlib import Path
+
+        import httpx
 
         from knowledge.chunking import ChunkingStrategy, chunk_content
         from knowledge.config import get_settings
@@ -1234,8 +1233,8 @@ async def update_content_quality(
             "content_id": content_id,
             "quality_score": quality_score,
         }
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid content ID format")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid content ID format") from e
     except Exception as e:
         logger.exception(f"Failed to update quality for {content_id}")
         error_msg = sanitize_error_message(e, production=is_production())

@@ -10,7 +10,20 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from knowledge.ai import close_ai_provider
 from knowledge.api.middleware import APIVersionMiddleware, MetricsMiddleware, SecurityMiddleware
-from knowledge.api.routes import auth, batch, content, export, health, integration, metrics, namespaces, review, search, tuning, webhooks
+from knowledge.api.routes import (
+    auth,
+    batch,
+    content,
+    export,
+    health,
+    integration,
+    metrics,
+    namespaces,
+    review,
+    search,
+    tuning,
+    webhooks,
+)
 from knowledge.config import get_settings
 from knowledge.db import close_db
 from knowledge.embeddings import close_embedding_service

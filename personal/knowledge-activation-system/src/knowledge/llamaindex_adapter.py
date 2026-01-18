@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import Any
 
 from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.bridge.pydantic import PrivateAttr
@@ -23,7 +23,7 @@ from llama_index.core.vector_stores.types import (
 
 from knowledge.db import Database, get_db
 from knowledge.embeddings import embed_text
-from knowledge.search import SearchResult, hybrid_search, rrf_fusion
+from knowledge.search import rrf_fusion
 
 
 class KnowledgeVectorStore(BasePydanticVectorStore):
@@ -54,7 +54,7 @@ class KnowledgeVectorStore(BasePydanticVectorStore):
             self._db = await get_db()
         return self._db
 
-    def add(self, nodes: list[TextNode], **kwargs: Any) -> list[str]:
+    def add(self, nodes: list[TextNode], **kwargs: Any) -> list[str]:  # type: ignore[override]
         """Not implemented - use CLI ingest commands instead."""
         raise NotImplementedError(
             "Use 'python cli.py ingest' commands to add content. "

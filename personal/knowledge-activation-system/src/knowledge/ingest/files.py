@@ -19,7 +19,7 @@ from knowledge.db import get_db
 from knowledge.embeddings import embed_batch
 from knowledge.ingest import IngestResult
 from knowledge.obsidian import create_note, get_relative_path
-from knowledge.security import PathSecurityError, is_safe_filename
+from knowledge.security import is_safe_filename
 from knowledge.validation import extract_title_from_content, validate_content
 
 logger = logging.getLogger(__name__)

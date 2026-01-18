@@ -217,7 +217,7 @@ async def embed_text(text: str, use_cache: bool = True) -> list[float]:
         768-dimensional embedding vector
     """
     # Import here to avoid circular dependency
-    from knowledge.cache import get_cache, CacheType
+    from knowledge.cache import CacheType, get_cache
 
     cache = await get_cache()
 
