@@ -133,6 +133,76 @@ class AskResponse(BaseModel):
 # =============================================================================
 
 
+class ChunkInput(BaseModel):
+    """Input for a content chunk."""
+
+    text: str = Field(..., min_length=1, max_length=50000, description="Chunk text content")
+    metadata: dict = Field(default_factory=dict, description="Optional chunk metadata")
+
+
+class ContentCreate(BaseModel):
+    """Request to create new content."""
+
+    title: str = Field(..., min_length=1, max_length=500, description="Content title")
+    content_type: str = Field(..., description="Type of content (note, file, youtube, bookmark)")
+    body: str | None = Field(default=None, max_length=500000, description="Full content body")
+    summary: str | None = Field(default=None, max_length=2000, description="Content summary")
+    source_ref: str | None = Field(default=None, max_length=2000, description="Source reference/URL")
+    namespace: str | None = Field(default=None, max_length=100, description="Content namespace")
+    tags: list[str] = Field(default_factory=list, max_length=50, description="Content tags")
+    metadata: dict = Field(default_factory=dict, description="Additional metadata")
+    chunks: list[ChunkInput] | None = Field(default=None, description="Pre-chunked content")
+
+    @field_validator("title")
+    @classmethod
+    def sanitize_title(cls, v: str) -> str:
+        """Sanitize title - strip dangerous HTML/script tags."""
+        import html
+        # HTML encode to prevent XSS
+        v = html.escape(v)
+        # Remove any remaining angle brackets
+        v = re.sub(r'[<>]', '', v)
+        return v.strip()
+
+    @field_validator("content_type")
+    @classmethod
+    def validate_content_type(cls, v: str) -> str:
+        """Validate content type."""
+        allowed = {"youtube", "bookmark", "file", "note", "research", "capture"}
+        if v not in allowed:
+            raise ValueError(f"Invalid content_type: {v}. Allowed: {', '.join(sorted(allowed))}")
+        return v
+
+    @field_validator("chunks")
+    @classmethod
+    def validate_chunk_count(cls, v: list[ChunkInput] | None) -> list[ChunkInput] | None:
+        """Validate chunk count limit."""
+        if v is not None and len(v) > 1000:
+            raise ValueError("Maximum 1000 chunks allowed per content item")
+        return v
+
+    @field_validator("namespace")
+    @classmethod
+    def validate_namespace(cls, v: str | None) -> str | None:
+        """Validate namespace format."""
+        if v is None:
+            return v
+        if not re.match(r"^[\w\-*]+$", v):
+            raise ValueError("Invalid namespace format - use alphanumeric, dash, underscore only")
+        return v
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        """Validate and sanitize tags."""
+        sanitized = []
+        for tag in v[:50]:  # Max 50 tags
+            tag = re.sub(r'[^\w\-]', '', tag.lower().strip())
+            if tag and len(tag) <= 50:
+                sanitized.append(tag)
+        return list(dict.fromkeys(sanitized))  # Dedupe preserving order
+
+
 class ContentItem(BaseModel):
     """Content item."""
 

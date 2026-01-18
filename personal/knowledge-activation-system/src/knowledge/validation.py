@@ -333,55 +333,61 @@ BLOCKED_URL_PATTERNS = [
 ALLOWED_SCHEMES = {"http", "https"}
 
 
-def validate_url(url: str, allow_private: bool = False) -> str:
+def validate_url(url: str, allow_private: bool = False, raise_on_error: bool = False) -> str | None:
     """
     Validate and sanitize a URL.
 
     Args:
         url: The URL to validate
         allow_private: Whether to allow private/local URLs (default False)
+        raise_on_error: If True, raise InvalidURLError; if False, return None
 
     Returns:
-        The validated URL
+        The validated URL, or None if invalid (when raise_on_error=False)
 
     Raises:
-        InvalidURLError: If the URL is invalid or unsafe
+        InvalidURLError: If the URL is invalid or unsafe (only when raise_on_error=True)
     """
+    def _fail(msg: str, details: dict | None = None) -> str | None:
+        if raise_on_error:
+            raise InvalidURLError(msg, details=details)
+        return None
+
     if not url:
-        raise InvalidURLError("URL cannot be empty")
+        return _fail("URL cannot be empty")
 
     url = url.strip()
 
     # Basic protocol check
     if not url.startswith(("http://", "https://")):
-        raise InvalidURLError("URL must start with http:// or https://")
+        return _fail("URL must start with http:// or https://")
 
     try:
         parsed = urlparse(url)
     except Exception as e:
-        raise InvalidURLError(f"Invalid URL format: {e}")
+        return _fail(f"Invalid URL format: {e}")
 
     # Validate scheme
     if parsed.scheme not in ALLOWED_SCHEMES:
-        raise InvalidURLError(f"Invalid URL scheme: {parsed.scheme}")
+        return _fail(f"Invalid URL scheme: {parsed.scheme}")
 
     # Validate host
     if not parsed.netloc:
-        raise InvalidURLError("URL must have a host")
+        return _fail("URL must have a host")
 
     # Check for blocked patterns (SSRF protection)
     if not allow_private:
         host_lower = parsed.netloc.lower()
         for pattern in BLOCKED_URL_PATTERNS:
             if pattern in host_lower:
-                raise InvalidURLError(
+                return _fail(
                     "Local/private URLs not allowed",
                     details={"blocked_pattern": pattern},
                 )
 
     # Check for suspicious characters
     if any(c in url for c in ["\x00", "\r", "\n", "\t"]):
-        raise InvalidURLError("URL contains invalid characters")
+        return _fail("URL contains invalid characters")
 
     return url
 
@@ -416,7 +422,8 @@ def validate_filepath(
     filepath: str,
     base_dir: Path | None = None,
     allow_absolute: bool = False,
-) -> Path:
+    raise_on_error: bool = False,
+) -> Path | None:
     """
     Validate and normalize a filepath.
 
@@ -424,36 +431,54 @@ def validate_filepath(
         filepath: The path to validate
         base_dir: Optional base directory for relative path resolution
         allow_absolute: Whether to allow absolute paths (default False)
+        raise_on_error: If True, raise InvalidFilepathError; if False, return None
 
     Returns:
-        The validated Path object
+        The validated Path object, or None if invalid (when raise_on_error=False)
 
     Raises:
-        InvalidFilepathError: If the path is invalid or unsafe
+        InvalidFilepathError: If the path is invalid or unsafe (only when raise_on_error=True)
     """
+    def _fail(msg: str) -> Path | None:
+        if raise_on_error:
+            raise InvalidFilepathError(msg)
+        return None
+
     if not filepath:
-        raise InvalidFilepathError("Filepath cannot be empty")
+        return _fail("Filepath cannot be empty")
 
     filepath = filepath.strip()
 
+    # Check for URL-encoded traversal patterns
+    if "%2e" in filepath.lower() or "%2f" in filepath.lower():
+        return _fail("URL-encoded path characters not allowed")
+
     # Check for forbidden characters
     if any(c in filepath for c in FORBIDDEN_PATH_CHARS):
-        raise InvalidFilepathError("Filepath contains invalid characters")
+        return _fail("Filepath contains invalid characters")
 
     # Check for null bytes
     if "\x00" in filepath:
-        raise InvalidFilepathError("Filepath contains null byte")
+        return _fail("Filepath contains null byte")
+
+    # Check for file:// protocol
+    if filepath.lower().startswith("file:"):
+        return _fail("file:// protocol not allowed")
+
+    # Check for UNC paths (Windows network paths)
+    if filepath.startswith("\\\\"):
+        return _fail("UNC paths not allowed")
 
     path = Path(filepath)
 
     # Check for absolute paths
     if path.is_absolute() and not allow_absolute:
-        raise InvalidFilepathError("Absolute paths not allowed")
+        return _fail("Absolute paths not allowed")
 
-    # Check for path traversal
-    parts = path.parts
-    if ".." in parts:
-        raise InvalidFilepathError("Path traversal not allowed")
+    # Check for path traversal (including normalized paths)
+    normalized = str(path)
+    if ".." in normalized:
+        return _fail("Path traversal not allowed")
 
     # If base_dir specified, ensure path stays within it
     if base_dir:
@@ -461,9 +486,9 @@ def validate_filepath(
         try:
             full_path = (base_dir / path).resolve()
             if not str(full_path).startswith(str(base_resolved)):
-                raise InvalidFilepathError("Path escapes base directory")
+                return _fail("Path escapes base directory")
         except Exception as e:
-            raise InvalidFilepathError(f"Invalid path resolution: {e}")
+            return _fail(f"Invalid path resolution: {e}")
 
     return path
 
@@ -513,18 +538,19 @@ def sanitize_filename(filename: str, max_length: int = 255) -> str:
 NAMESPACE_PATTERN = re.compile(r"^[\w\-*]{1,100}$")
 
 
-def validate_namespace(namespace: str | None) -> str | None:
+def validate_namespace(namespace: str | None, raise_on_error: bool = False) -> str | None:
     """
     Validate a namespace string.
 
     Args:
         namespace: The namespace to validate (can be None)
+        raise_on_error: If True, raise InvalidNamespaceError; if False, return None
 
     Returns:
         The validated namespace or None
 
     Raises:
-        InvalidNamespaceError: If the namespace format is invalid
+        InvalidNamespaceError: If the namespace format is invalid (only when raise_on_error=True)
     """
     if namespace is None:
         return None
@@ -534,11 +560,40 @@ def validate_namespace(namespace: str | None) -> str | None:
     if not namespace:
         return None
 
+    # Check for null bytes
+    if "\x00" in namespace:
+        if raise_on_error:
+            raise InvalidNamespaceError("Namespace contains null byte")
+        return None
+
+    # Check for path traversal
+    if ".." in namespace:
+        if raise_on_error:
+            raise InvalidNamespaceError("Path traversal not allowed in namespace")
+        return None
+
+    # Check for dangerous patterns (SQL injection, XSS)
+    dangerous_patterns = ["<", ">", ";", "'", '"', "DROP", "SELECT", "DELETE", "UPDATE", "INSERT"]
+    namespace_upper = namespace.upper()
+    for pattern in dangerous_patterns:
+        if pattern in namespace or pattern in namespace_upper:
+            if raise_on_error:
+                raise InvalidNamespaceError("Namespace contains dangerous characters")
+            return None
+
+    # Check length
+    if len(namespace) > 100:
+        if raise_on_error:
+            raise InvalidNamespaceError("Namespace too long (max 100 characters)")
+        return None
+
     if not NAMESPACE_PATTERN.match(namespace):
-        raise InvalidNamespaceError(
-            "Invalid namespace format - use alphanumeric, dash, underscore, or wildcard (*)",
-            details={"namespace": namespace[:50]},
-        )
+        if raise_on_error:
+            raise InvalidNamespaceError(
+                "Invalid namespace format - use alphanumeric, dash, underscore, or wildcard (*)",
+                details={"namespace": namespace[:50]},
+            )
+        return None
 
     return namespace
 

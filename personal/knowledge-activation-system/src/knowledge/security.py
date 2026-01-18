@@ -407,7 +407,7 @@ def sanitize_error_message(
     Sanitize error messages for external responses.
 
     In production mode, removes potentially sensitive information
-    like file paths, stack traces, and internal details.
+    like file paths, stack traces, internal details, and credentials.
 
     Args:
         error: The exception
@@ -422,6 +422,22 @@ def sanitize_error_message(
 
     error_str = str(error)
 
+    # Remove credentials and secrets (password=xxx, secret=xxx, token=xxx, api_key=xxx)
+    error_str = re.sub(
+        r'(password|passwd|secret|token|api_key|apikey|auth|credential|bearer)\s*[=:]\s*\S+',
+        r'\1=[REDACTED]',
+        error_str,
+        flags=re.IGNORECASE
+    )
+
+    # Remove connection strings with embedded credentials
+    error_str = re.sub(
+        r'(postgres|mysql|mongodb|redis)://[^@]+@',
+        r'\1://[REDACTED]@',
+        error_str,
+        flags=re.IGNORECASE
+    )
+
     # Remove file paths
     error_str = re.sub(r'/[^\s:]+\.(py|txt|md|json|yaml)', '[file]', error_str)
 
@@ -430,6 +446,9 @@ def sanitize_error_message(
 
     # Remove internal module references
     error_str = re.sub(r'knowledge\.[a-z_.]+', '[module]', error_str)
+
+    # Remove IP addresses
+    error_str = re.sub(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', '[IP]', error_str)
 
     # Truncate very long messages
     if len(error_str) > 200:
