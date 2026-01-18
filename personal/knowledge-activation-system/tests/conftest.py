@@ -39,13 +39,22 @@ def settings() -> Settings:
 # Database fixtures
 @pytest_asyncio.fixture
 async def db(test_settings: Settings) -> AsyncGenerator[Database, None]:
-    """Create and connect a test database instance."""
+    """Create and connect a test database instance.
+
+    Skips tests if database is not available.
+    """
     database = Database(test_settings)
     try:
         await database.connect()
+    except Exception as e:
+        pytest.skip(f"Database not available: {e}")
+    try:
         yield database
     finally:
-        await database.disconnect()
+        try:
+            await database.disconnect()
+        except Exception:
+            pass  # Ignore cleanup errors
 
 
 @pytest.fixture

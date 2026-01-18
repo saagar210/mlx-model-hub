@@ -19,7 +19,23 @@ import pytest
 
 from knowledge.search import SearchResult
 
+# Check if sentence_transformers dependencies are properly available
+# This catches torch/torchvision version incompatibilities
+_sentence_transformers_available = False
+_sentence_transformers_error = None
+try:
+    import sentence_transformers
+    _sentence_transformers_available = True
+except Exception as e:
+    _sentence_transformers_error = str(e)
 
+requires_sentence_transformers = pytest.mark.skipif(
+    not _sentence_transformers_available,
+    reason=f"sentence_transformers not properly available: {_sentence_transformers_error}",
+)
+
+
+@requires_sentence_transformers
 class TestLocalReranker:
     """Tests for LocalReranker class."""
 
@@ -133,6 +149,7 @@ class TestLocalReranker:
             assert call_kwargs.get("device") == "cpu"
 
 
+@requires_sentence_transformers
 class TestRerankerPrediction:
     """Tests for reranker prediction methods."""
 
@@ -307,6 +324,7 @@ class TestRerankerPrediction:
             assert call_args[0][1] == "This Title Should Be Used"
 
 
+@requires_sentence_transformers
 class TestAsyncReranking:
     """Tests for async reranking methods."""
 
@@ -425,6 +443,7 @@ class TestGlobalRerankerInstance:
         assert reranker_module._preload_task is None
 
 
+@requires_sentence_transformers
 class TestRerankResultsConvenience:
     """Tests for rerank_results convenience function."""
 
@@ -503,6 +522,7 @@ class TestRerankResultsConvenience:
             assert output[0].vector_rank == 2
 
 
+@requires_sentence_transformers
 class TestErrorHandling:
     """Tests for error handling and fallback behavior."""
 

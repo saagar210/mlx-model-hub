@@ -368,14 +368,20 @@ class TestSearchIntegration:
 
         try:
             # Check prerequisites
-            ollama_status = await check_ollama_health()
-            if not ollama_status.healthy:
-                pytest.skip(f"Ollama not available: {ollama_status.error}")
+            try:
+                ollama_status = await check_ollama_health()
+                if not ollama_status.healthy:
+                    pytest.skip(f"Ollama not available: {ollama_status.error}")
+            except Exception as e:
+                pytest.skip(f"Ollama check failed: {e}")
 
-            db = await get_db()
-            health = await db.check_health()
-            if health["status"] != "healthy":
-                pytest.skip(f"Database not available: {health.get('error')}")
+            try:
+                db = await get_db()
+                health = await db.check_health()
+                if health["status"] != "healthy":
+                    pytest.skip(f"Database not available: {health.get('error')}")
+            except Exception as e:
+                pytest.skip(f"Database not available: {e}")
 
             # Run search - may return empty results in empty DB
             results = await hybrid_search("test query", settings=test_settings)
@@ -384,5 +390,11 @@ class TestSearchIntegration:
             assert isinstance(results, list)
 
         finally:
-            await close_db()
-            await close_embedding_service()
+            try:
+                await close_db()
+            except Exception:
+                pass  # Ignore cleanup errors
+            try:
+                await close_embedding_service()
+            except Exception:
+                pass  # Ignore cleanup errors

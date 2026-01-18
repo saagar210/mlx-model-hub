@@ -239,10 +239,11 @@ class TestConvenienceFunctions:
             mock_service.embed_text = AsyncMock(return_value=mock_embedding)
             mock_get.return_value = mock_service
 
-            result = await embed_text("Test text")
+            # Use use_cache=False to bypass Redis cache and test the service call
+            result = await embed_text("Test text for embedding", use_cache=False)
 
             assert result == mock_embedding
-            mock_service.embed_text.assert_called_once_with("Test text")
+            mock_service.embed_text.assert_called_once_with("Test text for embedding")
 
     @pytest.mark.asyncio
     async def test_embed_batch_convenience(self, mock_embedding: list[float]):
