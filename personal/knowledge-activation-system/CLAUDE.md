@@ -62,15 +62,15 @@ A hybrid Obsidian-centric personal knowledge management system with:
 docker compose up -d
 
 # Run CLI
-python cli.py search "query"
-python cli.py ingest youtube <video_id>
-python cli.py review
+uv run python cli.py search "query"
+uv run python cli.py ingest youtube <video_id>
+uv run python cli.py review
 
-# Run tests
-pytest
+# Run tests (MUST use uv run to get correct dependencies)
+uv run pytest tests/ -v
 
 # Type check
-mypy src/
+uv run mypy src/
 ```
 
 ## Planning Documents
@@ -82,15 +82,15 @@ mypy src/
 - `docs/ARCHITECTURE.md` - System architecture and data flow
 - `docs/DECISIONS.md` - All user decisions captured during planning
 
-## Current Status (2026-01-14)
+## Current Status (2026-01-18)
 
 **All P1-P38 Complete** ✅
 
 | Metric | Value |
 |--------|-------|
-| Documents | ~176 |
-| Chunks | ~815 |
-| Tests | 300+ passing |
+| Documents | 1,512 |
+| Chunks | 3,998 |
+| Tests | 419 passing, 3 skipped |
 | API Endpoints | 25+ routes |
 | MCP Tools | kas_search, kas_ingest, kas_review |
 
@@ -105,4 +105,4 @@ mypy src/
 - Python SDK (`sdk/python/kas_client/`)
 - Load testing + evaluation framework
 
-Run tests: `pytest tests/ -v`
+Run tests: `uv run pytest tests/ -v`

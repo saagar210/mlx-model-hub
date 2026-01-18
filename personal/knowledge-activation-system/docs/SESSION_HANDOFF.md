@@ -34,7 +34,7 @@ To serve as the **central knowledge hub** for all personal projects. Other apps 
 |--------|-------|
 | Documents | 1,511 |
 | Chunks | 3,992 |
-| Test Coverage | 448+ tests (387 unit, 61 security) |
+| Test Coverage | 419 passing, 3 skipped |
 | API Endpoints | 25+ routes |
 | MCP Tools | kas_search, kas_ingest, kas_review |
 | Evaluation Score | 65.91% composite |
@@ -148,20 +148,25 @@ docker compose up -d
 # Run API
 uv run uvicorn knowledge.api.main:app --reload
 
-# Run tests
-.venv/bin/python -m pytest tests/ -v
+# Run tests (MUST use uv run for correct dependencies)
+uv run pytest tests/ -v
 
 # Run evaluation
-python evaluation/evaluate.py --with-ragas --verbose
+uv run python evaluation/evaluate.py --with-ragas --verbose
 
 # Run load tests
-cd tests/load && locust -f locustfile.py
+cd tests/load && uv run locust -f locustfile.py
 
 # Check types
 uv run mypy src/
 
 # Format code
 uv run ruff format src/
+
+# CLI commands
+uv run python cli.py doctor
+uv run python cli.py stats
+uv run python cli.py search "query"
 ```
 
 ---
