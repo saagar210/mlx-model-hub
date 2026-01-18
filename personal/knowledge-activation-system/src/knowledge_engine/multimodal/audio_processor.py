@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -466,8 +467,8 @@ class AudioProcessor:
         except subprocess.CalledProcessError as e:
             logger.error(f"FFmpeg extraction failed: {e.stderr.decode()}")
             raise
-        except FileNotFoundError:
+        except FileNotFoundError as err:
             raise RuntimeError(
                 "FFmpeg not found. Install with: brew install ffmpeg (macOS) "
                 "or apt install ffmpeg (Linux)"
-            )
+            ) from err

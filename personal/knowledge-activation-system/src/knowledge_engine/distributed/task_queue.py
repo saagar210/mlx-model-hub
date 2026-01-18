@@ -7,9 +7,10 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -371,7 +372,7 @@ class TaskQueue:
 
             logger.debug(f"Task completed: {task.name} (id={task.id})")
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             task.error = f"Task timed out after {task.timeout}s"
             await self._handle_failure(task)
 
@@ -453,7 +454,7 @@ class TaskQueue:
 
     def get_stats(self) -> dict[str, Any]:
         """Get queue statistics."""
-        status_counts = {status: 0 for status in TaskStatus}
+        status_counts = dict.fromkeys(TaskStatus, 0)
         for task in self._tasks.values():
             status_counts[task.status] += 1
 

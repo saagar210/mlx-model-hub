@@ -509,11 +509,8 @@ def config(
             if not settings.ollama_url:
                 errors.append("OLLAMA_URL not set")
 
-            # Check vault path
-            from pathlib import Path
-
-            vault = Path(settings.vault_path)
-            if not vault.exists():
+            # Check vault path (use vault_dir which expands ~)
+            if not settings.vault_dir.exists():
                 warnings.append(f"Vault path does not exist: {settings.vault_path}")
 
             # Pool settings
@@ -655,10 +652,8 @@ def doctor() -> None:
 
         # Check 5: Vault Path
         try:
-            from pathlib import Path
-
             settings = get_settings()
-            vault = Path(settings.vault_path)
+            vault = settings.vault_dir  # Use vault_dir which expands ~
             if vault.exists():
                 file_count = len(list(vault.rglob("*.md")))
                 checks.append(("Obsidian Vault", True, f"{file_count} markdown files"))

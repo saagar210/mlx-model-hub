@@ -7,10 +7,11 @@ import importlib
 import importlib.util
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -72,19 +73,19 @@ class Plugin(ABC):
         """Return plugin configuration."""
         ...
 
-    async def on_load(self) -> None:
+    async def on_load(self) -> None:  # noqa: B027
         """Called when plugin is loaded. Override to initialize resources."""
         pass
 
-    async def on_unload(self) -> None:
+    async def on_unload(self) -> None:  # noqa: B027
         """Called when plugin is unloaded. Override to cleanup resources."""
         pass
 
-    async def on_enable(self) -> None:
+    async def on_enable(self) -> None:  # noqa: B027
         """Called when plugin is enabled."""
         pass
 
-    async def on_disable(self) -> None:
+    async def on_disable(self) -> None:  # noqa: B027
         """Called when plugin is disabled."""
         pass
 

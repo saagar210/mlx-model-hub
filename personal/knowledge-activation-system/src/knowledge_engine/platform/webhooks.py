@@ -369,7 +369,7 @@ class WebhookManager:
                 # Retry delivery
                 await self._deliver(webhook, event, delivery)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except asyncio.CancelledError:
                 break
@@ -395,7 +395,7 @@ class WebhookManager:
 
     def get_stats(self) -> dict[str, Any]:
         """Get webhook statistics."""
-        status_counts = {status: 0 for status in DeliveryStatus}
+        status_counts = dict.fromkeys(DeliveryStatus, 0)
         for delivery in self._deliveries:
             status_counts[delivery.status] += 1
 

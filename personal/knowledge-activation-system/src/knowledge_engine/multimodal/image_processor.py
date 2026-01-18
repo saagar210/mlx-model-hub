@@ -409,7 +409,7 @@ class ImageProcessor:
 
             # Convert to hex
             hex_colors = []
-            for count, rgb in sorted_colors[:num_colors]:
+            for _count, rgb in sorted_colors[:num_colors]:
                 hex_color = "#{:02x}{:02x}{:02x}".format(*rgb)
                 hex_colors.append(hex_color)
 

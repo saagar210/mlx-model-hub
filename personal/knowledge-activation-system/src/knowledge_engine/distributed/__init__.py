@@ -1,25 +1,25 @@
 """Distributed systems infrastructure for horizontal scaling."""
 
+from knowledge_engine.distributed.cache import (
+    CacheConfig,
+    CacheLayer,
+    CacheStats,
+)
 from knowledge_engine.distributed.connection_pool import (
     ConnectionPool,
     PoolConfig,
     PoolMetrics,
 )
-from knowledge_engine.distributed.task_queue import (
-    TaskQueue,
-    Task,
-    TaskResult,
-    TaskPriority,
-)
-from knowledge_engine.distributed.cache import (
-    CacheLayer,
-    CacheConfig,
-    CacheStats,
-)
 from knowledge_engine.distributed.sharding import (
-    ShardManager,
     ShardConfig,
     ShardKey,
+    ShardManager,
+)
+from knowledge_engine.distributed.task_queue import (
+    Task,
+    TaskPriority,
+    TaskQueue,
+    TaskResult,
 )
 
 __all__ = [

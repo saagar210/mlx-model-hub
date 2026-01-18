@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -282,14 +283,14 @@ class ConnectionPool(Generic[T]):
                     self._pool.get(),
                     timeout=self.config.acquire_timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Try to create new connection if under max
                 async with self._lock:
                     if len(self._all_connections) < self.config.max_size:
                         pooled_conn = await self._create_connection()
                     else:
                         self._metrics.total_timeouts += 1
-                        raise TimeoutError("Connection acquire timeout")
+                        raise TimeoutError("Connection acquire timeout") from None
 
             # Validate connection
             if not await self._validate_connection(pooled_conn):
@@ -312,7 +313,7 @@ class ConnectionPool(Generic[T]):
 
             return pooled_conn.connection
 
-        except Exception as e:
+        except Exception:
             await self._circuit_breaker.record_failure()
             self._metrics.total_errors += 1
             raise

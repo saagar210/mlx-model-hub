@@ -125,7 +125,7 @@ class DiagramAnalysis:
     def to_markdown(self) -> str:
         """Convert analysis to markdown format."""
         lines = [
-            f"# Diagram Analysis",
+            "# Diagram Analysis",
             "",
             f"**Type:** {self.diagram_type.value}",
             f"**Confidence:** {self.confidence:.1%}",
@@ -313,7 +313,7 @@ Respond in the following JSON format:
                     if json_match:
                         data = json.loads(json_match.group())
                     else:
-                        raise ValueError("Could not parse JSON from response")
+                        raise ValueError("Could not parse JSON from response") from None
 
                 return self._parse_vision_response(data)
 

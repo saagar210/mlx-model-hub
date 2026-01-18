@@ -347,7 +347,7 @@ class ShardManager:
 
     def calculate_distribution(self) -> dict[str, int]:
         """Calculate key distribution across shards (for testing)."""
-        distribution: dict[str, int] = {sid: 0 for sid in self._shards}
+        distribution: dict[str, int] = dict.fromkeys(self._shards, 0)
 
         # Sample distribution with random keys
         for i in range(10000):
@@ -360,7 +360,7 @@ class ShardManager:
 
     def get_stats(self) -> dict[str, Any]:
         """Get shard cluster statistics."""
-        state_counts = {state: 0 for state in ShardState}
+        state_counts = dict.fromkeys(ShardState, 0)
         for shard in self._shards.values():
             state_counts[shard.state] += 1
 

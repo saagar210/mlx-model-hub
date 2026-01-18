@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -230,11 +231,11 @@ class PDFProcessor:
         except ImportError:
             try:
                 doc = await self._process_with_pypdf(path, page_range)
-            except ImportError:
+            except ImportError as err:
                 raise ImportError(
                     "No PDF library available. Install pymupdf or pypdf: "
                     "pip install pymupdf pypdf"
-                )
+                ) from err
 
         doc.processing_time_ms = (time.time() - start_time) * 1000
         return doc
@@ -246,7 +247,6 @@ class PDFProcessor:
         page_range: tuple[int, int] | None = None,
     ) -> PDFDocument:
         """Process PDF from bytes."""
-        import io
         import tempfile
         import time
 

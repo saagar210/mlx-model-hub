@@ -34,13 +34,18 @@ async def integration_db() -> AsyncGenerator[Database, None]:
     """
     settings = get_settings()
 
-    # Allow override for CI
-    db_url = os.environ.get(
-        "KAS_TEST_DATABASE_URL",
-        settings.database_url.replace("/knowledge", "/knowledge_test"),
-    )
+    # Allow override for CI via environment variable
+    test_db_url = os.environ.get("KAS_TEST_DATABASE_URL")
+    if test_db_url:
+        # Create modified settings with test URL
+        settings = settings.model_copy(update={"database_url": test_db_url})
+    else:
+        # Use default test database (knowledge_test)
+        settings = settings.model_copy(
+            update={"database_url": settings.database_url.replace("/knowledge", "/knowledge_test")}
+        )
 
-    db = Database(db_url)
+    db = Database(settings)
     try:
         await db.connect()
         yield db

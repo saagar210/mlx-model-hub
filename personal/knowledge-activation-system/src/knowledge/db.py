@@ -139,6 +139,10 @@ class Database:
             self._pool = None
             logger.info("database_disconnected")
 
+    async def close(self) -> None:
+        """Alias for disconnect() for common API convention."""
+        await self.disconnect()
+
     def get_pool_stats(self) -> PoolStats | None:
         """Get current connection pool statistics."""
         if self._pool is None:

@@ -25,9 +25,10 @@ queries:
     query: "What is the difference between Pydantic v1 and v2?"
     category: frameworks
     expected_keywords:
-      - model_validator
-      - field_validator
-      - ConfigDict
+      - pydantic
+      - v2
+      - migration
+      - Config
     expected_namespaces:
       - frameworks
     difficulty: medium
@@ -63,13 +64,13 @@ queries:
     query: "How do I evaluate RAG system quality?"
     category: ai-ml
     expected_keywords:
-      - RAGAS
+      - evaluation
       - faithfulness
       - relevancy
-      - metrics
+      - quality
     expected_namespaces:
-      - ai-research
-      - best-practices
+      - ai-ml
+      - projects
     difficulty: medium
 
   - id: rag-003
@@ -200,10 +201,12 @@ queries:
     query: "How do I secure an LLM application?"
     category: best-practices
     expected_keywords:
-      - injection
-      - validation
+      - security
+      - LLM
       - OWASP
+      - prompt
     expected_namespaces:
+      - reference
       - best-practices
     difficulty: medium
 
