@@ -105,7 +105,7 @@ dev = [
 
 # All dependencies
 all = [
-    "knowledge-activation-system[ingestion,ai,api,fsrs,llamaindex,multimodal,observability,cache,dev]",
+    "knowledge-activation-system[ingestion,ai,api,fsrs,llamaindex,multimodal,observability,dev]",
 ]
 
 [project.scripts]

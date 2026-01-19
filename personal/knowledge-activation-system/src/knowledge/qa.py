@@ -8,8 +8,8 @@ from enum import Enum
 
 from knowledge.ai import generate_answer
 from knowledge.config import get_settings
-from knowledge.reranker import RankedResult, rerank_results
-from knowledge.search import hybrid_search
+from knowledge.reranker import rerank_results
+from knowledge.search import SearchResult, hybrid_search
 
 
 class ConfidenceLevel(Enum):
@@ -50,7 +50,7 @@ class QAResult:
 
 
 def calculate_confidence(
-    results: list[RankedResult],
+    results: list[SearchResult],
     top_n: int = 3,
 ) -> tuple[ConfidenceLevel, float]:
     """
@@ -59,7 +59,7 @@ def calculate_confidence(
     Formula: confidence = (top_score * 0.6) + (avg_top3_score * 0.4)
 
     Args:
-        results: Reranked search results
+        results: Reranked search results (with rerank scores in .score field)
         top_n: Number of top results to consider
 
     Returns:
@@ -68,8 +68,8 @@ def calculate_confidence(
     if not results:
         return ConfidenceLevel.LOW, 0.0
 
-    # Get scores from top results
-    top_scores = [r.rerank_score for r in results[:top_n]]
+    # Get scores from top results (rerank_results puts rerank score in .score)
+    top_scores = [r.score for r in results[:top_n]]
 
     if not top_scores:
         return ConfidenceLevel.LOW, 0.0
@@ -92,7 +92,7 @@ def calculate_confidence(
 
 
 def build_citations(
-    results: list[RankedResult],
+    results: list[SearchResult],
     max_citations: int = 5,
 ) -> list[Citation]:
     """
@@ -106,8 +106,7 @@ def build_citations(
         List of Citation objects
     """
     citations = []
-    for i, ranked in enumerate(results[:max_citations], 1):
-        result = ranked.result
+    for i, result in enumerate(results[:max_citations], 1):
         citations.append(
             Citation(
                 index=i,
@@ -197,9 +196,9 @@ async def ask(
         # Step 4: Generate answer with timeout protection
         context = [
             {
-                "title": r.result.title,
-                "text": r.result.chunk_text or "",
-                "source": r.result.source_ref or "",
+                "title": r.title,
+                "text": r.chunk_text or "",
+                "source": r.source_ref or "",
             }
             for r in ranked_results
         ]
@@ -287,11 +286,10 @@ async def search_and_summarize(
 
         # Build summary without AI
         summary_parts = [f"Found {len(ranked_results)} relevant items:\n"]
-        for i, ranked in enumerate(ranked_results, 1):
-            result = ranked.result
+        for i, result in enumerate(ranked_results, 1):
             summary_parts.append(
                 f"[{i}] **{result.title}** ({result.content_type})\n"
-                f"    Score: {ranked.rerank_score:.3f}"
+                f"    Score: {result.score:.3f}"
             )
             if result.chunk_text:
                 preview = result.chunk_text[:200].replace("\n", " ")

@@ -16,7 +16,7 @@ from knowledge.ai import close_ai_provider
 from knowledge.config import get_settings
 from knowledge.db import close_db, get_db
 from knowledge.embeddings import check_ollama_health, close_embedding_service
-from knowledge.rerank import close_reranker
+from knowledge.reranker import close_reranker
 from knowledge.search import SearchResult, hybrid_search, search_bm25_only, search_vector_only
 
 

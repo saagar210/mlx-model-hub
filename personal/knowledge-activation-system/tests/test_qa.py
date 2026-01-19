@@ -12,7 +12,6 @@ from knowledge.qa import (
     ask,
     search_and_summarize,
 )
-from knowledge.reranker import RankedResult
 from knowledge.search import SearchResult
 
 
@@ -97,23 +96,11 @@ class TestCalculateConfidence:
 
     def test_high_confidence(self):
         """Test high confidence scores."""
-        # Create mock ranked results with high scores
+        # Create mock search results with high scores
         results = [
-            RankedResult(
-                result=_mock_search_result(),
-                rerank_score=0.9,
-                original_score=0.8,
-            ),
-            RankedResult(
-                result=_mock_search_result(),
-                rerank_score=0.85,
-                original_score=0.75,
-            ),
-            RankedResult(
-                result=_mock_search_result(),
-                rerank_score=0.8,
-                original_score=0.7,
-            ),
+            _mock_search_result(score=0.9),
+            _mock_search_result(score=0.85),
+            _mock_search_result(score=0.8),
         ]
 
         level, score = calculate_confidence(results)
@@ -123,16 +110,8 @@ class TestCalculateConfidence:
     def test_medium_confidence(self):
         """Test medium confidence scores."""
         results = [
-            RankedResult(
-                result=_mock_search_result(),
-                rerank_score=0.6,
-                original_score=0.8,
-            ),
-            RankedResult(
-                result=_mock_search_result(),
-                rerank_score=0.5,
-                original_score=0.6,
-            ),
+            _mock_search_result(score=0.6),
+            _mock_search_result(score=0.5),
         ]
 
         level, score = calculate_confidence(results)
@@ -141,11 +120,7 @@ class TestCalculateConfidence:
     def test_low_confidence(self):
         """Test low confidence scores."""
         results = [
-            RankedResult(
-                result=_mock_search_result(),
-                rerank_score=0.2,
-                original_score=0.8,
-            ),
+            _mock_search_result(score=0.2),
         ]
 
         level, score = calculate_confidence(results)
@@ -158,16 +133,8 @@ class TestBuildCitations:
     def test_builds_citations(self):
         """Test citation building."""
         results = [
-            RankedResult(
-                result=_mock_search_result(title="Doc 1", content_type="note"),
-                rerank_score=0.9,
-                original_score=0.8,
-            ),
-            RankedResult(
-                result=_mock_search_result(title="Doc 2", content_type="youtube"),
-                rerank_score=0.8,
-                original_score=0.7,
-            ),
+            _mock_search_result(title="Doc 1", content_type="note", score=0.9),
+            _mock_search_result(title="Doc 2", content_type="youtube", score=0.8),
         ]
 
         citations = build_citations(results)
@@ -180,11 +147,7 @@ class TestBuildCitations:
     def test_respects_max_citations(self):
         """Test max citations limit."""
         results = [
-            RankedResult(
-                result=_mock_search_result(title=f"Doc {i}"),
-                rerank_score=0.9 - i * 0.1,
-                original_score=0.8 - i * 0.05,
-            )
+            _mock_search_result(title=f"Doc {i}", score=0.9 - i * 0.05)
             for i in range(10)
         ]
 
@@ -216,13 +179,8 @@ class TestAsk:
             mock_search.return_value = search_results
 
             with patch("knowledge.qa.rerank_results", new_callable=AsyncMock) as mock_rerank:
-                mock_rerank.return_value = [
-                    RankedResult(
-                        result=search_results[0],
-                        rerank_score=0.8,
-                        original_score=0.8,
-                    )
-                ]
+                # rerank_results returns SearchResult list with updated scores
+                mock_rerank.return_value = [_mock_search_result(title="Relevant Doc", score=0.8)]
 
                 with patch("knowledge.qa.generate_answer", new_callable=AsyncMock) as mock_gen:
                     from knowledge.ai import AIResponse
@@ -246,13 +204,8 @@ class TestAsk:
             mock_search.return_value = search_results
 
             with patch("knowledge.qa.rerank_results", new_callable=AsyncMock) as mock_rerank:
-                mock_rerank.return_value = [
-                    RankedResult(
-                        result=search_results[0],
-                        rerank_score=0.2,  # Low score
-                        original_score=0.8,
-                    )
-                ]
+                # rerank_results returns SearchResult with low score
+                mock_rerank.return_value = [_mock_search_result(score=0.2)]
 
                 with patch("knowledge.qa.generate_answer", new_callable=AsyncMock) as mock_gen:
                     from knowledge.ai import AIResponse
@@ -280,9 +233,10 @@ class TestSearchAndSummarize:
             mock_search.return_value = search_results
 
             with patch("knowledge.qa.rerank_results", new_callable=AsyncMock) as mock_rerank:
+                # rerank_results returns SearchResult list with updated scores
                 mock_rerank.return_value = [
-                    RankedResult(result=r, rerank_score=0.8 - i * 0.1, original_score=0.7 - i * 0.05)
-                    for i, r in enumerate(search_results)
+                    _mock_search_result(title="Doc 1", chunk_text="Content 1", score=0.8),
+                    _mock_search_result(title="Doc 2", chunk_text="Content 2", score=0.7),
                 ]
 
                 result = await search_and_summarize("query")
@@ -309,6 +263,7 @@ def _mock_search_result(
     title: str = "Test Doc",
     content_type: str = "note",
     chunk_text: str = "Test content",
+    score: float = 0.5,
 ) -> SearchResult:
     """Create a mock SearchResult for testing."""
     from uuid import uuid4
@@ -318,7 +273,7 @@ def _mock_search_result(
         title=title,
         content_type=content_type,
         chunk_text=chunk_text,
-        score=0.5,
+        score=score,
         bm25_rank=1,
         vector_rank=1,
     )
