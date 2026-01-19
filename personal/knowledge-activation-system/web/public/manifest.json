@@ -1,0 +1,49 @@
+{
+  "name": "Knowledge Activation System",
+  "short_name": "KAS",
+  "description": "AI-powered personal knowledge management with hybrid search and spaced repetition",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "utilities", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Search",
+      "short_name": "Search",
+      "description": "Search your knowledge base",
+      "url": "/search",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Review",
+      "short_name": "Review",
+      "description": "Start a review session",
+      "url": "/review",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Capture",
+      "short_name": "Capture",
+      "description": "Quick capture content",
+      "url": "/capture",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

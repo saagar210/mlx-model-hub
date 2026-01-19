@@ -35,9 +35,9 @@ SYNONYMS: dict[str, list[str]] = {
     "fastapi": ["fast api", "starlette"],
     "django": [],
     "flask": [],
-    "pydantic": [],
-    "sqlalchemy": ["sql alchemy"],
-    "langchain": ["lang chain"],
+    "pydantic": ["validation", "model"],
+    "sqlalchemy": ["sql alchemy", "sqla"],
+    "langchain": ["lang chain", "lc"],
     "llamaindex": ["llama index", "llama-index"],
 
     # Frameworks - JavaScript
@@ -55,6 +55,7 @@ SYNONYMS: dict[str, list[str]] = {
     "elasticsearch": ["elastic", "es"],
     "sqlite": ["sqlite3"],
     "mysql": ["mariadb"],
+    "pgvector": ["pg vector", "vector extension"],
 
     # AI/ML
     "llm": ["large language model", "language model"],
@@ -63,30 +64,44 @@ SYNONYMS: dict[str, list[str]] = {
     "vector": ["vectors", "vector search", "similarity search"],
     "semantic": ["semantic search", "meaning-based"],
     "transformer": ["transformers", "attention"],
-    "fine-tuning": ["finetuning", "fine tuning"],
+    "fine-tuning": ["finetuning", "fine tuning", "finetune"],
     "prompt": ["prompting", "prompt engineering"],
+    "chain of thought": ["chain-of-thought", "cot", "step by step reasoning"],
+    "few-shot": ["few shot", "in-context learning", "icl"],
+    "zero-shot": ["zero shot"],
+    "inference": ["model inference", "prediction"],
+    "tokenizer": ["tokenization", "tokens"],
 
     # Claude/Anthropic
     "claude": ["anthropic", "claude ai"],
     "mcp": ["model context protocol", "context protocol"],
     "tool use": ["function calling", "tool calling", "tools"],
 
+    # OpenAI/GPT
+    "openai": ["gpt", "chatgpt", "gpt-4"],
+    "openrouter": ["open router"],
+
     # DevOps
     "docker": ["container", "containerization"],
     "kubernetes": ["k8s", "kube"],
     "ci/cd": ["cicd", "ci cd", "continuous integration", "continuous deployment"],
     "github actions": ["gh actions", "gha"],
+    "hpa": ["horizontal pod autoscaler", "autoscaling"],
+    "deployment": ["deploy", "deploying"],
+    "helm": ["helm chart"],
 
     # Concepts
     "api": ["rest api", "restful", "endpoint"],
     "authentication": ["auth", "authn", "login"],
     "authorization": ["authz", "permissions", "access control"],
     "dependency injection": ["di", "ioc", "inversion of control"],
-    "async": ["asynchronous", "await", "asyncio"],
+    "async": ["asynchronous", "await", "asyncio", "concurrent"],
     "orm": ["object relational mapping"],
     "crud": ["create read update delete"],
-    "cache": ["caching", "cached"],
+    "cache": ["caching", "cached", "memoization"],
     "queue": ["message queue", "task queue", "job queue"],
+    "index": ["indexing", "indexed", "database index"],
+    "performance": ["optimization", "optimize", "speed", "faster"],
 
     # Patterns
     "repository pattern": ["repo pattern"],
@@ -101,6 +116,13 @@ SYNONYMS: dict[str, list[str]] = {
     "e2e": ["end to end", "end-to-end", "e2e test"],
     "pytest": [],
     "jest": [],
+
+    # HTTP Status Codes
+    "422": ["validation error", "unprocessable entity"],
+    "401": ["unauthorized", "authentication required"],
+    "403": ["forbidden", "access denied"],
+    "404": ["not found"],
+    "500": ["internal server error", "server error"],
 
     # Common abbreviations
     "config": ["configuration", "settings"],
@@ -118,6 +140,17 @@ SYNONYMS: dict[str, list[str]] = {
     "res": ["response"],
     "err": ["error"],
     "exc": ["exception"],
+
+    # Spaced Repetition
+    "fsrs": ["free spaced repetition scheduler", "spaced repetition"],
+    "anki": ["flashcard", "srs"],
+    "review": ["reviewing", "recall"],
+
+    # React-specific
+    "useeffect": ["use effect", "effect hook", "lifecycle"],
+    "usestate": ["use state", "state hook"],
+    "usememo": ["use memo", "memoization hook"],
+    "useref": ["use ref", "ref hook"],
 }
 
 # Build reverse lookup for efficient expansion

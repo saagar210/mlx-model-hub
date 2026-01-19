@@ -21,6 +21,12 @@ import {
   Moon,
   Sun,
   Laptop,
+  PenLine,
+  Download,
+  Settings,
+  BarChart3,
+  Webhook,
+  Puzzle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -81,11 +87,33 @@ export function CommandMenu() {
               <Brain className="mr-2 h-4 w-4" />
               <span>Review</span>
             </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/analytics"))}>
+              <BarChart3 className="mr-2 h-4 w-4" />
+              <span>Analytics</span>
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/webhooks"))}>
+              <Webhook className="mr-2 h-4 w-4" />
+              <span>Webhooks</span>
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/plugins"))}>
+              <Puzzle className="mr-2 h-4 w-4" />
+              <span>Plugins</span>
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/settings"))}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </CommandItem>
           </CommandGroup>
 
           <CommandSeparator />
 
-          <CommandGroup heading="Actions">
+          <CommandGroup heading="Quick Actions">
+            <CommandItem
+              onSelect={() => runCommand(() => router.push("/capture"))}
+            >
+              <PenLine className="mr-2 h-4 w-4" />
+              <span>Quick Capture</span>
+            </CommandItem>
             <CommandItem
               onSelect={() => runCommand(() => router.push("/review"))}
             >
@@ -104,6 +132,10 @@ export function CommandMenu() {
             >
               <FileText className="mr-2 h-4 w-4" />
               <span>Search Knowledge Base</span>
+            </CommandItem>
+            <CommandItem onSelect={() => runCommand(() => router.push("/export"))}>
+              <Download className="mr-2 h-4 w-4" />
+              <span>Export/Import</span>
             </CommandItem>
           </CommandGroup>
 

@@ -12,6 +12,12 @@ import {
   ChevronRight,
   BookOpen,
   FileText,
+  PenLine,
+  Download,
+  Settings,
+  BarChart3,
+  Webhook,
+  Puzzle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,14 +29,69 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
+  section?: "main" | "tools" | "integrations" | "system";
 }
 
 const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
-  { href: "/search", label: "Search", icon: <Search className="h-5 w-5" /> },
-  { href: "/content", label: "Content", icon: <Library className="h-5 w-5" /> },
-  { href: "/review", label: "Review", icon: <Brain className="h-5 w-5" /> },
+  // Main section
+  { href: "/", label: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" />, section: "main" },
+  { href: "/search", label: "Search", icon: <Search className="h-5 w-5" />, section: "main" },
+  { href: "/content", label: "Content", icon: <Library className="h-5 w-5" />, section: "main" },
+  { href: "/review", label: "Review", icon: <Brain className="h-5 w-5" />, section: "main" },
+  // Tools section
+  { href: "/capture", label: "Capture", icon: <PenLine className="h-5 w-5" />, section: "tools" },
+  { href: "/export", label: "Export", icon: <Download className="h-5 w-5" />, section: "tools" },
+  { href: "/analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" />, section: "tools" },
+  // Integrations section
+  { href: "/webhooks", label: "Webhooks", icon: <Webhook className="h-5 w-5" />, section: "integrations" },
+  { href: "/plugins", label: "Plugins", icon: <Puzzle className="h-5 w-5" />, section: "integrations" },
+  // System section
+  { href: "/settings", label: "Settings", icon: <Settings className="h-5 w-5" />, section: "system" },
 ];
+
+const mainItems = navItems.filter((item) => item.section === "main" || !item.section);
+const toolItems = navItems.filter((item) => item.section === "tools");
+const integrationItems = navItems.filter((item) => item.section === "integrations");
+const systemItems = navItems.filter((item) => item.section === "system");
+
+function renderNavSection(
+  items: NavItem[],
+  isActive: (href: string) => boolean,
+  collapsed: boolean
+) {
+  return items.map((item) => {
+    const active = isActive(item.href);
+    const linkContent = (
+      <Link
+        key={item.href}
+        href={item.href}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
+          active
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+          collapsed && "justify-center px-2"
+        )}
+      >
+        {item.icon}
+        {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+      </Link>
+    );
+
+    if (collapsed) {
+      return (
+        <Tooltip key={item.href}>
+          <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+          <TooltipContent side="right" sideOffset={10}>
+            {item.label}
+          </TooltipContent>
+        </Tooltip>
+      );
+    }
+
+    return linkContent;
+  });
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -86,39 +147,48 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 py-4 px-2 space-y-1">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            const linkContent = (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
-                  active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  collapsed && "justify-center px-2"
-                )}
-              >
-                {item.icon}
-                {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
-              </Link>
-            );
+        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+          {/* Main Section */}
+          {renderNavSection(mainItems, isActive, collapsed)}
 
-            if (collapsed) {
-              return (
-                <Tooltip key={item.href}>
-                  <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={10}>
-                    {item.label}
-                  </TooltipContent>
-                </Tooltip>
-              );
-            }
+          {/* Tools Section */}
+          {toolItems.length > 0 && (
+            <>
+              {!collapsed && (
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-3 pt-4 pb-1">
+                  Tools
+                </p>
+              )}
+              {collapsed && <Separator className="my-2" />}
+              {renderNavSection(toolItems, isActive, collapsed)}
+            </>
+          )}
 
-            return linkContent;
-          })}
+          {/* Integrations Section */}
+          {integrationItems.length > 0 && (
+            <>
+              {!collapsed && (
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-3 pt-4 pb-1">
+                  Integrations
+                </p>
+              )}
+              {collapsed && <Separator className="my-2" />}
+              {renderNavSection(integrationItems, isActive, collapsed)}
+            </>
+          )}
+
+          {/* System Section */}
+          {systemItems.length > 0 && (
+            <>
+              {!collapsed && (
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-3 pt-4 pb-1">
+                  System
+                </p>
+              )}
+              {collapsed && <Separator className="my-2" />}
+              {renderNavSection(systemItems, isActive, collapsed)}
+            </>
+          )}
         </nav>
 
         <Separator />

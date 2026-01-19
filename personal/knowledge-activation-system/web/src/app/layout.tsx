@@ -5,6 +5,8 @@ import { Sidebar } from "@/components/sidebar";
 import { CommandMenu } from "@/components/command-menu";
 import { ConnectionBanner } from "@/components/connection-status";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { Toaster } from "@/components/toaster";
+import { InstallPrompt } from "@/components/install-prompt";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,6 +24,17 @@ export const metadata: Metadata = {
   description: "AI-powered personal knowledge management with hybrid search and spaced repetition",
   keywords: ["knowledge management", "search", "spaced repetition", "AI"],
   authors: [{ name: "Knowledge Activation System" }],
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "KAS",
+  },
+  icons: {
+    icon: "/icons/icon.svg",
+    apple: "/icons/icon.svg",
+  },
+  themeColor: "#09090b",
 };
 
 export default function RootLayout({
@@ -52,6 +65,8 @@ export default function RootLayout({
             </div>
           </div>
           <CommandMenu />
+          <Toaster />
+          <InstallPrompt />
         </ThemeProvider>
       </body>
     </html>

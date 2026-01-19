@@ -352,3 +352,197 @@ export async function checkConnection(): Promise<boolean> {
     return false;
   }
 }
+
+// Capture API functions
+
+export interface CaptureRequest {
+  content: string;
+  title?: string;
+  content_type?: ContentType;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface CaptureResponse {
+  content_id: string;
+  title: string;
+  content_type: ContentType;
+  chunks_created: number;
+  message: string;
+}
+
+export interface CaptureUrlRequest {
+  url: string;
+  tags?: string[];
+}
+
+export async function captureContent(data: CaptureRequest): Promise<CaptureResponse> {
+  return apiRequest<CaptureResponse>("/api/v1/capture", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function captureUrl(data: CaptureUrlRequest): Promise<CaptureResponse> {
+  return apiRequest<CaptureResponse>("/api/v1/capture/url", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Export/Import API functions
+
+export interface ExportOptions {
+  namespace?: string;
+  content_type?: ContentType;
+  format?: "json" | "markdown";
+  include_chunks?: boolean;
+}
+
+export interface ExportResponse {
+  filename: string;
+  content_count: number;
+  chunk_count: number;
+  export_date: string;
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export async function exportContent(options: ExportOptions = {}): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (options.namespace) params.set("namespace", options.namespace);
+  if (options.content_type) params.set("content_type", options.content_type);
+  if (options.format) params.set("format", options.format);
+  if (options.include_chunks !== undefined) {
+    params.set("include_chunks", String(options.include_chunks));
+  }
+
+  const url = `${API_BASE}/api/v1/export?${params}`;
+  const response = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    throw new APIError("Export failed", response.status);
+  }
+
+  return response.blob();
+}
+
+export async function importContent(file: File): Promise<ImportResult> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE}/api/v1/export/import`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new APIError("Import failed", response.status);
+  }
+
+  return response.json();
+}
+
+// Analytics API functions
+
+export interface SearchAnalytics {
+  total_queries: number;
+  unique_queries: number;
+  zero_result_rate: number;
+  avg_results_per_query: number;
+  avg_score: number;
+  queries_by_day: Array<{ date: string; count: number }>;
+}
+
+export interface SearchGap {
+  query: string;
+  count: number;
+  avg_score: number;
+  last_searched: string;
+}
+
+export interface ContentQuality {
+  high_quality: number;
+  medium_quality: number;
+  low_quality: number;
+  needs_review: Array<{
+    id: string;
+    title: string;
+    quality_score: number;
+  }>;
+}
+
+export async function getSearchAnalytics(days: number = 30): Promise<SearchAnalytics> {
+  return apiRequest<SearchAnalytics>(`/api/v1/analytics/search?days=${days}`);
+}
+
+export async function getSearchGaps(limit: number = 20): Promise<SearchGap[]> {
+  return apiRequest<SearchGap[]>(`/api/v1/analytics/gaps?limit=${limit}`);
+}
+
+export async function getContentQuality(): Promise<ContentQuality> {
+  return apiRequest<ContentQuality>("/api/v1/analytics/quality");
+}
+
+// Webhook API functions
+
+export interface Webhook {
+  id: string;
+  url: string;
+  events: string[];
+  secret: string | null;
+  active: boolean;
+  created_at: string;
+  last_triggered: string | null;
+  failure_count: number;
+}
+
+export interface WebhookCreateRequest {
+  url: string;
+  events: string[];
+  secret?: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhook_id: string;
+  event: string;
+  status: "success" | "failure";
+  status_code: number | null;
+  response_time_ms: number | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+export async function getWebhooks(): Promise<Webhook[]> {
+  return apiRequest<Webhook[]>("/api/v1/webhooks");
+}
+
+export async function createWebhook(data: WebhookCreateRequest): Promise<Webhook> {
+  return apiRequest<Webhook>("/api/v1/webhooks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteWebhook(id: string): Promise<void> {
+  await apiRequest<{ message: string }>(`/api/v1/webhooks/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export async function testWebhook(id: string): Promise<{ success: boolean; message: string }> {
+  return apiRequest<{ success: boolean; message: string }>(`/api/v1/webhooks/${id}/test`, {
+    method: "POST",
+  });
+}
+
+export async function getWebhookDeliveries(id: string, limit: number = 10): Promise<WebhookDelivery[]> {
+  return apiRequest<WebhookDelivery[]>(`/api/v1/webhooks/${id}/deliveries?limit=${limit}`);
+}

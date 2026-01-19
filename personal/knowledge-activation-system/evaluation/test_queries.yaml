@@ -249,6 +249,172 @@ queries:
     difficulty: hard
     notes: "Test case for missing knowledge"
 
+  # =============================================================================
+  # Additional Edge Cases (Abbreviations & Acronyms)
+  # =============================================================================
+  - id: edge-004
+    query: "How does k8s handle pod autoscaling?"
+    category: infrastructure
+    expected_keywords:
+      - kubernetes
+      - HPA
+      - scale
+      - replicas
+    expected_namespaces:
+      - infrastructure
+    difficulty: medium
+    notes: "Tests k8s -> kubernetes expansion"
+
+  - id: edge-005
+    query: "What is CI/CD best practice?"
+    category: devops
+    expected_keywords:
+      - continuous
+      - integration
+      - deployment
+      - pipeline
+    expected_namespaces:
+      - infrastructure
+      - best-practices
+    difficulty: easy
+    notes: "Tests CI/CD abbreviation"
+
+  - id: edge-006
+    query: "pg vector similarity search"
+    category: databases
+    expected_keywords:
+      - postgresql
+      - pgvector
+      - cosine
+      - similarity
+    expected_namespaces:
+      - infrastructure
+      - ai-ml
+    difficulty: medium
+    notes: "Tests pg -> postgresql expansion"
+
+  # =============================================================================
+  # Multi-word Phrase Queries
+  # =============================================================================
+  - id: phrase-001
+    query: "chain of thought prompting examples"
+    category: ai-ml
+    expected_keywords:
+      - chain-of-thought
+      - reasoning
+      - step by step
+    expected_namespaces:
+      - best-practices
+      - ai-ml
+    difficulty: medium
+
+  - id: phrase-002
+    query: "dependency injection in Python"
+    category: frameworks
+    expected_keywords:
+      - dependency
+      - injection
+      - Depends
+      - FastAPI
+    expected_namespaces:
+      - frameworks
+    difficulty: easy
+
+  - id: phrase-003
+    query: "async await best practices Python"
+    category: frameworks
+    expected_keywords:
+      - async
+      - await
+      - asyncio
+      - concurrent
+    expected_namespaces:
+      - frameworks
+      - best-practices
+    difficulty: medium
+
+  # =============================================================================
+  # Natural Language Queries
+  # =============================================================================
+  - id: natural-001
+    query: "why is my API returning 422 errors?"
+    category: debugging
+    expected_keywords:
+      - validation
+      - pydantic
+      - request
+      - schema
+    expected_namespaces:
+      - frameworks
+    difficulty: medium
+    notes: "Natural language error debugging"
+
+  - id: natural-002
+    query: "how do I make my search faster?"
+    category: optimization
+    expected_keywords:
+      - index
+      - cache
+      - performance
+      - query
+    expected_namespaces:
+      - infrastructure
+      - best-practices
+    difficulty: medium
+    notes: "Vague optimization query"
+
+  - id: natural-003
+    query: "what's the difference between embedding and fine-tuning?"
+    category: ai-ml
+    expected_keywords:
+      - embedding
+      - fine-tuning
+      - model
+      - training
+    expected_namespaces:
+      - ai-ml
+    difficulty: medium
+
+  # =============================================================================
+  # Code-specific Queries
+  # =============================================================================
+  - id: code-001
+    query: "FastAPI @app.get decorator"
+    category: frameworks
+    expected_keywords:
+      - route
+      - endpoint
+      - decorator
+      - HTTP
+    expected_namespaces:
+      - frameworks
+    difficulty: easy
+
+  - id: code-002
+    query: "SQLAlchemy async session"
+    category: databases
+    expected_keywords:
+      - session
+      - async
+      - engine
+      - connection
+    expected_namespaces:
+      - frameworks
+      - infrastructure
+    difficulty: medium
+
+  - id: code-003
+    query: "React useEffect cleanup"
+    category: frameworks
+    expected_keywords:
+      - useEffect
+      - cleanup
+      - return
+      - unmount
+    expected_namespaces:
+      - frameworks
+    difficulty: easy
+
 # Evaluation settings
 settings:
   default_limit: 5
