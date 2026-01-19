@@ -19,6 +19,7 @@ from knowledge.api.routes import (
     integration,
     metrics,
     namespaces,
+    plugins,
     review,
     search,
     tuning,
@@ -112,6 +113,7 @@ app.include_router(batch.router)  # Batch operations (/api/v1/batch)
 app.include_router(export.router)  # Export/Import (/api/v1/export)
 app.include_router(webhooks.router)  # Webhooks (/api/v1/webhooks)
 app.include_router(tuning.router)  # Search tuning (/api/v1/tuning)
+app.include_router(plugins.router)  # Plugins (/api/v1/plugins)
 
 
 @app.get("/")
