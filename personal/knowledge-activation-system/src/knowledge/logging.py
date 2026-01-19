@@ -4,29 +4,30 @@ from __future__ import annotations
 
 import logging
 import sys
-from contextvars import ContextVar
 from typing import Any
 
 import structlog
 from structlog.types import Processor
 
-# Context variable for request ID tracking
-request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
+# Import request ID functions from security module (single source of truth)
+from knowledge.security import (
+    clear_request_id,
+    get_request_id,
+    set_request_id,
+)
 
-
-def get_request_id() -> str | None:
-    """Get current request ID from context."""
-    return request_id_var.get()
-
-
-def set_request_id(request_id: str) -> None:
-    """Set request ID in context."""
-    request_id_var.set(request_id)
-
-
-def clear_request_id() -> None:
-    """Clear request ID from context."""
-    request_id_var.set(None)
+# Re-export for backwards compatibility
+__all__ = [
+    "get_request_id",
+    "set_request_id",
+    "clear_request_id",
+    "configure_logging",
+    "get_logger",
+    "bind_context",
+    "unbind_context",
+    "clear_context",
+    "LoggingContext",
+]
 
 
 def add_request_id(
@@ -34,8 +35,13 @@ def add_request_id(
     method_name: str,
     event_dict: dict[str, Any],
 ) -> dict[str, Any]:
-    """Add request ID to log event if available."""
+    """Add request ID to log event if available.
+
+    The request ID is set by the SecurityMiddleware for each incoming request.
+    It provides correlation across all log entries for a single request.
+    """
     request_id = get_request_id()
+    # Security module uses empty string as default, not None
     if request_id:
         event_dict["request_id"] = request_id
     return event_dict

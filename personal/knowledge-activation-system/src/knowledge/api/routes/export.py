@@ -166,6 +166,11 @@ async def export_content(
     )
 
 
+# Maximum file upload size (50 MB default)
+MAX_UPLOAD_SIZE_MB = 50
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+
 @router.post("/import", response_model=ImportResult)
 async def import_content(
     file: UploadFile = File(...),  # noqa: B008
@@ -175,11 +180,30 @@ async def import_content(
     """
     Import content from a backup file.
 
-    Supports JSON and JSONL formats.
+    Supports JSON and JSONL formats. Maximum file size: 50 MB.
     Set skip_existing=false to update existing items.
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Filename required")
+
+    # Validate file extension
+    if not file.filename.endswith((".json", ".jsonl")):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid file type. Only .json and .jsonl files are supported."
+        )
+
+    # Check content type
+    if file.content_type and file.content_type not in (
+        "application/json",
+        "application/x-ndjson",
+        "text/plain",
+    ):
+        logger.warning(
+            "import_invalid_content_type",
+            content_type=file.content_type,
+            filename=file.filename,
+        )
 
     is_jsonl = file.filename.endswith(".jsonl")
     db = await get_db()
@@ -190,7 +214,19 @@ async def import_content(
     errors: list[dict] = []
 
     try:
+        # Read file with size limit check
         content = await file.read()
+
+        # Validate file size
+        if len(content) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE_MB} MB."
+            )
+
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file")
+
         content_str = content.decode("utf-8")
 
         if is_jsonl:

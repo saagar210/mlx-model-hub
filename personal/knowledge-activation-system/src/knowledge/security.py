@@ -393,6 +393,41 @@ def mask_secret(secret: str, visible_chars: int = 4) -> str:
     return "*" * (len(secret) - visible_chars) + secret[-visible_chars:]
 
 
+def sanitize_url(url: str) -> str:
+    """
+    Sanitize a URL for safe logging by removing credentials.
+
+    Handles database connection strings (PostgreSQL, MySQL, MongoDB, Redis)
+    and other URLs that may contain embedded credentials.
+
+    Args:
+        url: URL that may contain credentials
+
+    Returns:
+        URL with credentials replaced by [REDACTED]
+
+    Examples:
+        >>> sanitize_url("postgresql://user:password@localhost:5432/db")
+        'postgresql://[REDACTED]@localhost:5432/db'
+        >>> sanitize_url("redis://:secret@localhost:6379/0")
+        'redis://[REDACTED]@localhost:6379/0'
+        >>> sanitize_url("http://localhost:8000")
+        'http://localhost:8000'
+    """
+    if not url:
+        return url
+
+    # Pattern matches: scheme://[user[:password]@]host
+    # Captures credentials portion (anything before @ after ://)
+    pattern = r'((?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://)([^@]+)@'
+
+    def replace_creds(match: re.Match) -> str:
+        scheme = match.group(1)
+        return f"{scheme}[REDACTED]@"
+
+    return re.sub(pattern, replace_creds, url, flags=re.IGNORECASE)
+
+
 # =============================================================================
 # Error Sanitization
 # =============================================================================

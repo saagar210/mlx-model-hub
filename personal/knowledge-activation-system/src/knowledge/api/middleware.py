@@ -1,12 +1,13 @@
 """API Middleware (P18: Rate Limiting, P19: API Versioning, P24: Metrics).
 
 Provides:
-- Token bucket rate limiting with burst support
+- Token bucket rate limiting with burst support (in-memory and Redis-backed)
 - API key validation with timing attack prevention
 - Request correlation IDs for distributed tracing
 - Automatic cleanup for memory management
 - API version headers (P19)
 - Prometheus metrics collection (P24)
+- CSRF protection via Origin/Referer validation
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import asyncio
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from fastapi import HTTPException, Request, Response
 from fastapi.security import APIKeyHeader
@@ -23,9 +24,28 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from knowledge.config import get_settings
 from knowledge.logging import get_logger
-from knowledge.security import clear_request_id, secure_compare, set_request_id
+from knowledge.security import clear_request_id, sanitize_url, secure_compare, set_request_id
 
 logger = get_logger(__name__)
+
+
+# =============================================================================
+# Rate Limiter Protocol
+# =============================================================================
+
+
+class RateLimiterProtocol(Protocol):
+    """Protocol for rate limiter implementations."""
+
+    async def acquire(
+        self, client_id: str, rate_limit: int | None = None
+    ) -> tuple[bool, "RateLimitInfo"]:
+        """Try to acquire a token for a request."""
+        ...
+
+    def get_info(self, client_id: str) -> "RateLimitInfo | None":
+        """Get current rate limit info without consuming tokens."""
+        ...
 
 
 # =============================================================================
@@ -222,8 +242,140 @@ class TokenBucketRateLimiter:
             )
 
 
-# Global rate limiter instance
-rate_limiter = TokenBucketRateLimiter()
+# =============================================================================
+# Redis Rate Limiter
+# =============================================================================
+
+
+class RedisRateLimiter:
+    """
+    Redis-backed sliding window rate limiter for distributed deployments.
+
+    Uses Redis sorted sets for accurate sliding window rate limiting.
+    Falls back to in-memory rate limiting if Redis is unavailable.
+    """
+
+    def __init__(
+        self,
+        requests_per_minute: int = 100,
+        redis_url: str | None = None,
+    ) -> None:
+        """
+        Initialize Redis rate limiter.
+
+        Args:
+            requests_per_minute: Default rate limit
+            redis_url: Redis connection URL
+        """
+        self.requests_per_minute = requests_per_minute
+        self._redis_url = redis_url
+        self._redis: Any = None
+        self._fallback = TokenBucketRateLimiter(requests_per_minute)
+        self._redis_available = False
+
+    async def _get_redis(self) -> Any:
+        """Get or create Redis connection."""
+        if self._redis is None and self._redis_url:
+            try:
+                import redis.asyncio as aioredis
+                self._redis = aioredis.from_url(
+                    self._redis_url,
+                    encoding="utf-8",
+                    decode_responses=True,
+                )
+                # Test connection
+                await self._redis.ping()
+                self._redis_available = True
+                logger.info("redis_rate_limiter_connected", url=sanitize_url(self._redis_url))
+            except Exception as e:
+                logger.warning("redis_rate_limiter_unavailable", error=str(e)[:100])
+                self._redis_available = False
+                self._redis = None
+        return self._redis
+
+    async def acquire(
+        self,
+        client_id: str,
+        rate_limit: int | None = None,
+    ) -> tuple[bool, RateLimitInfo]:
+        """
+        Try to acquire a token using Redis sliding window.
+
+        Falls back to in-memory rate limiting if Redis is unavailable.
+        """
+        redis = await self._get_redis()
+        if redis is None:
+            return await self._fallback.acquire(client_id, rate_limit)
+
+        try:
+            limit = rate_limit or self.requests_per_minute
+            window_seconds = 60
+            now = time.time()
+            window_start = now - window_seconds
+            key = f"ratelimit:{client_id}"
+
+            # Use Redis pipeline for atomic operations
+            pipe = redis.pipeline()
+            # Remove old entries
+            pipe.zremrangebyscore(key, 0, window_start)
+            # Count current requests in window
+            pipe.zcard(key)
+            # Add current request
+            pipe.zadd(key, {str(now): now})
+            # Set expiry
+            pipe.expire(key, window_seconds + 1)
+
+            results = await pipe.execute()
+            current_count = results[1]
+
+            # Calculate remaining
+            remaining = max(0, limit - current_count - 1)
+            reset_time = int(now + window_seconds)
+
+            if current_count >= limit:
+                # Over limit - remove the request we just added
+                await redis.zrem(key, str(now))
+                return False, RateLimitInfo(
+                    limit=limit,
+                    remaining=0,
+                    reset=reset_time,
+                )
+
+            return True, RateLimitInfo(
+                limit=limit,
+                remaining=remaining,
+                reset=reset_time,
+            )
+
+        except Exception as e:
+            logger.warning("redis_rate_limit_error", error=str(e)[:100])
+            # Fall back to in-memory
+            return await self._fallback.acquire(client_id, rate_limit)
+
+    def get_info(self, client_id: str) -> RateLimitInfo | None:
+        """Get current rate limit info (uses fallback for simplicity)."""
+        return self._fallback.get_info(client_id)
+
+    async def close(self) -> None:
+        """Close Redis connection."""
+        if self._redis:
+            await self._redis.close()
+            self._redis = None
+
+
+def _create_rate_limiter() -> TokenBucketRateLimiter | RedisRateLimiter:
+    """Create the appropriate rate limiter based on settings."""
+    settings = get_settings()
+    if settings.redis_enabled and settings.redis_url:
+        return RedisRateLimiter(
+            requests_per_minute=settings.rate_limit_requests,
+            redis_url=settings.redis_url,
+        )
+    return TokenBucketRateLimiter(requests_per_minute=settings.rate_limit_requests)
+
+
+# Global rate limiter instance (Redis if available, otherwise in-memory)
+rate_limiter = _create_rate_limiter()
 
 # API key header scheme
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)

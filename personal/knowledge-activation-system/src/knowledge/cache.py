@@ -20,6 +20,7 @@ from redis.asyncio.connection import ConnectionPool
 
 from knowledge.config import get_settings
 from knowledge.logging import get_logger
+from knowledge.security import sanitize_url
 
 logger = get_logger(__name__)
 
@@ -84,13 +85,13 @@ class RedisCache:
             # Test connection
             await self._client.ping()  # type: ignore[misc]
             self._connected = True
-            logger.info("redis_connected", url=self.settings.redis_url)
+            logger.info("redis_connected", url=sanitize_url(self.settings.redis_url))
             return True
         except Exception as e:
             logger.warning(
                 "redis_connection_failed",
                 error=str(e),
-                url=self.settings.redis_url,
+                url=sanitize_url(self.settings.redis_url),
             )
             self._connected = False
             return False
