@@ -20,7 +20,7 @@ from knowledge.ingest import IngestResult
 from knowledge.logging import get_logger
 from knowledge.obsidian import create_note, get_relative_path
 from knowledge.security import is_safe_filename
-from knowledge.validation import extract_title_from_content, validate_content
+from knowledge.validation import extract_frontmatter_fields, extract_title_from_content, validate_content
 
 logger = get_logger(__name__)
 
@@ -178,8 +178,24 @@ async def ingest_file(
                 error=f"Content validation failed: {error_msg}",
             )
 
+        # Extract frontmatter fields (title, namespace, tags)
+        frontmatter_fields = extract_frontmatter_fields(content)
+        if frontmatter_fields.get("namespace"):
+            metadata["namespace"] = frontmatter_fields["namespace"]
+
+        # Merge tags from frontmatter with provided tags
+        final_tags = list(tags) if tags else []
+        if frontmatter_fields.get("tags"):
+            frontmatter_tags = frontmatter_fields["tags"]
+            if isinstance(frontmatter_tags, list):
+                final_tags.extend(frontmatter_tags)
+        final_tags = list(dict.fromkeys(final_tags))  # Dedupe preserving order
+
         # Determine title (extract from ORIGINAL content to get YAML frontmatter)
         final_title = title
+        if not final_title:
+            # Try to extract from frontmatter first
+            final_title = frontmatter_fields.get("title") if isinstance(frontmatter_fields.get("title"), str) else None
         if not final_title:
             # Try to extract from original content (includes YAML frontmatter)
             final_title = extract_title_from_content(content)
@@ -207,7 +223,7 @@ async def ingest_file(
             content_type="file",
             title=final_title,
             content=note_content,
-            tags=tags,
+            tags=final_tags if final_tags else None,
             metadata=metadata,
             settings=settings,
         )
@@ -229,7 +245,7 @@ async def ingest_file(
             content_type="file",
             title=final_title,
             content_for_hash=validation.content,
-            tags=tags,
+            tags=final_tags if final_tags else None,
             metadata=metadata,
         )
 

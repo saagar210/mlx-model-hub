@@ -380,11 +380,12 @@ class Database:
                 from fsrs import Card  # type: ignore[import-untyped]
 
                 card = Card()
-                fsrs_state = json.dumps(card.to_dict())
+                # Pass dict directly to asyncpg, it handles JSONB conversion
+                fsrs_state = card.to_dict()
                 await conn.execute(
                     """
                     INSERT INTO review_queue (content_id, fsrs_state, next_review, status)
-                    VALUES ($1, $2::jsonb, NOW(), 'active')
+                    VALUES ($1, $2, NOW(), 'active')
                     ON CONFLICT (content_id) DO NOTHING
                     """,
                     content_id,

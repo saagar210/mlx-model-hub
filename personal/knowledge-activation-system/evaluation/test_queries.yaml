@@ -99,6 +99,7 @@ queries:
     expected_namespaces:
       - agent-frameworks
       - best-practices
+      - agents
     difficulty: easy
 
   - id: agent-002
@@ -112,6 +113,7 @@ queries:
     expected_namespaces:
       - agent-frameworks
       - ai-research
+      - agents
     difficulty: medium
 
   - id: agent-003
@@ -124,6 +126,7 @@ queries:
       - edge
     expected_namespaces:
       - agent-frameworks
+      - agents
     difficulty: hard
 
   # =============================================================================
@@ -168,6 +171,7 @@ queries:
     expected_namespaces:
       - tools
       - projects/mcp-servers
+      - mcp
     difficulty: easy
 
   - id: mcp-002
@@ -178,9 +182,11 @@ queries:
       - tool
       - handler
       - stdio
+      - TypeScript
     expected_namespaces:
       - projects/mcp-servers
       - tools
+      - mcp
     difficulty: medium
 
   # =============================================================================
@@ -276,6 +282,7 @@ queries:
     expected_namespaces:
       - infrastructure
       - best-practices
+      - devops
     difficulty: easy
     notes: "Tests CI/CD abbreviation"
 

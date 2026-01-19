@@ -24,7 +24,9 @@ from knowledge.api.schemas import (
 from knowledge.api.utils import handle_exceptions
 from knowledge.qa import ask as qa_ask
 from knowledge.qa import search_and_summarize
+from knowledge.reranker import rerank_results
 from knowledge.search import (
+    SearchResult,
     hybrid_search_with_status,
     search_bm25_only,
     search_vector_only,
@@ -49,18 +51,36 @@ async def search(request: SearchRequest) -> SearchResponse:
     search_mode = request.mode.value
     warnings: list[str] = []
 
+    # Fetch more candidates when reranking (reranker will select top results)
+    fetch_limit = request.limit * 3 if request.rerank else request.limit
+
     if request.mode == SearchMode.HYBRID:
-        response = await hybrid_search_with_status(request.query, limit=request.limit)
+        response = await hybrid_search_with_status(request.query, limit=fetch_limit)
         results = response.results
         degraded = response.degraded
         search_mode = response.search_mode
         warnings = response.warnings
     elif request.mode == SearchMode.BM25:
-        results = await search_bm25_only(request.query, limit=request.limit)
+        results = await search_bm25_only(request.query, limit=fetch_limit)
         search_mode = "bm25_only"
     else:
-        results = await search_vector_only(request.query, limit=request.limit)
+        results = await search_vector_only(request.query, limit=fetch_limit)
         search_mode = "vector_only"
+
+    # Apply reranking if requested
+    if request.rerank and results:
+        try:
+            results = await rerank_results(request.query, results, top_k=request.limit)
+            search_mode = f"{search_mode}+rerank"
+        except Exception as e:
+            warnings.append(f"Reranking failed, using original ranking: {e}")
+            results = results[:request.limit]
+    elif request.rerank:
+        # No results to rerank
+        pass
+    else:
+        # Trim to requested limit (no reranking)
+        results = results[:request.limit]
 
     return SearchResponse(
         query=request.query,
@@ -72,6 +92,7 @@ async def search(request: SearchRequest) -> SearchResponse:
                 score=r.score,
                 chunk_text=r.chunk_text,
                 source_ref=r.source_ref,
+                namespace=r.namespace,
                 bm25_rank=r.bm25_rank,
                 vector_rank=r.vector_rank,
             )

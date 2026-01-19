@@ -61,16 +61,21 @@ def load_test_queries() -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def search_kas(query: str, limit: int = 5, namespace: str | None = None) -> dict[str, Any]:
+def search_kas(
+    query: str,
+    limit: int = 5,
+    namespace: str | None = None,
+    rerank: bool = True,
+) -> dict[str, Any]:
     """Execute search against KAS API."""
     try:
-        payload = {"query": query, "limit": limit}
+        payload = {"query": query, "limit": limit, "rerank": rerank}
         if namespace:
             payload["namespace"] = namespace
         response = httpx.post(
             f"{KAS_URL}/search",
             json=payload,
-            timeout=30.0,
+            timeout=60.0,  # Increased timeout for reranking
         )
         response.raise_for_status()
         return response.json()

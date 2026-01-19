@@ -35,6 +35,7 @@ class SearchRequest(BaseModel):
     limit: int = Field(10, ge=1, le=100, description="Number of results")
     mode: SearchMode = Field(SearchMode.HYBRID, description="Search mode")
     namespace: str | None = Field(default=None, max_length=100)
+    rerank: bool = Field(False, description="Apply cross-encoder reranking")
 
     @field_validator("query")
     @classmethod
@@ -65,6 +66,7 @@ class SearchResultItem(BaseModel):
     score: float
     chunk_text: str | None = None
     source_ref: str | None = None
+    namespace: str | None = None
     bm25_rank: int | None = None
     vector_rank: int | None = None
 

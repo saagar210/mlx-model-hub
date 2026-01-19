@@ -79,11 +79,13 @@ LOGIN_PATTERNS = [
 ]
 
 CAPTCHA_PATTERNS = [
-    r"(are\s*you\s*a\s*)?robot",
+    r"are\s*you\s*a\s*robot",
+    r"i.?m\s*not\s*a\s*robot",
+    r"prove\s*(you.?re|that\s*you.?re)\s*(human|not\s*a\s*robot)",
     r"captcha",
     r"verify\s*(you.?re|that\s*you.?re)\s*(human|not\s*a\s*robot)",
-    r"security\s*check",
-    r"unusual\s*traffic",
+    r"security\s*check\s*required",
+    r"unusual\s*traffic\s*(from|detected)",
 ]
 
 # Compile patterns for efficiency
@@ -262,6 +264,40 @@ def strip_yaml_frontmatter(content: str) -> str:
     """
     _, body = parse_yaml_frontmatter(content)
     return body
+
+
+def extract_frontmatter_fields(content: str) -> dict[str, str | list[str] | None]:
+    """
+    Extract commonly used fields from YAML frontmatter.
+
+    Args:
+        content: Content that may contain YAML frontmatter
+
+    Returns:
+        Dictionary with extracted fields (title, namespace, tags, content_type)
+    """
+    frontmatter, _ = parse_yaml_frontmatter(content)
+    result: dict[str, str | list[str] | None] = {
+        "title": None,
+        "namespace": None,
+        "tags": None,
+        "content_type": None,
+    }
+
+    if frontmatter.get("title"):
+        result["title"] = str(frontmatter["title"])[:100]
+    if frontmatter.get("namespace"):
+        result["namespace"] = str(frontmatter["namespace"])
+    if frontmatter.get("tags"):
+        tags = frontmatter["tags"]
+        if isinstance(tags, list):
+            result["tags"] = [str(t) for t in tags]
+        elif isinstance(tags, str):
+            result["tags"] = [t.strip() for t in tags.split(",")]
+    if frontmatter.get("content_type"):
+        result["content_type"] = str(frontmatter["content_type"])
+
+    return result
 
 
 def extract_title_from_content(content: str, max_length: int = 100) -> str | None:
