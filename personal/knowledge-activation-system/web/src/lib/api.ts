@@ -236,11 +236,12 @@ async function apiRequest<T>(
 export async function search(
   query: string,
   limit: number = 10,
-  mode: SearchMode = "hybrid"
+  mode: SearchMode = "hybrid",
+  namespace?: string
 ): Promise<SearchResponse> {
   return apiRequest<SearchResponse>("/search", {
     method: "POST",
-    body: JSON.stringify({ query, limit, mode }),
+    body: JSON.stringify({ query, limit, mode, namespace }),
   });
 }
 
@@ -488,6 +489,24 @@ export async function getSearchGaps(limit: number = 20): Promise<SearchGap[]> {
 
 export async function getContentQuality(): Promise<ContentQuality> {
   return apiRequest<ContentQuality>("/api/v1/analytics/quality");
+}
+
+// Namespace API functions
+
+export interface NamespaceInfo {
+  name: string;
+  document_count: number;
+  chunk_count: number;
+  latest_update: string | null;
+}
+
+export interface NamespaceListResponse {
+  namespaces: NamespaceInfo[];
+  total: number;
+}
+
+export async function getNamespaces(): Promise<NamespaceListResponse> {
+  return apiRequest<NamespaceListResponse>("/api/v1/namespaces");
 }
 
 // Webhook API functions

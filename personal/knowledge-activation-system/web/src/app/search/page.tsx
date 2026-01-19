@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,14 +29,17 @@ import {
   FileIcon,
   StickyNote,
   ChevronDown,
+  FolderOpen,
 } from "lucide-react";
 import {
   search,
   ask,
+  getNamespaces,
   type SearchResult,
   type AskResponse,
   type SearchMode,
   type ContentType,
+  type NamespaceInfo,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -46,9 +50,18 @@ type ContentTypeFilter = ContentType | "all";
 
 const CONTENT_TYPES: ContentType[] = ["youtube", "bookmark", "note", "pdf", "file"];
 
-export default function SearchPage() {
+function SearchPageContent() {
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("hybrid");
+
+  // Read query from URL on mount
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q) {
+      setQuery(q);
+    }
+  }, [searchParams]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [answer, setAnswer] = useState<AskResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,9 +71,24 @@ export default function SearchPage() {
   // Filters
   const [typeFilter, setTypeFilter] = useState<ContentTypeFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("relevance");
+  const [namespaceFilter, setNamespaceFilter] = useState<string>("all");
+  const [namespaces, setNamespaces] = useState<NamespaceInfo[]>([]);
 
   // Debounce for instant search
   const debouncedQuery = useDebounce(query, 300);
+
+  // Load namespaces on mount
+  useEffect(() => {
+    const loadNamespaces = async () => {
+      try {
+        const response = await getNamespaces();
+        setNamespaces(response.namespaces);
+      } catch {
+        // Silently fail - namespaces are optional enhancement
+      }
+    };
+    loadNamespaces();
+  }, []);
 
   // Auto-search when query changes (debounced)
   useEffect(() => {
@@ -70,7 +98,7 @@ export default function SearchPage() {
       setResults([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, searchMode, activeTab]);
+  }, [debouncedQuery, searchMode, activeTab, namespaceFilter]);
 
   const performSearch = useCallback(async () => {
     if (!debouncedQuery.trim()) return;
@@ -79,14 +107,15 @@ export default function SearchPage() {
     setError(null);
 
     try {
-      const response = await search(debouncedQuery, 30, searchMode);
+      const ns = namespaceFilter === "all" ? undefined : namespaceFilter;
+      const response = await search(debouncedQuery, 30, searchMode, ns);
       setResults(response.results);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setLoading(false);
     }
-  }, [debouncedQuery, searchMode]);
+  }, [debouncedQuery, searchMode, namespaceFilter]);
 
   const handleAsk = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +200,7 @@ export default function SearchPage() {
       return 0;
     });
 
-  const activeFilterCount = (typeFilter !== "all" ? 1 : 0);
+  const activeFilterCount = (typeFilter !== "all" ? 1 : 0) + (namespaceFilter !== "all" ? 1 : 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -394,6 +423,47 @@ export default function SearchPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
+                {/* Namespace Filter */}
+                {namespaces.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <FolderOpen className="h-4 w-4" />
+                        Namespace
+                        {namespaceFilter !== "all" && (
+                          <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                            1
+                          </Badge>
+                        )}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                      <DropdownMenuCheckboxItem
+                        checked={namespaceFilter === "all"}
+                        onCheckedChange={() => setNamespaceFilter("all")}
+                      >
+                        All Namespaces
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
+                      {namespaces.map((ns) => (
+                        <DropdownMenuCheckboxItem
+                          key={ns.name}
+                          checked={namespaceFilter === ns.name}
+                          onCheckedChange={() => setNamespaceFilter(ns.name)}
+                        >
+                          <span className="flex items-center justify-between gap-4 w-full">
+                            <span>{ns.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {ns.document_count}
+                            </span>
+                          </span>
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
                 {/* Sort By */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -419,6 +489,7 @@ export default function SearchPage() {
                     size="sm"
                     onClick={() => {
                       setTypeFilter("all");
+                      setNamespaceFilter("all");
                       setSortBy("relevance");
                     }}
                     className="text-muted-foreground"
@@ -556,5 +627,13 @@ export default function SearchPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<SearchResultsSkeleton count={5} />}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/stats-card";
 import { ContentPieChart } from "@/components/charts/pie-chart";
@@ -41,11 +43,20 @@ const CONTENT_COLORS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [reviewStats, setReviewStats] = useState<ReviewStatsResponse | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [recentContent, setRecentContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [quickSearch, setQuickSearch] = useState("");
+
+  const handleQuickSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quickSearch.trim()) {
+      router.push(`/search?q=${encodeURIComponent(quickSearch.trim())}`);
+    }
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -142,6 +153,30 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Quick Search */}
+      <Card className="border-dashed">
+        <CardContent className="p-4">
+          <form onSubmit={handleQuickSearch} className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                value={quickSearch}
+                onChange={(e) => setQuickSearch(e.target.value)}
+                placeholder="Quick search your knowledge base..."
+                className="pl-9 h-10"
+              />
+            </div>
+            <Button type="submit" disabled={!quickSearch.trim()}>
+              Search
+            </Button>
+          </form>
+          <p className="text-xs text-muted-foreground mt-2">
+            Press <kbd className="px-1.5 py-0.5 text-xs font-mono bg-muted rounded border">⌘K</kbd> for quick actions
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
