@@ -1,8 +1,8 @@
 # KAS Session Handoff Document
 
 **Last Updated:** 2026-01-18
-**Session:** Production Readiness Complete + Content Enhancement
-**Status:** ✅ ALL P1-P38 COMPLETE + Evaluation Optimization
+**Session:** Web UI Polish + Plugins API
+**Status:** ✅ ALL P1-P38 COMPLETE + Web UI Enhancements
 
 ---
 
@@ -32,12 +32,19 @@ To serve as the **central knowledge hub** for all personal projects. Other apps 
 
 | Metric | Value |
 |--------|-------|
-| Documents | 1,511 |
-| Chunks | 3,992 |
-| Test Coverage | 419 passing, 3 skipped |
-| API Endpoints | 25+ routes |
+| Documents | 1,512 |
+| Chunks | 3,998 |
+| Test Coverage | 437 passing, 4 skipped |
+| API Endpoints | 30+ routes (includes plugins API) |
 | MCP Tools | kas_search, kas_ingest, kas_review |
-| Evaluation Score | 71.94% composite (MRR: 0.815, NDCG@5: 0.840) |
+| Evaluation Score | 56.88% composite (needs content expansion) |
+
+### Recent Additions (2026-01-18)
+
+- **Plugins Backend API** (`/api/v1/plugins`) - 8 built-in plugins
+- **PWA Fixes** - SVG icons, viewport themeColor
+- **Query Expansion** - Enhanced synonyms for MCP, agents, DevOps
+- **Bug Fixes** - Review/Analytics page TypeErrors fixed
 
 ---
 
@@ -104,6 +111,7 @@ To serve as the **central knowledge hub** for all personal projects. Other apps 
 | `routes/batch.py` | Batch search/delete (P20) |
 | `routes/export.py` | Export/Import (P21) |
 | `routes/webhooks.py` | Webhook management (P22) |
+| `routes/plugins.py` | Plugin management (list, toggle, config) |
 | `routes/health.py` | Health checks (P23) |
 | `routes/metrics.py` | Prometheus metrics (P24) |
 | `routes/auth.py` | API key management (P17) |
