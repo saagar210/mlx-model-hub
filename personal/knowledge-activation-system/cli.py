@@ -1314,6 +1314,53 @@ def review_suspend_cmd(
     run_async(_suspend())
 
 
+@review_app.command("schedule")
+def review_schedule_cmd() -> None:
+    """Show review scheduler status."""
+    import httpx
+
+    try:
+        response = httpx.get("http://localhost:8000/review/schedule/status", timeout=10.0)
+
+        if response.status_code != 200:
+            console.print(f"[red]Failed to get schedule status: {response.text}[/red]")
+            raise typer.Exit(1)
+
+        data = response.json()
+
+        console.print()
+        console.print("[bold cyan]Review Scheduler Status[/bold cyan]")
+        console.print()
+
+        table = Table(show_header=False, box=None)
+        table.add_column("Setting", style="cyan", width=20)
+        table.add_column("Value", style="green")
+
+        status_color = "green" if data["status"] == "waiting" else "yellow"
+        enabled_text = "[green]Yes[/green]" if data["enabled"] else "[red]No[/red]"
+
+        table.add_row("Enabled", enabled_text)
+        table.add_row("Status", f"[{status_color}]{data['status']}[/{status_color}]")
+        table.add_row("Scheduled Time", data["scheduled_time"])
+        table.add_row("Timezone", data["timezone"])
+        table.add_row("Next Run", data["next_run"] or "Not scheduled")
+        table.add_row("Last Run", data["last_run"] or "Never")
+        table.add_row("", "")
+        table.add_row("Items Due", str(data["due_count"]))
+
+        console.print(table)
+
+        if data["due_count"] > 0:
+            console.print()
+            console.print(f"[yellow]You have {data['due_count']} items due for review![/yellow]")
+            console.print("[dim]Run 'python cli.py review start' to begin reviewing[/dim]")
+
+    except httpx.RequestError as e:
+        console.print(f"[red]API not available: {e}[/red]")
+        console.print("[dim]Make sure the KAS API is running[/dim]")
+        raise typer.Exit(1)
+
+
 # =============================================================================
 # Project Commands
 # =============================================================================
@@ -1485,6 +1532,348 @@ def init(
     console.print("  kas_ask      - Q&A with citations")
     console.print("  kas_capture  - Save new learnings")
     console.print("  kas_stats    - Check KAS health")
+
+
+@app.command()
+def autotag(
+    content_id: Annotated[str, typer.Argument(help="Content ID to generate tags for")],
+    apply: Annotated[bool, typer.Option("--apply", "-a", help="Apply tags to content")] = False,
+) -> None:
+    """Generate tags for content using AI.
+
+    Extracts relevant tags from content using LLM analysis.
+    Use --apply to save generated tags to the content.
+    """
+    from uuid import UUID
+
+    from knowledge.ai import AIProvider
+    from knowledge.autotag import extract_tags
+
+    async def _autotag():
+        try:
+            uuid = UUID(content_id)
+        except ValueError:
+            console.print(f"[red]Invalid UUID: {content_id}[/red]")
+            raise typer.Exit(1)
+
+        try:
+            db = await get_db()
+
+            # Get content
+            content_data = await db.get_content(uuid)
+            if not content_data:
+                console.print(f"[red]Content not found: {content_id}[/red]")
+                raise typer.Exit(1)
+
+            title = content_data.get("title", "Untitled")
+            existing_tags = content_data.get("tags", [])
+
+            # Get first chunk for analysis
+            chunks = await db.get_chunks(uuid)
+            content_text = ""
+            if chunks:
+                content_text = " ".join(c["chunk_text"] for c in chunks[:3])
+
+            console.print(f"[bold]Analyzing:[/bold] {title}")
+            console.print()
+
+            # Extract tags
+            ai = AIProvider()
+            try:
+                suggested_tags = await extract_tags(title, content_text, ai)
+            finally:
+                await ai.close()
+
+            if not suggested_tags:
+                console.print("[yellow]No tags generated. Check AI provider configuration.[/yellow]")
+                raise typer.Exit(1)
+
+            # Show existing and new tags
+            if existing_tags:
+                console.print(f"[dim]Existing tags:[/dim] {', '.join(existing_tags)}")
+
+            new_tags = [t for t in suggested_tags if t not in existing_tags]
+            if new_tags:
+                console.print(f"[green]New tags:[/green] {', '.join(new_tags)}")
+            else:
+                console.print("[dim]No new tags to add (all already exist)[/dim]")
+
+            console.print(f"[cyan]All suggested:[/cyan] {', '.join(suggested_tags)}")
+
+            # Apply if requested
+            if apply and new_tags:
+                combined_tags = list(set(existing_tags + new_tags))
+                await db.update_content_tags(uuid, combined_tags)
+                console.print()
+                console.print(f"[green]✓[/green] Applied {len(new_tags)} new tags")
+
+        finally:
+            await close_db()
+            await close_ai_provider()
+
+    run_async(_autotag())
+
+
+# =========================================================================
+# Entity Commands
+# =========================================================================
+
+entity_app = typer.Typer(help="Knowledge graph entity operations.")
+app.add_typer(entity_app, name="entity")
+
+
+@entity_app.command("stats")
+def entity_stats() -> None:
+    """Show entity statistics by type."""
+
+    async def _stats():
+        try:
+            db = await get_db()
+            stats = await db.get_entity_stats()
+
+            if not stats:
+                console.print("[dim]No entities in knowledge graph yet.[/dim]")
+                console.print("[dim]Run 'entity extract <content_id>' to extract entities.[/dim]")
+                return
+
+            table = Table(title="Entity Statistics")
+            table.add_column("Type", style="cyan")
+            table.add_column("Count", justify="right")
+            table.add_column("Unique", justify="right")
+
+            total = 0
+            for stat in stats:
+                table.add_row(
+                    stat["entity_type"],
+                    str(stat["count"]),
+                    str(stat["unique_names"]),
+                )
+                total += stat["count"]
+
+            console.print(table)
+            console.print(f"\n[bold]Total entities:[/bold] {total}")
+        finally:
+            await close_db()
+
+    run_async(_stats())
+
+
+@entity_app.command("connected")
+def entity_connected(
+    limit: Annotated[int, typer.Option("--limit", "-l", help="Max entities to show")] = 20,
+) -> None:
+    """Show most connected entities."""
+
+    async def _connected():
+        try:
+            db = await get_db()
+            connected = await db.get_connected_entities(limit=limit)
+
+            if not connected:
+                console.print("[dim]No entity connections found.[/dim]")
+                return
+
+            table = Table(title="Most Connected Entities")
+            table.add_column("Entity", style="cyan")
+            table.add_column("Type", style="dim")
+            table.add_column("Connections", justify="right", style="green")
+
+            for entity in connected:
+                table.add_row(
+                    entity["name"],
+                    entity["entity_type"],
+                    str(entity["connection_count"]),
+                )
+
+            console.print(table)
+        finally:
+            await close_db()
+
+    run_async(_connected())
+
+
+@entity_app.command("extract")
+def entity_extract(
+    content_id: Annotated[str, typer.Argument(help="Content ID to extract entities from")],
+) -> None:
+    """Extract entities from content using AI.
+
+    Extracts technologies, concepts, frameworks, tools, and relationships
+    from content and stores them in the knowledge graph.
+    """
+    from uuid import UUID
+
+    from knowledge.ai import AIProvider
+    from knowledge.entity_extraction import extract_entities
+
+    async def _extract():
+        try:
+            uuid = UUID(content_id)
+        except ValueError:
+            console.print(f"[red]Invalid UUID: {content_id}[/red]")
+            raise typer.Exit(1)
+
+        try:
+            db = await get_db()
+
+            # Get content
+            content_data = await db.get_content(uuid)
+            if not content_data:
+                console.print(f"[red]Content not found: {content_id}[/red]")
+                raise typer.Exit(1)
+
+            title = content_data.get("title", "Untitled")
+
+            # Get chunks for content text
+            chunks = await db.get_chunks(uuid)
+            if not chunks:
+                console.print(f"[red]No chunks found for content[/red]")
+                raise typer.Exit(1)
+
+            content_text = " ".join(c["chunk_text"] for c in chunks[:5])
+
+            console.print(f"[bold]Extracting entities from:[/bold] {title}")
+            console.print()
+
+            # Extract entities
+            ai = AIProvider()
+            try:
+                result = await extract_entities(title, content_text, ai)
+            finally:
+                await ai.close()
+
+            if not result.success:
+                console.print(f"[red]Extraction failed: {result.error}[/red]")
+                raise typer.Exit(1)
+
+            if not result.entities:
+                console.print("[yellow]No entities found in content.[/yellow]")
+                return
+
+            # Delete existing entities and insert new ones
+            deleted = await db.delete_entities_by_content(uuid)
+            if deleted > 0:
+                console.print(f"[dim]Replaced {deleted} existing entities[/dim]")
+
+            # Insert entities
+            entity_ids: dict[str, str] = {}
+            for entity in result.entities:
+                entity_id = await db.insert_entity(
+                    content_id=uuid,
+                    name=entity.name,
+                    entity_type=entity.entity_type,
+                    confidence=entity.confidence,
+                )
+                entity_ids[entity.name.lower()] = str(entity_id)
+
+            # Insert relationships
+            rel_count = 0
+            for rel in result.relationships:
+                from_id = entity_ids.get(rel.from_entity.lower())
+                to_id = entity_ids.get(rel.to_entity.lower())
+                if from_id and to_id:
+                    from uuid import UUID as UUIDClass
+                    await db.insert_relationship(
+                        from_entity_id=UUIDClass(from_id),
+                        to_entity_id=UUIDClass(to_id),
+                        relation_type=rel.relation_type,
+                        confidence=rel.confidence,
+                    )
+                    rel_count += 1
+
+            # Display results
+            table = Table(title="Extracted Entities")
+            table.add_column("Name", style="cyan")
+            table.add_column("Type", style="dim")
+            table.add_column("Confidence", justify="right")
+
+            for entity in result.entities:
+                conf_color = "green" if entity.confidence >= 0.8 else "yellow" if entity.confidence >= 0.5 else "red"
+                table.add_row(
+                    entity.name,
+                    entity.entity_type,
+                    f"[{conf_color}]{entity.confidence:.2f}[/{conf_color}]",
+                )
+
+            console.print(table)
+
+            if result.relationships:
+                console.print()
+                rel_table = Table(title="Relationships")
+                rel_table.add_column("From", style="cyan")
+                rel_table.add_column("Relation", style="yellow")
+                rel_table.add_column("To", style="cyan")
+
+                for rel in result.relationships:
+                    rel_table.add_row(rel.from_entity, rel.relation_type, rel.to_entity)
+
+                console.print(rel_table)
+
+            console.print()
+            console.print(f"[green]✓[/green] Extracted {len(result.entities)} entities, {rel_count} relationships")
+
+        finally:
+            await close_db()
+            await close_ai_provider()
+
+    run_async(_extract())
+
+
+@entity_app.command("show")
+def entity_show(
+    content_id: Annotated[str, typer.Argument(help="Content ID to show entities for")],
+) -> None:
+    """Show entities for a specific content item."""
+    from uuid import UUID
+
+    async def _show():
+        try:
+            uuid = UUID(content_id)
+        except ValueError:
+            console.print(f"[red]Invalid UUID: {content_id}[/red]")
+            raise typer.Exit(1)
+
+        try:
+            db = await get_db()
+
+            # Get content for title
+            content_data = await db.get_content(uuid)
+            if not content_data:
+                console.print(f"[red]Content not found: {content_id}[/red]")
+                raise typer.Exit(1)
+
+            title = content_data.get("title", "Untitled")
+            entities = await db.get_entities_by_content(uuid)
+
+            if not entities:
+                console.print(f"[dim]No entities extracted for:[/dim] {title}")
+                console.print(f"[dim]Run 'entity extract {content_id}' to extract entities.[/dim]")
+                return
+
+            console.print(f"[bold]Entities for:[/bold] {title}")
+            console.print()
+
+            table = Table()
+            table.add_column("Name", style="cyan")
+            table.add_column("Type", style="dim")
+            table.add_column("Confidence", justify="right")
+
+            for entity in entities:
+                conf = entity.get("confidence", 1.0)
+                conf_color = "green" if conf >= 0.8 else "yellow" if conf >= 0.5 else "red"
+                table.add_row(
+                    entity["name"],
+                    entity["entity_type"],
+                    f"[{conf_color}]{conf:.2f}[/{conf_color}]",
+                )
+
+            console.print(table)
+            console.print(f"\n[dim]Total: {len(entities)} entities[/dim]")
+
+        finally:
+            await close_db()
+
+    run_async(_show())
 
 
 if __name__ == "__main__":

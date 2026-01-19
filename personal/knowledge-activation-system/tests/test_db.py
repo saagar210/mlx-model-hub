@@ -212,8 +212,8 @@ class TestSearchOperations:
         result = await mock_db.bm25_search("machine learning", limit=10)
 
         assert len(result) == 3
-        # Results should be tuples of (id, title, type, namespace, rank)
-        assert len(result[0]) == 5
+        # Results should be tuples of (id, title, type, namespace, chunk_text, rank)
+        assert len(result[0]) == 6
 
     @pytest.mark.asyncio
     async def test_vector_search(

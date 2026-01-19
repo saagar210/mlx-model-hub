@@ -82,16 +82,18 @@ uv run mypy src/
 - `docs/ARCHITECTURE.md` - System architecture and data flow
 - `docs/DECISIONS.md` - All user decisions captured during planning
 
-## Current Status (2026-01-18)
+## Current Status (2026-01-19)
 
 **All P1-P38 Complete** ✅
 
 | Metric | Value |
 |--------|-------|
-| Documents | 1,512 |
-| Chunks | 3,998 |
-| Tests | 419 passing, 3 skipped |
-| API Endpoints | 25+ routes |
+| Documents | 2,360 |
+| Chunks | 10,251 |
+| Tests | 441 |
+| API Endpoints | 30+ routes |
+| Evaluation Score | 82.65% composite |
+| MCP Category | 83.17% |
 | MCP Tools | kas_search, kas_ingest, kas_review |
 
 ### What's Included:
@@ -104,5 +106,6 @@ uv run mypy src/
 - Export/import + webhooks
 - Python SDK (`sdk/python/kas_client/`)
 - Load testing + evaluation framework
+- Spaced repetition scheduler (auto-starts with API)
 
 Run tests: `uv run pytest tests/ -v`

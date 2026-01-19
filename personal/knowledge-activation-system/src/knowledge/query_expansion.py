@@ -35,7 +35,7 @@ SYNONYMS: dict[str, list[str]] = {
     "fastapi": ["fast api", "starlette"],
     "django": [],
     "flask": [],
-    "pydantic": ["validation", "model"],
+    "pydantic": ["validation", "pydantic model", "basemodel"],
     "sqlalchemy": ["sql alchemy", "sqla"],
     "langchain": ["lang chain", "lc"],
     "llamaindex": ["llama index", "llama-index"],
@@ -197,10 +197,13 @@ def _normalize_term(term: str) -> str:
 
 def _extract_terms(query: str) -> list[str]:
     """Extract searchable terms from query."""
+    # Remove punctuation for matching
+    clean_query = re.sub(r'[^\w\s]', '', query)
+
     # Split on whitespace and common delimiters
-    terms = re.split(r'[\s,;:]+', query)
+    terms = re.split(r'[\s,;:]+', clean_query)
     # Also try to find multi-word phrases
-    words = query.lower().split()
+    words = clean_query.lower().split()
 
     # Check for 2-word and 3-word phrases
     phrases = []

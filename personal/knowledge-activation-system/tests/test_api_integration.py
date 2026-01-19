@@ -455,6 +455,10 @@ class TestIntegrationWithMockedServices:
         mock_ollama_healthy: Any
     ):
         """Test health endpoint aggregates all service statuses."""
+        # Clear health cache to get fresh result
+        import knowledge.api.routes.health as health_module
+        health_module._health_cache = None
+
         with patch("knowledge.api.routes.health.get_db", AsyncMock(return_value=mock_db)), \
              patch("knowledge.api.routes.health._check_ollama", AsyncMock(return_value=mock_ollama_healthy)):
             response = client.get("/health")

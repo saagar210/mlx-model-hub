@@ -32,13 +32,14 @@ To serve as the **central knowledge hub** for all personal projects. Other apps 
 
 | Metric | Value |
 |--------|-------|
-| Documents | 2,220 |
-| Chunks | 9,150 |
-| Test Coverage | 415 passing, 26 skipped |
+| Documents | 2,360 |
+| Chunks | 10,251 |
+| Test Coverage | 441 tests |
 | API Endpoints | 30+ routes (includes plugins API) |
 | MCP Tools | kas_search, kas_ingest, kas_review |
-| Evaluation Score | 51.05% composite (MRR: 0.613) |
-| Generated Content | 150 technical guides across 10 categories |
+| Evaluation Score | 82.65% composite (MRR: 1.0) |
+| MCP Category Score | 83.17% (dedicated MCP content) |
+| Generated Content | 150 technical guides + 5 MCP guides |
 
 ### Recent Additions (2026-01-19)
 

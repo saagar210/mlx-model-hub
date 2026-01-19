@@ -128,12 +128,12 @@ def mock_embeddings_service() -> MagicMock:
 
 # Search fixtures
 @pytest.fixture
-def sample_bm25_results() -> list[tuple[UUID, str, str, str | None, float]]:
-    """Sample BM25 search results: (content_id, title, type, namespace, bm25_score)."""
+def sample_bm25_results() -> list[tuple[UUID, str, str, str | None, str | None, float]]:
+    """Sample BM25 search results: (content_id, title, type, namespace, chunk_text, bm25_score)."""
     return [
-        (uuid4(), "Introduction to Machine Learning", "youtube", "default", 0.95),
-        (uuid4(), "Deep Learning Fundamentals", "bookmark", "default", 0.82),
-        (uuid4(), "Neural Networks Explained", "file", "default", 0.71),
+        (uuid4(), "Introduction to Machine Learning", "youtube", "default", "Intro to ML content...", 0.95),
+        (uuid4(), "Deep Learning Fundamentals", "bookmark", "default", "DL fundamentals content...", 0.82),
+        (uuid4(), "Neural Networks Explained", "file", "default", "Neural networks content...", 0.71),
     ]
 
 

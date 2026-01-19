@@ -453,6 +453,81 @@ class Database:
                 logger.info("content_deleted", content_id=str(content_id))
             return deleted
 
+    async def update_content_tags(self, content_id: UUID, tags: list[str]) -> bool:
+        """Update tags for content.
+
+        Args:
+            content_id: Content UUID
+            tags: List of tags to set
+
+        Returns:
+            True if update succeeded
+        """
+        async with self.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE content
+                SET tags = $2, updated_at = NOW()
+                WHERE id = $1 AND deleted_at IS NULL
+                """,
+                content_id,
+                tags,
+            )
+            updated = result == "UPDATE 1"
+            if updated:
+                logger.info(
+                    "content_tags_updated",
+                    content_id=str(content_id),
+                    tag_count=len(tags),
+                )
+            return updated
+
+    async def get_content(self, content_id: UUID) -> dict[str, Any] | None:
+        """Get content as dictionary (for CLI compatibility).
+
+        Args:
+            content_id: Content UUID
+
+        Returns:
+            Content as dict or None if not found
+        """
+        record = await self.get_content_by_id(content_id)
+        if record is None:
+            return None
+        return {
+            "id": record.id,
+            "filepath": record.filepath,
+            "title": record.title,
+            "type": record.type,
+            "url": record.url,
+            "summary": record.summary,
+            "tags": record.tags or [],
+            "auto_tags": record.auto_tags or [],
+            "metadata": record.metadata,
+            "created_at": record.created_at,
+        }
+
+    async def get_chunks(self, content_id: UUID) -> list[dict[str, Any]]:
+        """Get chunks for content as list of dicts (for CLI compatibility).
+
+        Args:
+            content_id: Content UUID
+
+        Returns:
+            List of chunk dicts
+        """
+        async with self.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, chunk_index, chunk_text, source_ref, start_char, end_char
+                FROM chunks
+                WHERE content_id = $1
+                ORDER BY chunk_index
+                """,
+                content_id,
+            )
+            return [dict(row) for row in rows]
+
     # =========================================================================
     # Chunk Operations
     # =========================================================================
@@ -524,28 +599,37 @@ class Database:
         query: str,
         limit: int = 50,
         namespace: str | None = None,
-    ) -> list[tuple[UUID, str, str, str | None, float]]:
-        """BM25 full-text search on content."""
+    ) -> list[tuple[UUID, str, str, str | None, str | None, float]]:
+        """BM25 full-text search on content with chunk text."""
         ns_clause, ns_params = _build_namespace_filter(namespace, 3)
 
         async with self.acquire() as conn:
             rows = await conn.fetch(
                 f"""
-                SELECT c.id, c.title, c.type,
-                       c.metadata->>'namespace' as namespace,
-                       ts_rank_cd(c.fts_vector, query) AS rank
-                FROM content c, plainto_tsquery('english', $1) query
-                WHERE c.fts_vector @@ query
-                  AND c.deleted_at IS NULL
-                  {ns_clause}
-                ORDER BY rank DESC
-                LIMIT $2
+                WITH ranked_content AS (
+                    SELECT c.id, c.title, c.type,
+                           c.metadata->>'namespace' as namespace,
+                           ts_rank_cd(c.fts_vector, query) AS rank
+                    FROM content c, plainto_tsquery('english', $1) query
+                    WHERE c.fts_vector @@ query
+                      AND c.deleted_at IS NULL
+                      {ns_clause}
+                    ORDER BY rank DESC
+                    LIMIT $2
+                )
+                SELECT rc.id, rc.title, rc.type, rc.namespace,
+                       (SELECT ch.chunk_text FROM chunks ch
+                        WHERE ch.content_id = rc.id
+                        ORDER BY ch.chunk_index LIMIT 1) as chunk_text,
+                       rc.rank
+                FROM ranked_content rc
+                ORDER BY rc.rank DESC
                 """,
                 query,
                 limit,
                 *ns_params,
             )
-            return [(row["id"], row["title"], row["type"], row["namespace"], row["rank"]) for row in rows]
+            return [(row["id"], row["title"], row["type"], row["namespace"], row["chunk_text"], row["rank"]) for row in rows]
 
     async def vector_search(
         self,
@@ -715,6 +799,283 @@ class Database:
                 content_ids,
             )
             return {row["id"]: row["quality_score"] for row in rows}
+
+    # =========================================================================
+    # Entity Operations (Knowledge Graph)
+    # =========================================================================
+
+    async def insert_entity(
+        self,
+        content_id: UUID,
+        name: str,
+        entity_type: str,
+        confidence: float = 1.0,
+    ) -> UUID:
+        """Insert a new entity.
+
+        Args:
+            content_id: Content this entity was extracted from
+            name: Entity name
+            entity_type: Type (technology, concept, tool, framework, organization, person)
+            confidence: Extraction confidence score
+
+        Returns:
+            Entity UUID
+        """
+        async with self.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO entities (content_id, name, entity_type, confidence)
+                VALUES ($1, $2, $3, $4)
+                RETURNING id
+                """,
+                content_id,
+                name,
+                entity_type,
+                confidence,
+            )
+            return row["id"]
+
+    async def insert_entities_batch(
+        self,
+        content_id: UUID,
+        entities: list[dict[str, Any]],
+    ) -> list[UUID]:
+        """Insert multiple entities in a batch.
+
+        Args:
+            content_id: Content this entity was extracted from
+            entities: List of dicts with name, entity_type, confidence
+
+        Returns:
+            List of entity UUIDs
+        """
+        if not entities:
+            return []
+
+        async with self.acquire() as conn:
+            records = [
+                (
+                    content_id,
+                    e["name"],
+                    e["entity_type"],
+                    e.get("confidence", 1.0),
+                )
+                for e in entities
+            ]
+
+            await conn.executemany(
+                """
+                INSERT INTO entities (content_id, name, entity_type, confidence)
+                VALUES ($1, $2, $3, $4)
+                """,
+                records,
+            )
+
+            # Get the inserted IDs
+            rows = await conn.fetch(
+                """
+                SELECT id FROM entities
+                WHERE content_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+                """,
+                content_id,
+                len(entities),
+            )
+            return [row["id"] for row in rows]
+
+    async def insert_relationship(
+        self,
+        from_entity_id: UUID,
+        to_entity_id: UUID,
+        relation_type: str,
+        confidence: float = 1.0,
+    ) -> UUID | None:
+        """Insert a new relationship between entities.
+
+        Args:
+            from_entity_id: Source entity UUID
+            to_entity_id: Target entity UUID
+            relation_type: Relationship type (uses, depends_on, implements, related_to, mentions)
+            confidence: Confidence score
+
+        Returns:
+            Relationship UUID or None if duplicate
+        """
+        async with self.acquire() as conn:
+            try:
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO relationships (from_entity_id, to_entity_id, relation_type, confidence)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (from_entity_id, to_entity_id, relation_type) DO NOTHING
+                    RETURNING id
+                    """,
+                    from_entity_id,
+                    to_entity_id,
+                    relation_type,
+                    confidence,
+                )
+                return row["id"] if row else None
+            except Exception as e:
+                logger.warning(
+                    "insert_relationship_failed",
+                    from_entity_id=str(from_entity_id),
+                    to_entity_id=str(to_entity_id),
+                    error=str(e),
+                )
+                return None
+
+    async def get_entities_by_content(
+        self, content_id: UUID
+    ) -> list[dict[str, Any]]:
+        """Get all entities for a content item.
+
+        Args:
+            content_id: Content UUID
+
+        Returns:
+            List of entity dicts
+        """
+        async with self.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT id, name, entity_type, confidence, created_at
+                FROM entities
+                WHERE content_id = $1
+                ORDER BY confidence DESC, name
+                """,
+                content_id,
+            )
+            return [dict(row) for row in rows]
+
+    async def get_entity_by_name(
+        self, name: str, entity_type: str | None = None
+    ) -> dict[str, Any] | None:
+        """Get entity by name (case-insensitive).
+
+        Args:
+            name: Entity name
+            entity_type: Optional type filter
+
+        Returns:
+            Entity dict or None
+        """
+        async with self.acquire() as conn:
+            if entity_type:
+                row = await conn.fetchrow(
+                    """
+                    SELECT id, content_id, name, entity_type, confidence, created_at
+                    FROM entities
+                    WHERE LOWER(name) = LOWER($1) AND entity_type = $2
+                    LIMIT 1
+                    """,
+                    name,
+                    entity_type,
+                )
+            else:
+                row = await conn.fetchrow(
+                    """
+                    SELECT id, content_id, name, entity_type, confidence, created_at
+                    FROM entities
+                    WHERE LOWER(name) = LOWER($1)
+                    LIMIT 1
+                    """,
+                    name,
+                )
+            return dict(row) if row else None
+
+    async def get_relationships_by_entity(
+        self, entity_id: UUID
+    ) -> list[dict[str, Any]]:
+        """Get all relationships for an entity (both directions).
+
+        Args:
+            entity_id: Entity UUID
+
+        Returns:
+            List of relationship dicts with entity names
+        """
+        async with self.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT r.id, r.relation_type, r.confidence,
+                       e_from.name as from_name, e_from.entity_type as from_type,
+                       e_to.name as to_name, e_to.entity_type as to_type
+                FROM relationships r
+                JOIN entities e_from ON r.from_entity_id = e_from.id
+                JOIN entities e_to ON r.to_entity_id = e_to.id
+                WHERE r.from_entity_id = $1 OR r.to_entity_id = $1
+                ORDER BY r.confidence DESC
+                """,
+                entity_id,
+            )
+            return [dict(row) for row in rows]
+
+    async def get_entity_stats(self) -> list[dict[str, Any]]:
+        """Get entity statistics by type.
+
+        Returns:
+            List of dicts with entity_type, count, unique_names
+        """
+        async with self.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT entity_type, COUNT(*) as count,
+                       COUNT(DISTINCT name) as unique_names
+                FROM entities
+                GROUP BY entity_type
+                ORDER BY count DESC
+                """
+            )
+            return [dict(row) for row in rows]
+
+    async def get_connected_entities(
+        self, limit: int = 20
+    ) -> list[dict[str, Any]]:
+        """Get most connected entities.
+
+        Args:
+            limit: Maximum number of entities to return
+
+        Returns:
+            List of dicts with name, entity_type, connection_count
+        """
+        async with self.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT name, entity_type, connection_count
+                FROM connected_entities
+                LIMIT $1
+                """,
+                limit,
+            )
+            return [dict(row) for row in rows]
+
+    async def delete_entities_by_content(self, content_id: UUID) -> int:
+        """Delete all entities (and their relationships) for a content item.
+
+        Args:
+            content_id: Content UUID
+
+        Returns:
+            Number of entities deleted
+        """
+        async with self.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM entities WHERE content_id = $1",
+                content_id,
+            )
+            # Parse "DELETE N" to get count
+            count = int(result.split()[-1])
+            if count > 0:
+                logger.info(
+                    "entities_deleted",
+                    content_id=str(content_id),
+                    count=count,
+                )
+            return count
 
 
 # Global database instance

@@ -19,6 +19,7 @@ from knowledge.api.routes import (
     auth,
     batch,
     content,
+    entities,
     export,
     health,
     integration,
@@ -136,6 +137,7 @@ app.include_router(export.router)  # Export/Import (/api/v1/export)
 app.include_router(webhooks.router)  # Webhooks (/api/v1/webhooks)
 app.include_router(tuning.router)  # Search tuning (/api/v1/tuning)
 app.include_router(plugins.router)  # Plugins (/api/v1/plugins)
+app.include_router(entities.router)  # Knowledge graph entities (/entities)
 
 
 @app.get("/")

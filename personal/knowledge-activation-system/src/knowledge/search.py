@@ -53,7 +53,7 @@ class HybridSearchResponse:
 
 
 def rrf_fusion(
-    bm25_results: list[tuple[UUID, str, str, str | None, float]],
+    bm25_results: list[tuple[UUID, str, str, str | None, str | None, float]],
     vector_results: list[tuple[UUID, str, str, str | None, str | None, float]],
     k: int = 60,
 ) -> list[SearchResult]:
@@ -63,7 +63,7 @@ def rrf_fusion(
     RRF Score = Σ (1 / (k + rank))
 
     Args:
-        bm25_results: List of (content_id, title, type, namespace, bm25_score)
+        bm25_results: List of (content_id, title, type, namespace, chunk_text, bm25_score)
         vector_results: List of (content_id, title, type, namespace, chunk_text, similarity)
         k: RRF constant (default 60) to prevent division by small numbers
 
@@ -75,7 +75,7 @@ def rrf_fusion(
     metadata: dict[UUID, dict[str, Any]] = {}
 
     # Process BM25 results (1-indexed rank)
-    for rank, (content_id, title, content_type, namespace, bm25_score) in enumerate(bm25_results, start=1):
+    for rank, (content_id, title, content_type, namespace, chunk_text, bm25_score) in enumerate(bm25_results, start=1):
         rrf_score = 1.0 / (k + rank)
         scores[content_id] = scores.get(content_id, 0.0) + rrf_score
 
@@ -84,7 +84,7 @@ def rrf_fusion(
                 "title": title,
                 "content_type": content_type,
                 "namespace": namespace,
-                "chunk_text": None,
+                "chunk_text": chunk_text,
                 "bm25_rank": rank,
                 "bm25_score": bm25_score,
                 "vector_rank": None,
@@ -93,6 +93,8 @@ def rrf_fusion(
         else:
             metadata[content_id]["bm25_rank"] = rank
             metadata[content_id]["bm25_score"] = bm25_score
+            if chunk_text and not metadata[content_id].get("chunk_text"):
+                metadata[content_id]["chunk_text"] = chunk_text
             if namespace and not metadata[content_id].get("namespace"):
                 metadata[content_id]["namespace"] = namespace
 
@@ -271,11 +273,11 @@ async def hybrid_search_with_status(
     degraded = False
     search_mode = "hybrid"
     vector_results: list[tuple[UUID, str, str, str | None, str | None, float]] = []
-    bm25_results: list[tuple[UUID, str, str, str | None, float]] = []
+    bm25_results: list[tuple[UUID, str, str, str | None, str | None, float]] = []
 
     # Run BM25 search and embedding generation in parallel for better performance
     # BM25 uses expanded query, vector uses original query
-    async def run_bm25() -> list[tuple[UUID, str, str, str | None, float]]:
+    async def run_bm25() -> list[tuple[UUID, str, str, str | None, str | None, float]]:
         return await db.bm25_search(search_query, limit=settings.bm25_candidates, namespace=namespace)
 
     async def run_embedding() -> list[float]:
@@ -342,11 +344,12 @@ async def hybrid_search_with_status(
                 title=title,
                 content_type=content_type,
                 score=bm25_score,
+                chunk_text=chunk_text,
                 namespace=ns,
                 bm25_rank=rank,
                 bm25_score=bm25_score,
             )
-            for rank, (content_id, title, content_type, ns, bm25_score) in enumerate(
+            for rank, (content_id, title, content_type, ns, chunk_text, bm25_score) in enumerate(
                 bm25_results, start=1
             )
         ]
@@ -459,11 +462,12 @@ async def search_bm25_only(
             title=title,
             content_type=content_type,
             score=bm25_score,
+            chunk_text=chunk_text,
             namespace=ns,
             bm25_rank=rank,
             bm25_score=bm25_score,
         )
-        for rank, (content_id, title, content_type, ns, bm25_score) in enumerate(bm25_results, start=1)
+        for rank, (content_id, title, content_type, ns, chunk_text, bm25_score) in enumerate(bm25_results, start=1)
     ]
 
 
