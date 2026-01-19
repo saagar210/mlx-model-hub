@@ -1703,7 +1703,6 @@ def entity_extract(
     """
     from uuid import UUID
 
-    from knowledge.ai import AIProvider
     from knowledge.entity_extraction import extract_entities
 
     async def _extract():
@@ -1735,12 +1734,8 @@ def entity_extract(
             console.print(f"[bold]Extracting entities from:[/bold] {title}")
             console.print()
 
-            # Extract entities
-            ai = AIProvider()
-            try:
-                result = await extract_entities(title, content_text, ai)
-            finally:
-                await ai.close()
+            # Extract entities (uses Ollama if OpenRouter not configured)
+            result = await extract_entities(title, content_text)
 
             if not result.success:
                 console.print(f"[red]Extraction failed: {result.error}[/red]")
