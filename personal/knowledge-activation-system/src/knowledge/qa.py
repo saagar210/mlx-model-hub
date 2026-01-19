@@ -8,7 +8,7 @@ from enum import Enum
 
 from knowledge.ai import generate_answer
 from knowledge.config import get_settings
-from knowledge.rerank import RankedResult, rerank_results
+from knowledge.reranker import RankedResult, rerank_results
 from knowledge.search import hybrid_search
 
 

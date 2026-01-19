@@ -8,7 +8,6 @@ Supports secure ingestion of local files with:
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from pypdf import PdfReader
@@ -18,11 +17,12 @@ from knowledge.config import Settings, get_settings
 from knowledge.db import get_db
 from knowledge.embeddings import embed_batch
 from knowledge.ingest import IngestResult
+from knowledge.logging import get_logger
 from knowledge.obsidian import create_note, get_relative_path
 from knowledge.security import is_safe_filename
 from knowledge.validation import extract_title_from_content, validate_content
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Page separator for PDF chunking
 PAGE_SEPARATOR = "\n---PAGE BREAK---\n"

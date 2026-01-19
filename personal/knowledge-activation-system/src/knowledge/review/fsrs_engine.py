@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from fsrs import Card, Rating, Scheduler, State  # type: ignore[import-untyped]
 
+from knowledge.logging import get_logger
 from knowledge.review.models import NextIntervals, ReviewRating, ReviewResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Map our rating to FSRS Rating

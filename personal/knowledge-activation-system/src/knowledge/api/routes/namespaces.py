@@ -5,16 +5,16 @@ Provides endpoints for managing content namespaces (organizational categories).
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from knowledge.db import get_db
+from knowledge.logging import get_logger
 from knowledge.security import is_production, sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/namespaces", tags=["namespaces"])
 

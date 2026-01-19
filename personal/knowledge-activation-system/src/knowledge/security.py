@@ -22,6 +22,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+# Note: Using standard logging here to avoid circular import with knowledge.logging
 logger = logging.getLogger(__name__)
 
 # Context variable for request correlation ID

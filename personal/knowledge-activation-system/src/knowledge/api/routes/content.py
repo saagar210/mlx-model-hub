@@ -5,7 +5,6 @@ Provides CRUD operations for content items in the knowledge base.
 
 from __future__ import annotations
 
-import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,9 +16,10 @@ from knowledge.api.schemas import (
     ContentListResponse,
 )
 from knowledge.db import get_db
+from knowledge.logging import get_logger
 from knowledge.security import is_production, sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/content", tags=["content"])
 

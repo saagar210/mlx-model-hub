@@ -8,8 +8,6 @@ Provides search functionality with:
 
 from __future__ import annotations
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException
 
 from knowledge.api.auth import require_scope
@@ -23,6 +21,7 @@ from knowledge.api.schemas import (
     SearchResponse,
     SearchResultItem,
 )
+from knowledge.logging import get_logger
 from knowledge.qa import ask as qa_ask
 from knowledge.qa import search_and_summarize
 from knowledge.search import (
@@ -32,7 +31,7 @@ from knowledge.search import (
 )
 from knowledge.security import is_production, sanitize_error_message
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/search", tags=["search"])
 

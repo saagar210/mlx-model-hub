@@ -14,58 +14,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from knowledge.api.main import app
-from knowledge.config import Settings
-
-
-@pytest.fixture
-def mock_settings() -> Settings:
-    """Create mock settings for testing."""
-    return Settings(
-        database_url="postgresql://test:test@localhost:5432/test",
-        ollama_url="http://localhost:11434",
-        embedding_model="nomic-embed-text",
-        vault_path="/tmp/test_vault",
-        knowledge_folder="Knowledge",
-    )
-
-
-@pytest.fixture
-def mock_db() -> MagicMock:
-    """Create a comprehensive mock database."""
-    mock = MagicMock()
-    mock.connect = AsyncMock()
-    mock.disconnect = AsyncMock()
-    mock.check_health = AsyncMock(
-        return_value={
-            "status": "healthy",
-            "extensions": ["vector", "vectorscale"],
-            "content_count": 10,
-            "chunk_count": 50,
-        }
-    )
-    mock.bm25_search = AsyncMock(return_value=[])
-    mock.vector_search = AsyncMock(return_value=[])
-    mock.get_stats = AsyncMock(
-        return_value={
-            "content_by_type": {"youtube": 5, "bookmark": 3, "file": 2},
-            "total_content": 10,
-            "total_chunks": 50,
-            "review_active": 8,
-            "review_due": 2,
-        }
-    )
-
-    # Mock connection context manager
-    conn_mock = MagicMock()
-    conn_mock.fetch = AsyncMock(return_value=[])
-    conn_mock.fetchrow = AsyncMock(return_value={"count": 0})
-    conn_mock.fetchval = AsyncMock(return_value=1)
-    conn_mock.execute = AsyncMock()
-
-    mock.acquire.return_value.__aenter__ = AsyncMock(return_value=conn_mock)
-    mock.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
-
-    return mock
 
 
 @pytest.fixture
@@ -80,19 +28,20 @@ def mock_ollama_healthy() -> MagicMock:
 
 
 @pytest.fixture
-def mock_embedding() -> list[float]:
-    """Create deterministic mock embedding."""
-    import random
-    random.seed(42)
-    return [random.random() for _ in range(768)]
-
-
-@pytest.fixture
-def client(mock_db: MagicMock, mock_ollama_healthy: Any, mock_settings: Settings) -> TestClient:
+def client(mock_db: MagicMock, mock_ollama_healthy: Any) -> TestClient:
     """Create test client with mocked dependencies."""
     # Mock the HybridSearchResponse for the search route
     from knowledge.search import HybridSearchResponse
     mock_search_response = HybridSearchResponse(results=[], degraded=False, search_mode="hybrid")
+
+    # Mock rate limiter to always allow requests in tests
+    mock_rate_info = MagicMock()
+    mock_rate_info.allowed = True
+    mock_rate_info.limit = 1000
+    mock_rate_info.remaining = 999
+    mock_rate_info.reset_after = 60
+    mock_rate_limiter = MagicMock()
+    mock_rate_limiter.acquire = AsyncMock(return_value=(True, mock_rate_info))
 
     with patch("knowledge.api.routes.health.get_db", AsyncMock(return_value=mock_db)), \
          patch("knowledge.api.routes.health._check_ollama", AsyncMock(return_value=mock_ollama_healthy)), \
@@ -100,7 +49,8 @@ def client(mock_db: MagicMock, mock_ollama_healthy: Any, mock_settings: Settings
          patch("knowledge.api.routes.search.hybrid_search_with_status", AsyncMock(return_value=mock_search_response)), \
          patch("knowledge.api.routes.search.search_bm25_only", AsyncMock(return_value=[])), \
          patch("knowledge.api.routes.search.search_vector_only", AsyncMock(return_value=[])), \
-         patch("knowledge.reranker.preload_reranker", AsyncMock()):
+         patch("knowledge.reranker.preload_reranker", AsyncMock()), \
+         patch("knowledge.api.middleware.rate_limiter", mock_rate_limiter):
         yield TestClient(app)
 
 

@@ -9,14 +9,14 @@ Expands user queries with:
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass
 
 from knowledge.cache import CacheType, get_cache
 from knowledge.config import get_settings
+from knowledge.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # =============================================================================

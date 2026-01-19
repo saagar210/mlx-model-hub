@@ -12,7 +12,6 @@ Security considerations:
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,11 +20,12 @@ from pydantic import BaseModel, Field
 
 from knowledge.db import get_db
 from knowledge.embeddings import check_ollama_health
+from knowledge.logging import get_logger
 from knowledge.reranker import rerank_results
 from knowledge.search import hybrid_search
 from knowledge.security import is_production, sanitize_error_message, sanitize_filename
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["integration"])
 

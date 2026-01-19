@@ -11,13 +11,13 @@ Performance optimizations:
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from typing import Any
 
+from knowledge.logging import get_logger
 from knowledge.search import SearchResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -363,3 +363,13 @@ class LlamaIndexReranker:
         reranked.sort(key=lambda x: x[1], reverse=True)
 
         return [n for n, _ in reranked[: self.top_n]]
+
+
+# =============================================================================
+# Backwards Compatibility Aliases
+# =============================================================================
+# These aliases maintain compatibility with the old rerank.py module
+# that was removed during codebase consolidation.
+
+RankedResult = RerankResult
+close_reranker = close_local_reranker

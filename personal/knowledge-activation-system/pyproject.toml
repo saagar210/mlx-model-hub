@@ -88,11 +88,6 @@ observability = [
     "prometheus-client>=0.20.0",
 ]
 
-# Caching
-cache = [
-    "redis>=5.0.0",
-]
-
 # Development
 dev = [
     "pytest>=8.0.0",

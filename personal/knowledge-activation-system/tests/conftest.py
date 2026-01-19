@@ -82,6 +82,12 @@ def mock_db() -> MagicMock:
             "review_due": 2,
         }
     )
+    # Mock pool for health checks
+    mock._pool = MagicMock()
+    mock._pool.get_size.return_value = 10
+    mock._pool.get_idle_size.return_value = 8
+    mock._pool.get_min_size.return_value = 5
+    mock._pool.get_max_size.return_value = 20
     return mock
 
 

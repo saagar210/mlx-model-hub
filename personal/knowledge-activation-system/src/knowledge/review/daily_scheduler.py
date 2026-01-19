@@ -7,7 +7,6 @@ Uses asyncio for lightweight scheduling without external dependencies.
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
@@ -15,9 +14,10 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from knowledge.config import get_settings
+from knowledge.logging import get_logger
 from knowledge.review.scheduler import get_review_stats
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

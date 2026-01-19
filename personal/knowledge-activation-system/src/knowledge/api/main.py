@@ -33,8 +33,7 @@ from knowledge.api.routes import (
 from knowledge.config import get_settings
 from knowledge.db import close_db
 from knowledge.embeddings import close_embedding_service
-from knowledge.rerank import close_reranker
-from knowledge.reranker import close_local_reranker, preload_reranker
+from knowledge.reranker import close_reranker, preload_reranker
 from knowledge.review import start_daily_scheduler, stop_daily_scheduler
 from knowledge.tracing import configure_tracing
 
@@ -59,7 +58,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await close_embedding_service()
     await close_ai_provider()
     await close_reranker()
-    await close_local_reranker()
 
 
 app = FastAPI(

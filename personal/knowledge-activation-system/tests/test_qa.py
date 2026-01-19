@@ -12,7 +12,7 @@ from knowledge.qa import (
     ask,
     search_and_summarize,
 )
-from knowledge.rerank import RankedResult
+from knowledge.reranker import RankedResult
 from knowledge.search import SearchResult
 
 
@@ -102,17 +102,17 @@ class TestCalculateConfidence:
             RankedResult(
                 result=_mock_search_result(),
                 rerank_score=0.9,
-                original_rank=1,
+                original_score=0.8,
             ),
             RankedResult(
                 result=_mock_search_result(),
                 rerank_score=0.85,
-                original_rank=2,
+                original_score=0.75,
             ),
             RankedResult(
                 result=_mock_search_result(),
                 rerank_score=0.8,
-                original_rank=3,
+                original_score=0.7,
             ),
         ]
 
@@ -126,12 +126,12 @@ class TestCalculateConfidence:
             RankedResult(
                 result=_mock_search_result(),
                 rerank_score=0.6,
-                original_rank=1,
+                original_score=0.8,
             ),
             RankedResult(
                 result=_mock_search_result(),
                 rerank_score=0.5,
-                original_rank=2,
+                original_score=0.6,
             ),
         ]
 
@@ -144,7 +144,7 @@ class TestCalculateConfidence:
             RankedResult(
                 result=_mock_search_result(),
                 rerank_score=0.2,
-                original_rank=1,
+                original_score=0.8,
             ),
         ]
 
@@ -161,12 +161,12 @@ class TestBuildCitations:
             RankedResult(
                 result=_mock_search_result(title="Doc 1", content_type="note"),
                 rerank_score=0.9,
-                original_rank=1,
+                original_score=0.8,
             ),
             RankedResult(
                 result=_mock_search_result(title="Doc 2", content_type="youtube"),
                 rerank_score=0.8,
-                original_rank=2,
+                original_score=0.7,
             ),
         ]
 
@@ -183,7 +183,7 @@ class TestBuildCitations:
             RankedResult(
                 result=_mock_search_result(title=f"Doc {i}"),
                 rerank_score=0.9 - i * 0.1,
-                original_rank=i,
+                original_score=0.8 - i * 0.05,
             )
             for i in range(10)
         ]
@@ -220,7 +220,7 @@ class TestAsk:
                     RankedResult(
                         result=search_results[0],
                         rerank_score=0.8,
-                        original_rank=1,
+                        original_score=0.8,
                     )
                 ]
 
@@ -250,7 +250,7 @@ class TestAsk:
                     RankedResult(
                         result=search_results[0],
                         rerank_score=0.2,  # Low score
-                        original_rank=1,
+                        original_score=0.8,
                     )
                 ]
 
@@ -281,7 +281,7 @@ class TestSearchAndSummarize:
 
             with patch("knowledge.qa.rerank_results", new_callable=AsyncMock) as mock_rerank:
                 mock_rerank.return_value = [
-                    RankedResult(result=r, rerank_score=0.8 - i * 0.1, original_rank=i + 1)
+                    RankedResult(result=r, rerank_score=0.8 - i * 0.1, original_score=0.7 - i * 0.05)
                     for i, r in enumerate(search_results)
                 ]
 
