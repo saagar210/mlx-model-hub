@@ -86,6 +86,32 @@ class PoolStats:
         }
 
 
+def _build_namespace_filter(
+    namespace: str | None, param_num: int
+) -> tuple[str, list[Any]]:
+    """
+    Build namespace filter clause for SQL queries.
+
+    Args:
+        namespace: Namespace filter (supports trailing * for prefix match)
+        param_num: Starting parameter number for the clause
+
+    Returns:
+        Tuple of (SQL clause fragment, list of parameter values)
+        Returns ("", []) if namespace is None
+    """
+    if namespace is None:
+        return "", []
+
+    if namespace.endswith("*"):
+        # Prefix match: "projects/*" matches "projects/voice-ai", "projects/kas"
+        ns_pattern = namespace[:-1] + "%"
+        return f"AND COALESCE(c.metadata->>'namespace', 'default') LIKE ${param_num}", [ns_pattern]
+    else:
+        # Exact match
+        return f"AND COALESCE(c.metadata->>'namespace', 'default') = ${param_num}", [namespace]
+
+
 class Database:
     """Async database connection pool manager with retry logic and health monitoring."""
 
@@ -499,57 +525,25 @@ class Database:
         namespace: str | None = None,
     ) -> list[tuple[UUID, str, str, str | None, float]]:
         """BM25 full-text search on content."""
+        ns_clause, ns_params = _build_namespace_filter(namespace, 3)
+
         async with self.acquire() as conn:
-            if namespace:
-                if namespace.endswith("*"):
-                    ns_pattern = namespace[:-1] + "%"
-                    rows = await conn.fetch(
-                        """
-                        SELECT c.id, c.title, c.type,
-                               c.metadata->>'namespace' as namespace,
-                               ts_rank_cd(c.fts_vector, query) AS rank
-                        FROM content c, plainto_tsquery('english', $1) query
-                        WHERE c.fts_vector @@ query
-                          AND c.deleted_at IS NULL
-                          AND COALESCE(c.metadata->>'namespace', 'default') LIKE $3
-                        ORDER BY rank DESC
-                        LIMIT $2
-                        """,
-                        query,
-                        limit,
-                        ns_pattern,
-                    )
-                else:
-                    rows = await conn.fetch(
-                        """
-                        SELECT c.id, c.title, c.type,
-                               c.metadata->>'namespace' as namespace,
-                               ts_rank_cd(c.fts_vector, query) AS rank
-                        FROM content c, plainto_tsquery('english', $1) query
-                        WHERE c.fts_vector @@ query
-                          AND c.deleted_at IS NULL
-                          AND COALESCE(c.metadata->>'namespace', 'default') = $3
-                        ORDER BY rank DESC
-                        LIMIT $2
-                        """,
-                        query,
-                        limit,
-                        namespace,
-                    )
-            else:
-                rows = await conn.fetch(
-                    """
-                    SELECT c.id, c.title, c.type,
-                           c.metadata->>'namespace' as namespace,
-                           ts_rank_cd(c.fts_vector, query) AS rank
-                    FROM content c, plainto_tsquery('english', $1) query
-                    WHERE c.fts_vector @@ query AND c.deleted_at IS NULL
-                    ORDER BY rank DESC
-                    LIMIT $2
-                    """,
-                    query,
-                    limit,
-                )
+            rows = await conn.fetch(
+                f"""
+                SELECT c.id, c.title, c.type,
+                       c.metadata->>'namespace' as namespace,
+                       ts_rank_cd(c.fts_vector, query) AS rank
+                FROM content c, plainto_tsquery('english', $1) query
+                WHERE c.fts_vector @@ query
+                  AND c.deleted_at IS NULL
+                  {ns_clause}
+                ORDER BY rank DESC
+                LIMIT $2
+                """,
+                query,
+                limit,
+                *ns_params,
+            )
             return [(row["id"], row["title"], row["type"], row["namespace"], row["rank"]) for row in rows]
 
     async def vector_search(
@@ -559,88 +553,35 @@ class Database:
         namespace: str | None = None,
     ) -> list[tuple[UUID, str, str, str | None, str | None, float]]:
         """Vector similarity search on chunks."""
+        ns_clause, ns_params = _build_namespace_filter(namespace, 3)
+
         async with self.acquire() as conn:
-            if namespace:
-                if namespace.endswith("*"):
-                    ns_pattern = namespace[:-1] + "%"
-                    rows = await conn.fetch(
-                        """
-                        WITH ranked_chunks AS (
-                            SELECT
-                                c.id,
-                                c.title,
-                                c.type,
-                                c.metadata->>'namespace' as namespace,
-                                ch.chunk_text,
-                                1 - (ch.embedding <=> $1::vector) AS similarity,
-                                ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY ch.embedding <=> $1::vector) AS rn
-                            FROM chunks ch
-                            JOIN content c ON ch.content_id = c.id
-                            WHERE c.deleted_at IS NULL
-                              AND COALESCE(c.metadata->>'namespace', 'default') LIKE $3
-                        )
-                        SELECT id, title, type, namespace, chunk_text, similarity
-                        FROM ranked_chunks
-                        WHERE rn = 1
-                        ORDER BY similarity DESC
-                        LIMIT $2
-                        """,
-                        query_embedding,
-                        limit,
-                        ns_pattern,
-                    )
-                else:
-                    rows = await conn.fetch(
-                        """
-                        WITH ranked_chunks AS (
-                            SELECT
-                                c.id,
-                                c.title,
-                                c.type,
-                                c.metadata->>'namespace' as namespace,
-                                ch.chunk_text,
-                                1 - (ch.embedding <=> $1::vector) AS similarity,
-                                ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY ch.embedding <=> $1::vector) AS rn
-                            FROM chunks ch
-                            JOIN content c ON ch.content_id = c.id
-                            WHERE c.deleted_at IS NULL
-                              AND COALESCE(c.metadata->>'namespace', 'default') = $3
-                        )
-                        SELECT id, title, type, namespace, chunk_text, similarity
-                        FROM ranked_chunks
-                        WHERE rn = 1
-                        ORDER BY similarity DESC
-                        LIMIT $2
-                        """,
-                        query_embedding,
-                        limit,
-                        namespace,
-                    )
-            else:
-                rows = await conn.fetch(
-                    """
-                    WITH ranked_chunks AS (
-                        SELECT
-                            c.id,
-                            c.title,
-                            c.type,
-                            c.metadata->>'namespace' as namespace,
-                            ch.chunk_text,
-                            1 - (ch.embedding <=> $1::vector) AS similarity,
-                            ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY ch.embedding <=> $1::vector) AS rn
-                        FROM chunks ch
-                        JOIN content c ON ch.content_id = c.id
-                        WHERE c.deleted_at IS NULL
-                    )
-                    SELECT id, title, type, namespace, chunk_text, similarity
-                    FROM ranked_chunks
-                    WHERE rn = 1
-                    ORDER BY similarity DESC
-                    LIMIT $2
-                    """,
-                    query_embedding,
-                    limit,
+            rows = await conn.fetch(
+                f"""
+                WITH ranked_chunks AS (
+                    SELECT
+                        c.id,
+                        c.title,
+                        c.type,
+                        c.metadata->>'namespace' as namespace,
+                        ch.chunk_text,
+                        1 - (ch.embedding <=> $1::vector) AS similarity,
+                        ROW_NUMBER() OVER (PARTITION BY c.id ORDER BY ch.embedding <=> $1::vector) AS rn
+                    FROM chunks ch
+                    JOIN content c ON ch.content_id = c.id
+                    WHERE c.deleted_at IS NULL
+                      {ns_clause}
                 )
+                SELECT id, title, type, namespace, chunk_text, similarity
+                FROM ranked_chunks
+                WHERE rn = 1
+                ORDER BY similarity DESC
+                LIMIT $2
+                """,
+                query_embedding,
+                limit,
+                *ns_params,
+            )
             return [
                 (row["id"], row["title"], row["type"], row["namespace"], row["chunk_text"], row["similarity"])
                 for row in rows
