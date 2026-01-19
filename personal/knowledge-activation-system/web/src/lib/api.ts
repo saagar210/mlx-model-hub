@@ -565,3 +565,60 @@ export async function testWebhook(id: string): Promise<{ success: boolean; messa
 export async function getWebhookDeliveries(id: string, limit: number = 10): Promise<WebhookDelivery[]> {
   return apiRequest<WebhookDelivery[]>(`/api/v1/webhooks/${id}/deliveries?limit=${limit}`);
 }
+
+// Entity/Knowledge Graph API functions
+
+export interface Entity {
+  id: string;
+  name: string;
+  entity_type: string;
+  confidence: number;
+}
+
+export interface EntityStats {
+  entity_type: string;
+  count: number;
+  unique_names: number;
+}
+
+export interface ConnectedEntity {
+  name: string;
+  entity_type: string;
+  connection_count: number;
+}
+
+export interface ContentByEntity {
+  content_id: string;
+  title: string;
+  content_type: string;
+  entity_count: number;
+  entities: Entity[];
+}
+
+export interface RelatedContent {
+  content_id: string;
+  title: string;
+  content_type: string;
+  shared_entities: string[];
+  relevance_score: number;
+}
+
+export async function getEntityStats(): Promise<EntityStats[]> {
+  return apiRequest<EntityStats[]>("/entities/stats");
+}
+
+export async function getConnectedEntities(limit: number = 20): Promise<ConnectedEntity[]> {
+  return apiRequest<ConnectedEntity[]>(`/entities/connected?limit=${limit}`);
+}
+
+export async function getEntitiesByContent(contentId: string): Promise<Entity[]> {
+  return apiRequest<Entity[]>(`/entities/content/${contentId}`);
+}
+
+export async function searchContentByEntity(name: string, limit: number = 10): Promise<ContentByEntity[]> {
+  return apiRequest<ContentByEntity[]>(`/entities/search?name=${encodeURIComponent(name)}&limit=${limit}`);
+}
+
+export async function getRelatedContentByEntity(entityId: string, limit: number = 10): Promise<RelatedContent[]> {
+  return apiRequest<RelatedContent[]>(`/entities/${entityId}/related-content?limit=${limit}`);
+}

@@ -18,6 +18,7 @@ import {
   BarChart3,
   Webhook,
   Puzzle,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const navItems: NavItem[] = [
   { href: "/capture", label: "Capture", icon: <PenLine className="h-5 w-5" />, section: "tools" },
   { href: "/export", label: "Export", icon: <Download className="h-5 w-5" />, section: "tools" },
   { href: "/analytics", label: "Analytics", icon: <BarChart3 className="h-5 w-5" />, section: "tools" },
+  { href: "/graph", label: "Knowledge Graph", icon: <Network className="h-5 w-5" />, section: "tools" },
   // Integrations section
   { href: "/webhooks", label: "Webhooks", icon: <Webhook className="h-5 w-5" />, section: "integrations" },
   { href: "/plugins", label: "Plugins", icon: <Puzzle className="h-5 w-5" />, section: "integrations" },

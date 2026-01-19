@@ -22,8 +22,10 @@ from knowledge.api.schemas import (
     SearchResultItem,
 )
 from knowledge.api.utils import handle_exceptions
+from knowledge.multihop import search_with_routing
 from knowledge.qa import ask as qa_ask
 from knowledge.qa import search_and_summarize
+from knowledge.query_router import analyze_query
 from knowledge.reranker import rerank_results
 from knowledge.search import (
     SearchResult,
@@ -43,6 +45,11 @@ async def search(request: SearchRequest) -> SearchResponse:
 
     Supports hybrid (BM25 + vector), BM25-only, or vector-only search modes.
 
+    When `auto_route=True`, the system automatically:
+    - Classifies query type (simple, definition, how_to, comparison, complex)
+    - Adjusts limit and reranking based on query type
+    - Uses multi-hop reasoning for comparison/complex queries
+
     When hybrid search is used, the system will gracefully degrade to BM25-only
     if the embedding service (Ollama) is unavailable. Check the 'degraded' and
     'search_mode' fields in the response to see if degradation occurred.
@@ -50,7 +57,54 @@ async def search(request: SearchRequest) -> SearchResponse:
     degraded = False
     search_mode = request.mode.value
     warnings: list[str] = []
+    query_type_str: str | None = None
+    routed = False
 
+    # Use auto-routing if requested
+    if request.auto_route:
+        query_type, params = analyze_query(request.query)
+        query_type_str = query_type.value
+        routed = True
+
+        # Use routing-aware search (handles multi-hop for complex queries)
+        results = await search_with_routing(
+            query=request.query,
+            limit=params.limit,
+            namespace=request.namespace,
+            force_rerank=params.rerank,
+        )
+        search_mode = f"routed_{query_type.value}"
+        if params.rerank:
+            search_mode += "+rerank"
+        if params.multi_hop:
+            search_mode += "+multihop"
+
+        return SearchResponse(
+            query=request.query,
+            results=[
+                SearchResultItem(
+                    content_id=r.content_id,
+                    title=r.title,
+                    content_type=r.content_type,
+                    score=r.score,
+                    chunk_text=r.chunk_text,
+                    source_ref=r.source_ref,
+                    namespace=r.namespace,
+                    bm25_rank=r.bm25_rank,
+                    vector_rank=r.vector_rank,
+                )
+                for r in results
+            ],
+            total=len(results),
+            mode=request.mode.value,
+            degraded=degraded,
+            search_mode=search_mode,
+            warnings=warnings,
+            query_type=query_type_str,
+            routed=routed,
+        )
+
+    # Standard search path (no auto-routing)
     # Fetch more candidates when reranking (reranker will select top results)
     fetch_limit = request.limit * 3 if request.rerank else request.limit
 
@@ -103,6 +157,8 @@ async def search(request: SearchRequest) -> SearchResponse:
         degraded=degraded,
         search_mode=search_mode,
         warnings=warnings,
+        query_type=query_type_str,
+        routed=routed,
     )
 
 

@@ -16,6 +16,7 @@ from knowledge.chunking import ChunkingStrategy, chunk_content
 from knowledge.config import Settings, get_settings
 from knowledge.db import get_db
 from knowledge.embeddings import embed_batch
+from knowledge.entity_extraction import extract_entities
 from knowledge.ingest import IngestResult
 from knowledge.logging import get_logger
 from knowledge.obsidian import create_note, get_relative_path
@@ -102,6 +103,7 @@ async def ingest_file(
     title: str | None = None,
     tags: list[str] | None = None,
     settings: Settings | None = None,
+    auto_extract_entities: bool = True,
 ) -> IngestResult:
     """
     Ingest a local file (PDF, TXT, MD).
@@ -112,12 +114,14 @@ async def ingest_file(
     4. Generate embeddings
     5. Create Obsidian note (reference only - doesn't copy file)
     6. Store in database
+    7. Extract entities (optional, default True)
 
     Args:
         path: Path to file
         title: Optional title override
         tags: Optional tags
         settings: Optional settings override
+        auto_extract_entities: Auto-extract entities after ingest (default True)
 
     Returns:
         IngestResult with success/failure info
@@ -263,12 +267,65 @@ async def ingest_file(
         ]
         await db.insert_chunks(content_id, chunk_records)
 
+        # Extract entities if enabled
+        entities_extracted = 0
+        if auto_extract_entities:
+            try:
+                extraction_result = await extract_entities(
+                    title=final_title,
+                    content=validation.content,
+                )
+                if extraction_result.success and extraction_result.entities:
+                    # Store entities in database
+                    entity_records = [
+                        {
+                            "name": e.name,
+                            "entity_type": e.entity_type,
+                            "confidence": e.confidence,
+                        }
+                        for e in extraction_result.entities
+                    ]
+                    entity_ids = await db.insert_entities_batch(content_id, entity_records)
+                    entities_extracted = len(entity_ids)
+
+                    # Store relationships
+                    if extraction_result.relationships:
+                        # Build name to ID mapping
+                        name_to_id = {}
+                        for eid, entity in zip(entity_ids, extraction_result.entities):
+                            name_to_id[entity.name.lower()] = eid
+
+                        for rel in extraction_result.relationships:
+                            from_id = name_to_id.get(rel.from_entity.lower())
+                            to_id = name_to_id.get(rel.to_entity.lower())
+                            if from_id and to_id:
+                                await db.insert_relationship(
+                                    from_entity_id=from_id,
+                                    to_entity_id=to_id,
+                                    relation_type=rel.relation_type,
+                                    confidence=rel.confidence,
+                                )
+
+                    logger.debug(
+                        "entities_auto_extracted",
+                        content_id=str(content_id),
+                        entity_count=entities_extracted,
+                    )
+            except Exception as e:
+                # Don't fail ingestion if entity extraction fails
+                logger.warning(
+                    "entity_extraction_failed",
+                    content_id=str(content_id),
+                    error=str(e),
+                )
+
         return IngestResult(
             success=True,
             content_id=content_id,
             filepath=note_path,
             title=final_title,
             chunks_created=len(chunks),
+            entities_extracted=entities_extracted,
         )
 
     except Exception as e:

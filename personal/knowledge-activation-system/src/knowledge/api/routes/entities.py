@@ -200,6 +200,26 @@ async def extract_entities_for_content(
     )
 
 
+class ContentByEntityResponse(BaseModel):
+    """Content containing an entity."""
+
+    content_id: UUID
+    title: str
+    content_type: str
+    entity_count: int
+    entities: list[EntityResponse]
+
+
+class RelatedContentResponse(BaseModel):
+    """Related content sharing entities."""
+
+    content_id: UUID
+    title: str
+    content_type: str
+    shared_entities: list[str]
+    relevance_score: float
+
+
 @router.get("/search/{name}")
 async def search_entity_by_name(
     name: str,
@@ -211,6 +231,62 @@ async def search_entity_by_name(
     if not entity:
         raise HTTPException(status_code=404, detail="Entity not found")
     return entity
+
+
+@router.get("/search", response_model=list[ContentByEntityResponse])
+async def search_content_by_entity(
+    name: str,
+    limit: int = 10,
+    db: Database = Depends(get_db),
+) -> list[ContentByEntityResponse]:
+    """Find all content containing a specific entity (by name).
+
+    This searches for content where the entity name appears,
+    returning content items with their associated entities.
+    """
+    results = await db.search_content_by_entity_name(name, limit=limit)
+    return [
+        ContentByEntityResponse(
+            content_id=r["content_id"],
+            title=r["title"],
+            content_type=r["content_type"],
+            entity_count=r["entity_count"],
+            entities=[
+                EntityResponse(
+                    id=e["id"],
+                    name=e["name"],
+                    entity_type=e["entity_type"],
+                    confidence=e["confidence"],
+                )
+                for e in r["entities"]
+            ],
+        )
+        for r in results
+    ]
+
+
+@router.get("/{entity_id}/related-content", response_model=list[RelatedContentResponse])
+async def get_related_content_by_entity(
+    entity_id: UUID,
+    limit: int = 10,
+    db: Database = Depends(get_db),
+) -> list[RelatedContentResponse]:
+    """Find content that shares entities with the given entity's content.
+
+    This finds other content items that have similar entities,
+    useful for discovering related knowledge.
+    """
+    results = await db.get_related_content_by_entity(entity_id, limit=limit)
+    return [
+        RelatedContentResponse(
+            content_id=r["content_id"],
+            title=r["title"],
+            content_type=r["content_type"],
+            shared_entities=r["shared_entities"],
+            relevance_score=r["relevance_score"],
+        )
+        for r in results
+    ]
 
 
 @router.delete("/content/{content_id}")

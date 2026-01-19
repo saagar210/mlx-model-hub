@@ -18,13 +18,17 @@ class IngestResult:
     filepath: Path | None = None
     title: str | None = None
     chunks_created: int = 0
+    entities_extracted: int = 0
     error: str | None = None
 
     @property
     def message(self) -> str:
         """Human-readable result message."""
         if self.success:
-            return f"Ingested '{self.title}' with {self.chunks_created} chunks"
+            msg = f"Ingested '{self.title}' with {self.chunks_created} chunks"
+            if self.entities_extracted > 0:
+                msg += f", {self.entities_extracted} entities"
+            return msg
         return f"Failed to ingest: {self.error}"
 
 

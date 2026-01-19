@@ -36,6 +36,10 @@ class SearchRequest(BaseModel):
     mode: SearchMode = Field(SearchMode.HYBRID, description="Search mode")
     namespace: str | None = Field(default=None, max_length=100)
     rerank: bool = Field(False, description="Apply cross-encoder reranking")
+    auto_route: bool = Field(
+        False,
+        description="Auto-detect query type and optimize search params (overrides limit/rerank)"
+    )
 
     @field_validator("query")
     @classmethod
@@ -82,6 +86,9 @@ class SearchResponse(BaseModel):
     degraded: bool = False
     search_mode: str = "hybrid"  # hybrid, bm25_only, vector_only
     warnings: list[str] = []
+    # Query routing info (when auto_route=True)
+    query_type: str | None = None  # simple, definition, how_to, list, comparison, complex
+    routed: bool = False  # True if auto_route was used
 
 
 # =============================================================================

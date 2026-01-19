@@ -840,12 +840,14 @@ class Database:
         self,
         content_id: UUID,
         entities: list[dict[str, Any]],
+        auto_link_canonical: bool = True,
     ) -> list[UUID]:
         """Insert multiple entities in a batch.
 
         Args:
             content_id: Content this entity was extracted from
             entities: List of dicts with name, entity_type, confidence
+            auto_link_canonical: Whether to auto-create/link canonical entities
 
         Returns:
             List of entity UUIDs
@@ -854,36 +856,47 @@ class Database:
             return []
 
         async with self.acquire() as conn:
-            records = [
-                (
+            entity_ids = []
+
+            for e in entities:
+                name = e["name"]
+                entity_type = e["entity_type"]
+                confidence = e.get("confidence", 1.0)
+                normalized = name.lower().strip()
+
+                # Get or create canonical entity if auto-linking
+                canonical_id = None
+                if auto_link_canonical:
+                    canonical_row = await conn.fetchrow(
+                        """
+                        INSERT INTO canonical_entities (name, normalized_name, entity_type)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (normalized_name, entity_type) DO UPDATE
+                        SET updated_at = NOW()
+                        RETURNING id
+                        """,
+                        name,
+                        normalized,
+                        entity_type,
+                    )
+                    canonical_id = canonical_row["id"]
+
+                # Insert entity with canonical link
+                row = await conn.fetchrow(
+                    """
+                    INSERT INTO entities (content_id, name, entity_type, confidence, canonical_entity_id)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING id
+                    """,
                     content_id,
-                    e["name"],
-                    e["entity_type"],
-                    e.get("confidence", 1.0),
+                    name,
+                    entity_type,
+                    confidence,
+                    canonical_id,
                 )
-                for e in entities
-            ]
+                entity_ids.append(row["id"])
 
-            await conn.executemany(
-                """
-                INSERT INTO entities (content_id, name, entity_type, confidence)
-                VALUES ($1, $2, $3, $4)
-                """,
-                records,
-            )
-
-            # Get the inserted IDs
-            rows = await conn.fetch(
-                """
-                SELECT id FROM entities
-                WHERE content_id = $1
-                ORDER BY created_at DESC
-                LIMIT $2
-                """,
-                content_id,
-                len(entities),
-            )
-            return [row["id"] for row in rows]
+            return entity_ids
 
     async def insert_relationship(
         self,
@@ -1053,6 +1066,116 @@ class Database:
             )
             return [dict(row) for row in rows]
 
+    async def search_content_by_entity_name(
+        self, name: str, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """Search for content containing entities matching the given name.
+
+        Args:
+            name: Entity name to search for (case-insensitive partial match)
+            limit: Maximum number of content items to return
+
+        Returns:
+            List of dicts with content_id, title, content_type, entity_count, entities
+        """
+        async with self.acquire() as conn:
+            # Find content with matching entities
+            rows = await conn.fetch(
+                """
+                SELECT DISTINCT c.id as content_id, c.title, c.type as content_type,
+                       COUNT(e.id) OVER (PARTITION BY c.id) as entity_count
+                FROM content c
+                JOIN entities e ON e.content_id = c.id
+                WHERE LOWER(e.name) LIKE LOWER($1)
+                ORDER BY entity_count DESC
+                LIMIT $2
+                """,
+                f"%{name}%",
+                limit,
+            )
+
+            results = []
+            for row in rows:
+                # Get all entities for this content
+                entities = await conn.fetch(
+                    """
+                    SELECT id, name, entity_type, confidence
+                    FROM entities
+                    WHERE content_id = $1
+                    ORDER BY confidence DESC
+                    """,
+                    row["content_id"],
+                )
+                results.append({
+                    "content_id": row["content_id"],
+                    "title": row["title"],
+                    "content_type": row["content_type"],
+                    "entity_count": row["entity_count"],
+                    "entities": [dict(e) for e in entities],
+                })
+
+            return results
+
+    async def get_related_content_by_entity(
+        self, entity_id: UUID, limit: int = 10
+    ) -> list[dict[str, Any]]:
+        """Find content that shares entities with the given entity's content.
+
+        This finds other content items that have similar entity names,
+        useful for discovering related knowledge.
+
+        Args:
+            entity_id: Entity UUID to find related content for
+            limit: Maximum number of content items to return
+
+        Returns:
+            List of dicts with content_id, title, content_type, shared_entities, relevance_score
+        """
+        async with self.acquire() as conn:
+            # Get the source entity's content and name
+            source = await conn.fetchrow(
+                "SELECT content_id, name FROM entities WHERE id = $1",
+                entity_id,
+            )
+            if not source:
+                return []
+
+            # Find other content with similar entity names
+            rows = await conn.fetch(
+                """
+                WITH source_entities AS (
+                    SELECT name FROM entities WHERE content_id = $1
+                ),
+                matching_content AS (
+                    SELECT DISTINCT e.content_id, e.name as entity_name
+                    FROM entities e
+                    JOIN source_entities se ON LOWER(e.name) = LOWER(se.name)
+                    WHERE e.content_id != $1
+                )
+                SELECT c.id as content_id, c.title, c.type as content_type,
+                       array_agg(DISTINCT mc.entity_name) as shared_entities,
+                       COUNT(DISTINCT mc.entity_name)::float as relevance_score
+                FROM content c
+                JOIN matching_content mc ON mc.content_id = c.id
+                GROUP BY c.id, c.title, c.type
+                ORDER BY relevance_score DESC
+                LIMIT $2
+                """,
+                source["content_id"],
+                limit,
+            )
+
+            return [
+                {
+                    "content_id": row["content_id"],
+                    "title": row["title"],
+                    "content_type": row["content_type"],
+                    "shared_entities": row["shared_entities"],
+                    "relevance_score": row["relevance_score"],
+                }
+                for row in rows
+            ]
+
     async def delete_entities_by_content(self, content_id: UUID) -> int:
         """Delete all entities (and their relationships) for a content item.
 
@@ -1075,6 +1198,206 @@ class Database:
                     content_id=str(content_id),
                     count=count,
                 )
+            return count
+
+    # =========================================================================
+    # CANONICAL ENTITY METHODS (Entity Deduplication)
+    # =========================================================================
+
+    async def get_or_create_canonical_entity(
+        self,
+        name: str,
+        entity_type: str,
+    ) -> UUID:
+        """Get or create a canonical entity.
+
+        Args:
+            name: Entity name (will be stored as-is, normalized for matching)
+            entity_type: Entity type
+
+        Returns:
+            Canonical entity UUID
+        """
+        normalized = name.lower().strip()
+        async with self.acquire() as conn:
+            # Try to find existing
+            row = await conn.fetchrow(
+                """
+                SELECT id FROM canonical_entities
+                WHERE normalized_name = $1 AND entity_type = $2
+                """,
+                normalized,
+                entity_type,
+            )
+            if row:
+                return row["id"]
+
+            # Create new
+            row = await conn.fetchrow(
+                """
+                INSERT INTO canonical_entities (name, normalized_name, entity_type)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (normalized_name, entity_type) DO UPDATE
+                SET updated_at = NOW()
+                RETURNING id
+                """,
+                name,
+                normalized,
+                entity_type,
+            )
+            return row["id"]
+
+    async def link_entity_to_canonical(
+        self,
+        entity_id: UUID,
+        canonical_entity_id: UUID,
+    ) -> None:
+        """Link an entity to its canonical version."""
+        async with self.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE entities SET canonical_entity_id = $1 WHERE id = $2
+                """,
+                canonical_entity_id,
+                entity_id,
+            )
+
+    async def deduplicate_entities(self) -> dict[str, Any]:
+        """Run entity deduplication to link all entities to canonical versions.
+
+        Returns:
+            Dict with statistics: entities_processed, canonical_created, already_linked
+        """
+        async with self.acquire() as conn:
+            # Get all unlinked entities
+            unlinked = await conn.fetch(
+                """
+                SELECT id, name, entity_type FROM entities
+                WHERE canonical_entity_id IS NULL
+                """
+            )
+
+            if not unlinked:
+                # Count already linked
+                already_linked = await conn.fetchval(
+                    "SELECT COUNT(*) FROM entities WHERE canonical_entity_id IS NOT NULL"
+                )
+                return {
+                    "entities_processed": 0,
+                    "canonical_created": 0,
+                    "total_linked": already_linked or 0,
+                }
+
+            canonical_created = 0
+            entities_linked = 0
+
+            for row in unlinked:
+                normalized = row["name"].lower().strip()
+
+                # Get or create canonical
+                canonical = await conn.fetchrow(
+                    """
+                    INSERT INTO canonical_entities (name, normalized_name, entity_type)
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (normalized_name, entity_type) DO UPDATE
+                    SET updated_at = NOW()
+                    RETURNING id, (xmax = 0) as was_inserted
+                    """,
+                    row["name"],
+                    normalized,
+                    row["entity_type"],
+                )
+
+                if canonical["was_inserted"]:
+                    canonical_created += 1
+
+                # Link entity
+                await conn.execute(
+                    "UPDATE entities SET canonical_entity_id = $1 WHERE id = $2",
+                    canonical["id"],
+                    row["id"],
+                )
+                entities_linked += 1
+
+            # Count already linked
+            already_linked = await conn.fetchval(
+                "SELECT COUNT(*) FROM entities WHERE canonical_entity_id IS NOT NULL"
+            )
+
+            logger.info(
+                "entity_deduplication_complete",
+                entities_linked=entities_linked,
+                canonical_created=canonical_created,
+            )
+
+            return {
+                "entities_processed": entities_linked,
+                "canonical_created": canonical_created,
+                "total_linked": already_linked,
+            }
+
+    async def get_canonical_entity_stats(self) -> list[dict[str, Any]]:
+        """Get statistics for canonical entities."""
+        async with self.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT
+                    ce.id,
+                    ce.name,
+                    ce.entity_type,
+                    COUNT(DISTINCT e.content_id) as content_count,
+                    COUNT(e.id) as mention_count,
+                    COALESCE(AVG(e.confidence), 0) as avg_confidence
+                FROM canonical_entities ce
+                LEFT JOIN entities e ON e.canonical_entity_id = ce.id
+                GROUP BY ce.id, ce.name, ce.entity_type
+                ORDER BY content_count DESC, mention_count DESC
+                """
+            )
+            return [dict(row) for row in rows]
+
+    async def merge_canonical_entities(
+        self,
+        source_id: UUID,
+        target_id: UUID,
+    ) -> int:
+        """Merge one canonical entity into another.
+
+        All entities linked to source_id will be relinked to target_id,
+        and source_id will be deleted.
+
+        Args:
+            source_id: Canonical entity to merge from (will be deleted)
+            target_id: Canonical entity to merge into
+
+        Returns:
+            Number of entities relinked
+        """
+        async with self.acquire() as conn:
+            # Relink all entities
+            result = await conn.execute(
+                """
+                UPDATE entities SET canonical_entity_id = $1
+                WHERE canonical_entity_id = $2
+                """,
+                target_id,
+                source_id,
+            )
+            count = int(result.split()[-1])
+
+            # Delete source canonical
+            await conn.execute(
+                "DELETE FROM canonical_entities WHERE id = $1",
+                source_id,
+            )
+
+            logger.info(
+                "canonical_entities_merged",
+                source_id=str(source_id),
+                target_id=str(target_id),
+                entities_relinked=count,
+            )
+
             return count
 
 

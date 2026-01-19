@@ -1871,5 +1871,209 @@ def entity_show(
     run_async(_show())
 
 
+@entity_app.command("deduplicate")
+def entity_deduplicate() -> None:
+    """Run entity deduplication to link all entities to canonical versions.
+
+    This creates canonical entities from unique (name, type) pairs and
+    links all entity instances to their canonical version.
+    """
+
+    async def _deduplicate():
+        try:
+            db = await get_db()
+
+            console.print("[bold]Running entity deduplication...[/bold]")
+            console.print()
+
+            result = await db.deduplicate_entities()
+
+            console.print(f"[green]✓[/green] Deduplication complete")
+            console.print()
+            console.print(f"  Entities processed: {result['entities_processed']}")
+            console.print(f"  Canonical created:  {result['canonical_created']}")
+            console.print(f"  Total linked:       {result['total_linked']}")
+
+        finally:
+            await close_db()
+
+    run_async(_deduplicate())
+
+
+@entity_app.command("canonical")
+def entity_canonical(
+    limit: Annotated[int, typer.Option("--limit", "-l", help="Max entities to show")] = 20,
+) -> None:
+    """Show canonical entity statistics."""
+
+    async def _canonical():
+        try:
+            db = await get_db()
+            stats = await db.get_canonical_entity_stats()
+
+            if not stats:
+                console.print("[dim]No canonical entities found.[/dim]")
+                console.print("[dim]Run 'entity deduplicate' first.[/dim]")
+                return
+
+            table = Table(title="Canonical Entities")
+            table.add_column("Name", style="cyan")
+            table.add_column("Type", style="dim")
+            table.add_column("Content", justify="right", style="green")
+            table.add_column("Mentions", justify="right")
+            table.add_column("Avg Conf", justify="right")
+
+            for stat in stats[:limit]:
+                avg_conf = stat.get("avg_confidence", 0)
+                conf_color = "green" if avg_conf >= 0.8 else "yellow" if avg_conf >= 0.5 else "red"
+                table.add_row(
+                    stat["name"],
+                    stat["entity_type"],
+                    str(stat["content_count"]),
+                    str(stat["mention_count"]),
+                    f"[{conf_color}]{avg_conf:.2f}[/{conf_color}]",
+                )
+
+            console.print(table)
+            console.print(f"\n[dim]Showing top {min(limit, len(stats))} of {len(stats)} canonical entities[/dim]")
+
+        finally:
+            await close_db()
+
+    run_async(_canonical())
+
+
+@entity_app.command("batch")
+def entity_batch(
+    limit: Annotated[int, typer.Option("--limit", "-l", help="Max content items to process")] = 50,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Re-extract even if entities exist")] = False,
+) -> None:
+    """Batch extract entities from all content.
+
+    Processes content that doesn't have extracted entities yet,
+    or all content if --force is specified.
+    """
+    from knowledge.entity_extraction import extract_entities
+
+    async def _batch():
+        try:
+            db = await get_db()
+
+            # Get content without entities (or all if force)
+            async with db.acquire() as conn:
+                if force:
+                    query = """
+                        SELECT c.id, c.title FROM content c
+                        WHERE c.deleted_at IS NULL
+                        ORDER BY c.created_at DESC
+                        LIMIT $1
+                    """
+                    rows = await conn.fetch(query, limit)
+                else:
+                    query = """
+                        SELECT c.id, c.title FROM content c
+                        LEFT JOIN entities e ON e.content_id = c.id
+                        WHERE c.deleted_at IS NULL AND e.id IS NULL
+                        ORDER BY c.created_at DESC
+                        LIMIT $1
+                    """
+                    rows = await conn.fetch(query, limit)
+
+            if not rows:
+                console.print("[dim]No content needs entity extraction.[/dim]")
+                return
+
+            console.print(f"[bold]Extracting entities from {len(rows)} content items...[/bold]")
+            console.print()
+
+            total_entities = 0
+            total_relations = 0
+            errors = 0
+
+            for i, row in enumerate(rows, 1):
+                content_id = row["id"]
+                title = row["title"]
+
+                # Get chunks
+                chunks = await db.get_chunks(content_id)
+                if not chunks:
+                    console.print(f"  [{i}/{len(rows)}] [yellow]No chunks:[/yellow] {title[:50]}")
+                    continue
+
+                content_text = " ".join(c["chunk_text"] for c in chunks[:5])
+
+                try:
+                    result = await extract_entities(title, content_text)
+
+                    if not result.success:
+                        console.print(f"  [{i}/{len(rows)}] [red]Error:[/red] {title[:50]}")
+                        errors += 1
+                        continue
+
+                    if not result.entities:
+                        console.print(f"  [{i}/{len(rows)}] [dim]No entities:[/dim] {title[:50]}")
+                        continue
+
+                    # Delete existing if force
+                    if force:
+                        await db.delete_entities_by_content(content_id)
+
+                    # Insert entities using batch method (auto-links to canonical)
+                    entity_records = [
+                        {
+                            "name": e.name,
+                            "entity_type": e.entity_type,
+                            "confidence": e.confidence,
+                        }
+                        for e in result.entities
+                    ]
+                    entity_ids = await db.insert_entities_batch(content_id, entity_records)
+
+                    # Build entity ID map for relationships
+                    entity_id_map = {
+                        result.entities[i].name.lower(): entity_ids[i]
+                        for i in range(len(result.entities))
+                    }
+
+                    # Insert relationships
+                    rel_count = 0
+                    for rel in result.relationships:
+                        from_id = entity_id_map.get(rel.from_entity.lower())
+                        to_id = entity_id_map.get(rel.to_entity.lower())
+                        if from_id and to_id:
+                            await db.insert_relationship(
+                                from_entity_id=from_id,
+                                to_entity_id=to_id,
+                                relation_type=rel.relation_type,
+                                confidence=rel.confidence,
+                            )
+                            rel_count += 1
+
+                    total_entities += len(result.entities)
+                    total_relations += rel_count
+
+                    console.print(
+                        f"  [{i}/{len(rows)}] [green]✓[/green] {len(result.entities)} entities, "
+                        f"{rel_count} relations: {title[:40]}..."
+                    )
+
+                except Exception as e:
+                    console.print(f"  [{i}/{len(rows)}] [red]Error: {e}[/red]")
+                    errors += 1
+
+            console.print()
+            console.print(f"[green]✓[/green] Batch extraction complete")
+            console.print(f"  Total entities:      {total_entities}")
+            console.print(f"  Total relationships: {total_relations}")
+            if errors > 0:
+                console.print(f"  [yellow]Errors: {errors}[/yellow]")
+
+        finally:
+            await close_db()
+            await close_ai_provider()
+
+    run_async(_batch())
+
+
 if __name__ == "__main__":
     app()
