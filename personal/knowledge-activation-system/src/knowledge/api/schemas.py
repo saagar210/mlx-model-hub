@@ -256,26 +256,6 @@ class StatsResponse(BaseModel):
 
 
 # =============================================================================
-# Health Schemas
-# =============================================================================
-
-
-class ServiceHealth(BaseModel):
-    """Individual service health."""
-
-    name: str
-    status: str
-    details: dict[str, Any] = {}
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str
-    services: list[ServiceHealth]
-
-
-# =============================================================================
 # Review Schemas
 # =============================================================================
 

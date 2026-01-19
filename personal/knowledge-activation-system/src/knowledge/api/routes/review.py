@@ -16,6 +16,7 @@ from knowledge.api.schemas import (
     SubmitReviewRequest,
     SubmitReviewResponse,
 )
+from knowledge.api.utils import handle_exceptions
 from knowledge.review import (
     ReviewRating,
     add_to_review_queue,
@@ -34,6 +35,7 @@ router = APIRouter(prefix="/review", tags=["review"])
 
 
 @router.get("/due", response_model=ReviewDueResponse, dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("get_due_reviews")
 async def get_due_reviews(limit: int = 20) -> ReviewDueResponse:
     """
     Get items due for review.
@@ -66,6 +68,7 @@ async def get_due_reviews(limit: int = 20) -> ReviewDueResponse:
 
 
 @router.get("/stats", response_model=ReviewStatsResponse, dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("get_review_stats")
 async def get_stats() -> ReviewStatsResponse:
     """
     Get review queue statistics.
@@ -84,6 +87,7 @@ async def get_stats() -> ReviewStatsResponse:
 
 
 @router.post("/{content_id}", response_model=SubmitReviewResponse, dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("submit_review")
 async def submit_content_review(
     content_id: UUID,
     request: SubmitReviewRequest,
@@ -123,6 +127,7 @@ async def submit_content_review(
 
 
 @router.get("/{content_id}/intervals", response_model=ReviewIntervalsResponse, dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("get_review_intervals")
 async def get_next_intervals(content_id: UUID) -> ReviewIntervalsResponse:
     """
     Preview the next due dates for each possible rating.
@@ -147,6 +152,7 @@ async def get_next_intervals(content_id: UUID) -> ReviewIntervalsResponse:
 
 
 @router.post("/{content_id}/add", dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("add_to_review_queue")
 async def add_to_queue(content_id: UUID) -> dict[str, str]:
     """
     Add a content item to the review queue.
@@ -162,6 +168,7 @@ async def add_to_queue(content_id: UUID) -> dict[str, str]:
 
 
 @router.post("/{content_id}/suspend", dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("suspend_review")
 async def suspend_review(content_id: UUID) -> dict[str, str]:
     """
     Suspend an item from the review queue.
@@ -177,6 +184,7 @@ async def suspend_review(content_id: UUID) -> dict[str, str]:
 
 
 @router.post("/{content_id}/unsuspend", dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("unsuspend_review")
 async def unsuspend_review(content_id: UUID) -> dict[str, str]:
     """
     Unsuspend an item in the review queue.
@@ -192,6 +200,7 @@ async def unsuspend_review(content_id: UUID) -> dict[str, str]:
 
 
 @router.delete("/{content_id}", dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("remove_from_review")
 async def remove_from_review(content_id: UUID) -> dict[str, str]:
     """
     Remove an item from the review queue entirely.
@@ -207,6 +216,7 @@ async def remove_from_review(content_id: UUID) -> dict[str, str]:
 
 
 @router.get("/schedule/status", response_model=ScheduleStatusResponse, dependencies=[Depends(require_scope("review"))])
+@handle_exceptions("get_review_schedule")
 async def get_schedule() -> ScheduleStatusResponse:
     """
     Get the daily review schedule status.

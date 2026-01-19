@@ -18,7 +18,6 @@ import re
 import secrets
 import uuid
 from contextvars import ContextVar
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -501,10 +500,11 @@ def sanitize_error_message(
 # =============================================================================
 
 
-@lru_cache
 def get_security_config() -> dict[str, Any]:
     """
     Get security configuration from environment.
+
+    Note: Not cached because it reads environment variables that may change.
 
     Returns:
         Security configuration dict
