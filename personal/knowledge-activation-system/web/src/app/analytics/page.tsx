@@ -597,7 +597,7 @@ export default function AnalyticsPage() {
                 <div className="flex items-center justify-between p-3 rounded-lg border">
                   <span>Active Services</span>
                   <Badge variant="secondary">
-                    {health?.services.filter(s => s.status === "healthy").length || 0} / {health?.services.length || 0}
+                    {health?.services?.filter(s => s.status === "healthy").length || 0} / {health?.services?.length || 0}
                   </Badge>
                 </div>
               </div>

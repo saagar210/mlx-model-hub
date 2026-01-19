@@ -522,7 +522,7 @@ export default function ReviewPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {health?.services.map((service) => (
+                  {health?.services?.map((service) => (
                     <div
                       key={service.name}
                       className="flex items-center justify-between text-sm"
