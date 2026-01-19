@@ -8,8 +8,9 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from knowledge.api.auth import require_scope
 from knowledge.api.schemas import (
     ContentDetailResponse,
     ContentItem,
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/content", tags=["content"])
 
 
-@router.get("", response_model=ContentListResponse)
+@router.get("", response_model=ContentListResponse, dependencies=[Depends(require_scope("read"))])
 async def list_content(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
@@ -101,7 +102,7 @@ async def list_content(
         raise HTTPException(status_code=500, detail=error_msg) from e
 
 
-@router.get("/{content_id}", response_model=ContentDetailResponse)
+@router.get("/{content_id}", response_model=ContentDetailResponse, dependencies=[Depends(require_scope("read"))])
 async def get_content(content_id: UUID) -> ContentDetailResponse:
     """
     Get detailed information about a specific content item.
@@ -142,7 +143,7 @@ async def get_content(content_id: UUID) -> ContentDetailResponse:
         raise HTTPException(status_code=500, detail=error_msg) from e
 
 
-@router.delete("/{content_id}")
+@router.delete("/{content_id}", dependencies=[Depends(require_scope("delete"))])
 async def delete_content(content_id: UUID) -> dict:
     """
     Soft delete a content item.

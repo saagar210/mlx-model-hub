@@ -77,7 +77,7 @@ class BatchDeleteResponse(BaseModel):
 # =============================================================================
 
 
-@router.post("/search", response_model=BatchSearchResponse)
+@router.post("/search", response_model=BatchSearchResponse, dependencies=[Depends(require_scope("read"))])
 async def batch_search(request: BatchSearchRequest) -> BatchSearchResponse:
     """
     Execute multiple search queries in a single request.

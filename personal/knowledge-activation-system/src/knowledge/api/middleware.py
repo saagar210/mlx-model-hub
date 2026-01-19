@@ -230,10 +230,23 @@ api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 class SecurityMiddleware(BaseHTTPMiddleware):
-    """Security middleware for API key validation and rate limiting."""
+    """Security middleware for API key validation, CSRF protection, and rate limiting."""
 
     # Paths to skip for rate limiting and auth
     SKIP_PATHS = {"/", "/health", "/ready", "/docs", "/openapi.json", "/redoc", "/api/v1/health"}
+
+    # Allowed origins for CSRF protection
+    ALLOWED_ORIGINS = {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    }
+
+    # Methods that require CSRF protection
+    CSRF_PROTECTED_METHODS = {"POST", "PUT", "DELETE", "PATCH"}
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request through security checks."""
@@ -253,6 +266,44 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 response = await call_next(request)
                 response.headers["X-Request-ID"] = request_id
                 return response
+
+            # CSRF protection for state-changing requests
+            if request.method in self.CSRF_PROTECTED_METHODS:
+                origin = request.headers.get("Origin")
+                referer = request.headers.get("Referer")
+
+                # Check Origin header first (more reliable)
+                if origin:
+                    if origin not in self.ALLOWED_ORIGINS:
+                        logger.warning(
+                            "csrf_origin_rejected",
+                            origin=origin,
+                            path=request.url.path,
+                            client_ip=client_ip,
+                        )
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Invalid origin",
+                        )
+                elif referer:
+                    # Fall back to Referer header
+                    # Extract origin from referer (scheme + host)
+                    from urllib.parse import urlparse
+                    parsed = urlparse(referer)
+                    referer_origin = f"{parsed.scheme}://{parsed.netloc}"
+                    if referer_origin not in self.ALLOWED_ORIGINS:
+                        logger.warning(
+                            "csrf_referer_rejected",
+                            referer=referer[:100],
+                            path=request.url.path,
+                            client_ip=client_ip,
+                        )
+                        raise HTTPException(
+                            status_code=403,
+                            detail="Invalid referer",
+                        )
+                # If neither Origin nor Referer, allow (for API clients like curl)
+                # API key validation provides protection for authenticated requests
 
             # API key validation (if required)
             if settings.require_api_key:

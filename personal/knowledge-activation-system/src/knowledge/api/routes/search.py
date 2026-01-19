@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from knowledge.api.auth import require_scope
 from knowledge.api.schemas import (
     AskRequest,
     AskResponse,
@@ -36,7 +37,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/search", tags=["search"])
 
 
-@router.post("", response_model=SearchResponse)
+@router.post("", response_model=SearchResponse, dependencies=[Depends(require_scope("read"))])
 async def search(request: SearchRequest) -> SearchResponse:
     """
     Search the knowledge base.
@@ -92,7 +93,7 @@ async def search(request: SearchRequest) -> SearchResponse:
         raise HTTPException(status_code=500, detail=error_msg) from e
 
 
-@router.post("/ask", response_model=AskResponse)
+@router.post("/ask", response_model=AskResponse, dependencies=[Depends(require_scope("read"))])
 async def ask(request: AskRequest) -> AskResponse:
     """
     Ask a question and get an AI-generated answer with citations.
@@ -126,7 +127,7 @@ async def ask(request: AskRequest) -> AskResponse:
         raise HTTPException(status_code=500, detail=error_msg) from e
 
 
-@router.post("/summarize", response_model=AskResponse)
+@router.post("/summarize", response_model=AskResponse, dependencies=[Depends(require_scope("read"))])
 async def summarize(request: AskRequest) -> AskResponse:
     """
     Search and summarize results without AI generation.

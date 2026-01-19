@@ -82,6 +82,8 @@ async def api_client(integration_db: Database) -> AsyncGenerator[AsyncClient, No
     """HTTP client for API integration tests.
 
     Depends on integration_db to ensure database module uses correct connection.
+    When KNOWLEDGE_REQUIRE_API_KEY is not set (default False), no API key is sent.
+    This allows tests to run without the api_keys table.
     """
     import knowledge.db as db_module
     from knowledge.api.main import app
@@ -94,10 +96,17 @@ async def api_client(integration_db: Database) -> AsyncGenerator[AsyncClient, No
             pass
         db_module._db = None
 
+    # Only include API key header if auth is required (typically not in tests)
+    settings = get_settings()
+    headers = {}
+    if settings.require_api_key:
+        # For authenticated tests, would need a real key from api_keys table
+        headers["X-API-Key"] = "kas_test-integration-key"
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        headers={"X-API-Key": "test-integration-key"},
+        headers=headers,
     ) as client:
         yield client
 

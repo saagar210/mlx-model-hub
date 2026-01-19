@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from fastapi import Depends, Header, Request
 from pydantic import BaseModel
 
@@ -21,6 +23,16 @@ from knowledge.exceptions import (
 from knowledge.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Argon2 hasher with tuned parameters for API keys (high entropy)
+# Lower memory/time cost than passwords since API keys have high entropy
+_argon2_hasher = PasswordHasher(
+    time_cost=2,      # 2 iterations
+    memory_cost=19456,  # 19 MiB
+    parallelism=1,
+    hash_len=32,
+    salt_len=16,
+)
 
 
 # =============================================================================
@@ -117,19 +129,50 @@ class CreateKeyResponse(BaseModel):
 
 def generate_api_key() -> tuple[str, str]:
     """
-    Generate a new API key and its hash.
+    Generate a new API key and its Argon2 hash.
 
     Returns:
         Tuple of (plaintext_key, key_hash)
     """
     key = f"kas_{secrets.token_urlsafe(32)}"
-    key_hash = hashlib.sha256(key.encode()).hexdigest()
+    key_hash = _argon2_hasher.hash(key)
     return key, key_hash
 
 
-def hash_api_key(key: str) -> str:
-    """Hash an API key for storage/lookup."""
+def hash_api_key_argon2(key: str) -> str:
+    """Hash an API key using Argon2id for storage."""
+    return _argon2_hasher.hash(key)
+
+
+def hash_api_key_sha256(key: str) -> str:
+    """Hash an API key using SHA-256 (legacy, for migration)."""
     return hashlib.sha256(key.encode()).hexdigest()
+
+
+def verify_api_key(key: str, stored_hash: str) -> bool:
+    """
+    Verify an API key against a stored hash.
+
+    Supports both Argon2 (new) and SHA-256 (legacy) hashes.
+    Argon2 hashes start with '$argon2', SHA-256 are 64 hex chars.
+
+    Args:
+        key: The plaintext API key
+        stored_hash: The stored hash to verify against
+
+    Returns:
+        True if the key matches, False otherwise
+    """
+    if stored_hash.startswith("$argon2"):
+        # Argon2 hash
+        try:
+            _argon2_hasher.verify(stored_hash, key)
+            return True
+        except (VerifyMismatchError, InvalidHashError):
+            return False
+    else:
+        # Legacy SHA-256 hash (64 hex characters)
+        return hashlib.sha256(key.encode()).hexdigest() == stored_hash
 
 
 # =============================================================================
@@ -187,27 +230,33 @@ async def get_api_key(
         )
         raise InvalidAPIKeyError("Invalid API key format")
 
-    # Hash and lookup
-    key_hash = hash_api_key(x_api_key)
-
+    # Fetch all active keys and verify using Argon2 or SHA-256 (legacy)
+    # This approach supports both new Argon2 hashes and legacy SHA-256 hashes
     db = await get_db()
     async with db.acquire() as conn:
-        row = await conn.fetchrow(
+        rows = await conn.fetch(
             """
-            SELECT id, name, scopes, rate_limit
+            SELECT id, name, scopes, rate_limit, key_hash
             FROM api_keys
-            WHERE key_hash = $1
-              AND revoked_at IS NULL
+            WHERE revoked_at IS NULL
               AND (expires_at IS NULL OR expires_at > NOW())
-            """,
-            key_hash,
+            """
         )
 
+        # Find matching key by verifying against each stored hash
+        row = None
+        for candidate in rows:
+            if verify_api_key(x_api_key, candidate["key_hash"]):
+                row = candidate
+                break
+
         if not row:
+            # Log with SHA-256 hash prefix for debugging (doesn't reveal key)
+            debug_hash = hash_api_key_sha256(x_api_key)
             logger.warning(
                 "api_key_invalid",
                 path=request.url.path,
-                key_hash_prefix=key_hash[:16],  # Log hash prefix, not key prefix
+                key_hash_prefix=debug_hash[:16],
             )
             raise InvalidAPIKeyError("Invalid or expired API key")
 
