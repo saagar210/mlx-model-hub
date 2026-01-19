@@ -553,7 +553,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 md:grid-cols-2">
-                {health?.services.map((service) => (
+                {health?.services?.map((service) => (
                   <div
                     key={service.name}
                     className="p-4 rounded-lg border"

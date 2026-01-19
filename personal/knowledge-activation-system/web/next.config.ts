@@ -8,7 +8,9 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Empty turbopack config to silence warning about webpack config from Serwist
+  // Serwist is disabled in dev mode, so Turbopack works fine
+  turbopack: {},
 };
 
 export default withSerwist(nextConfig);

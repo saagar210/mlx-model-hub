@@ -120,7 +120,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            {health?.services.map((service) => (
+            {health?.services?.map((service) => (
               <div
                 key={service.name}
                 className="flex items-center justify-between p-4 rounded-lg border bg-card"
@@ -217,7 +217,7 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {health?.services.map((service) => (
+            {health?.services?.map((service) => (
               <div key={service.name} className="border rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   {service.name === "PostgreSQL" ? (
