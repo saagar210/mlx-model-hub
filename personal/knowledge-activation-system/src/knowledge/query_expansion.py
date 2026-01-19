@@ -74,27 +74,38 @@ SYNONYMS: dict[str, list[str]] = {
 
     # Claude/Anthropic
     "claude": ["anthropic", "claude ai"],
-    "mcp": ["model context protocol", "context protocol"],
+    "mcp": ["model context protocol", "context protocol", "mcp server", "claude tools"],
+    "model context protocol": ["mcp", "context protocol"],
     "tool use": ["function calling", "tool calling", "tools"],
+
+    # Agent patterns
+    "react": ["reason action", "reasoning", "react pattern", "react agent"],
+    "react pattern": ["react", "reason act", "observation loop"],
+    "agent": ["agents", "ai agent", "autonomous"],
+    "langgraph": ["lang graph", "langchain graph"],
 
     # OpenAI/GPT
     "openai": ["gpt", "chatgpt", "gpt-4"],
     "openrouter": ["open router"],
 
     # DevOps
-    "docker": ["container", "containerization"],
-    "kubernetes": ["k8s", "kube"],
-    "ci/cd": ["cicd", "ci cd", "continuous integration", "continuous deployment"],
-    "github actions": ["gh actions", "gha"],
-    "hpa": ["horizontal pod autoscaler", "autoscaling"],
-    "deployment": ["deploy", "deploying"],
-    "helm": ["helm chart"],
+    "docker": ["container", "containerization", "dockerfile"],
+    "kubernetes": ["k8s", "kube", "kubectl"],
+    "ci/cd": ["cicd", "ci cd", "continuous integration", "continuous deployment", "pipeline", "devops"],
+    "cicd": ["ci/cd", "continuous integration", "continuous deployment", "pipeline"],
+    "continuous integration": ["ci", "cicd", "ci/cd", "github actions"],
+    "continuous deployment": ["cd", "cicd", "ci/cd", "deploy"],
+    "github actions": ["gh actions", "gha", "workflow", "ci/cd"],
+    "hpa": ["horizontal pod autoscaler", "autoscaling", "scale"],
+    "deployment": ["deploy", "deploying", "release"],
+    "helm": ["helm chart", "kubernetes package"],
+    "pipeline": ["ci/cd", "workflow", "automation"],
 
     # Concepts
-    "api": ["rest api", "restful", "endpoint"],
+    "api": ["rest api", "restful", "endpoint", "route"],
     "authentication": ["auth", "authn", "login"],
     "authorization": ["authz", "permissions", "access control"],
-    "dependency injection": ["di", "ioc", "inversion of control"],
+    "dependency injection": ["di", "ioc", "inversion of control", "depends"],
     "async": ["asynchronous", "await", "asyncio", "concurrent"],
     "orm": ["object relational mapping"],
     "crud": ["create read update delete"],
@@ -102,6 +113,11 @@ SYNONYMS: dict[str, list[str]] = {
     "queue": ["message queue", "task queue", "job queue"],
     "index": ["indexing", "indexed", "database index"],
     "performance": ["optimization", "optimize", "speed", "faster"],
+    "streaming": ["stream", "sse", "server sent events", "streamingresponse"],
+    "decorator": ["decorators", "@", "annotation", "wrapper"],
+    "route": ["routing", "endpoint", "path", "handler"],
+    "validation": ["validate", "validator", "422", "pydantic"],
+    "error": ["exception", "error handling", "try except"],
 
     # Patterns
     "repository pattern": ["repo pattern"],

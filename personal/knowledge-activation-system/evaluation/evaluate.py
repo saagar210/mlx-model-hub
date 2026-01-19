@@ -64,12 +64,12 @@ def load_test_queries() -> dict[str, Any]:
 def search_kas(query: str, limit: int = 5, namespace: str | None = None) -> dict[str, Any]:
     """Execute search against KAS API."""
     try:
-        params = {"q": query, "limit": limit}
+        payload = {"query": query, "limit": limit}
         if namespace:
-            params["namespace"] = namespace
-        response = httpx.get(
-            f"{KAS_URL}/api/v1/search",
-            params=params,
+            payload["namespace"] = namespace
+        response = httpx.post(
+            f"{KAS_URL}/search",
+            json=payload,
             timeout=30.0,
         )
         response.raise_for_status()
@@ -387,10 +387,13 @@ def main():
 
     # Check KAS availability
     try:
-        response = httpx.get(f"{KAS_URL}/api/v1/health", timeout=5.0)
+        response = httpx.get(f"{KAS_URL}/health", timeout=5.0)
         response.raise_for_status()
         health = response.json()
-        print(f"KAS Status: {health['status']} ({health['stats']['total_content']} docs)")
+        # Extract document count from database component
+        db_component = next((c for c in health.get("components", []) if c["name"] == "database"), {})
+        doc_count = db_component.get("details", {}).get("content_count", "?")
+        print(f"KAS Status: {health['status']} ({doc_count} docs)")
     except Exception as e:
         print(f"ERROR: KAS not available at {KAS_URL}")
         print(f"  {e}")
