@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kas.ingest</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/d/claude-code/personal/knowledge-activation-system/scripts/auto_ingest.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/d/claude-code/personal/knowledge-activation-system</string>
+
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/d/logs/kas-ingest-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/d/logs/kas-ingest-stderr.log</string>
+</dict>
+</plist>

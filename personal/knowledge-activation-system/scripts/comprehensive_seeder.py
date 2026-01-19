@@ -20,6 +20,7 @@ Usage:
 
 import asyncio
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -281,7 +282,7 @@ Format in clean markdown with headers, code blocks, and bullet points."""
     return topics
 
 
-async def generate_content(topic: dict, model: str = "qwen2.5-7b-instruct") -> str:
+async def generate_content(topic: dict, model: str = "mlx-community/Qwen2.5-7B-Instruct-4bit") -> str:
     """Generate content using local MLX API."""
     system_prompt = """You are a technical documentation expert. Create comprehensive,
 accurate, and practical reference guides with extensive code examples.
@@ -348,7 +349,7 @@ async def check_mlx_server():
     """Check if MLX server is running."""
     try:
         await client.chat.completions.create(
-            model="qwen2.5-7b-instruct",
+            model="mlx-community/Qwen2.5-7B-Instruct-4bit",
             messages=[{"role": "user", "content": "test"}],
             max_tokens=10
         )
@@ -407,11 +408,14 @@ async def run_ingestion():
         print(f"❌ Notes directory not found: {notes_dir}")
         return
 
+    # Use uv run to ensure proper environment with PYTHONPATH
+    env = {**os.environ, "PYTHONPATH": str(PROJECT_DIR / "src")}
     result = subprocess.run(
-        ["python", "cli.py", "ingest", "directory", str(notes_dir)],
+        ["uv", "run", "python", "cli.py", "ingest", "directory", str(notes_dir)],
         cwd=str(PROJECT_DIR),
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     if result.returncode == 0:

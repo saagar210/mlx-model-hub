@@ -294,10 +294,10 @@ export default function AnalyticsPage() {
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="p-4 rounded-lg border text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <Gauge className="h-5 w-5 text-blue-500" />
+                    <Gauge className="h-5 w-5 text-yellow-500" />
                     <span className="text-sm text-muted-foreground">Composite Score</span>
                   </div>
-                  <p className="text-3xl font-bold text-blue-500">71.9%</p>
+                  <p className="text-3xl font-bold text-yellow-500">51.1%</p>
                   <p className="text-xs text-muted-foreground mt-1">Target: 80%+</p>
                 </div>
                 <div className="p-4 rounded-lg border text-center">
@@ -305,23 +305,23 @@ export default function AnalyticsPage() {
                     <TrendingUp className="h-5 w-5 text-green-500" />
                     <span className="text-sm text-muted-foreground">MRR</span>
                   </div>
-                  <p className="text-3xl font-bold">0.72</p>
+                  <p className="text-3xl font-bold">0.61</p>
                   <p className="text-xs text-muted-foreground mt-1">Mean Reciprocal Rank</p>
                 </div>
                 <div className="p-4 rounded-lg border text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <Target className="h-5 w-5 text-purple-500" />
+                    <Target className="h-5 w-5 text-green-500" />
                     <span className="text-sm text-muted-foreground">NDCG@5</span>
                   </div>
-                  <p className="text-3xl font-bold">0.68</p>
+                  <p className="text-3xl font-bold">0.60</p>
                   <p className="text-xs text-muted-foreground mt-1">Normalized DCG</p>
                 </div>
                 <div className="p-4 rounded-lg border text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <CheckCircle2 className="h-5 w-5 text-orange-500" />
+                    <CheckCircle2 className="h-5 w-5 text-yellow-500" />
                     <span className="text-sm text-muted-foreground">Precision@5</span>
                   </div>
-                  <p className="text-3xl font-bold">0.65</p>
+                  <p className="text-3xl font-bold">0.51</p>
                   <p className="text-xs text-muted-foreground mt-1">Relevance Accuracy</p>
                 </div>
               </div>
@@ -337,12 +337,12 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="space-y-3">
                 {[
-                  { category: "Frameworks", score: 0.78, queries: 8 },
-                  { category: "AI/ML", score: 0.72, queries: 6 },
-                  { category: "Infrastructure", score: 0.68, queries: 5 },
-                  { category: "Best Practices", score: 0.75, queries: 4 },
-                  { category: "MCP", score: 0.70, queries: 2 },
-                  { category: "Edge Cases", score: 0.55, queries: 6 },
+                  { category: "Frameworks", score: 0.65, queries: 8 },
+                  { category: "AI/ML", score: 0.58, queries: 6 },
+                  { category: "Infrastructure", score: 0.52, queries: 5 },
+                  { category: "Best Practices", score: 0.60, queries: 4 },
+                  { category: "MCP", score: 0.34, queries: 3 },
+                  { category: "Agents", score: 0.29, queries: 5 },
                 ].map((cat) => (
                   <div key={cat.category}>
                     <div className="flex items-center justify-between mb-1">
@@ -383,11 +383,11 @@ export default function AnalyticsPage() {
             <CardContent>
               <div className="space-y-2">
                 {[
-                  { id: "rag-001", query: "What is RAG and how does it work?", score: 0.85, status: "pass" },
-                  { id: "framework-001", query: "How do I create a FastAPI dependency?", score: 0.78, status: "pass" },
-                  { id: "agent-003", query: "How does LangGraph handle state in agents?", score: 0.45, status: "fail" },
-                  { id: "edge-001", query: "What embedding models work best with Ollama?", score: 0.62, status: "pass" },
-                  { id: "edge-003", query: "What is the FSRS algorithm?", score: 0.32, status: "fail" },
+                  { id: "rag-001", query: "What is RAG and how does it work?", score: 0.72, status: "pass" },
+                  { id: "framework-001", query: "React hooks best practices", score: 0.68, status: "pass" },
+                  { id: "infra-002", query: "Kubernetes deployment with Helm", score: 0.55, status: "pass" },
+                  { id: "agent-003", query: "How do AI agents handle memory?", score: 0.35, status: "fail" },
+                  { id: "mcp-001", query: "What is Model Context Protocol?", score: 0.28, status: "fail" },
                 ].map((result) => (
                   <div
                     key={result.id}
