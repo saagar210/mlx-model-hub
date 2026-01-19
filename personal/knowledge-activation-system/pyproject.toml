@@ -180,6 +180,7 @@ runner = "pytest -x -q"
 
 [dependency-groups]
 dev = [
+    "pip-audit>=2.10.0",
     "types-psutil>=7.2.1.20260116",
     "types-pyyaml>=6.0.12.20250915",
 ]

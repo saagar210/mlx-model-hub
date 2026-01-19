@@ -73,3 +73,7 @@ node_modules/
 .next/
 out/
 .turbo/
+
+# Evaluation metrics (generated)
+evaluation/metrics/*.json
+evaluation/reports/*.html

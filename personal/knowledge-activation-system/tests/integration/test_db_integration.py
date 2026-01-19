@@ -19,30 +19,34 @@ class TestDatabaseIntegration:
 
     async def test_insert_and_retrieve_content(self, clean_db: Database):
         """Test full content lifecycle with real database."""
-        # Insert content
+        # Insert content using current API
         content_id = await clean_db.insert_content(
-            title="Test Content",
+            filepath="test/content.md",
             content_type="note",
-            source_ref="test/content.md",
-            namespace="default",
+            title="Test Content",
+            content_for_hash="Test content for hashing",
+            metadata={"namespace": "default"},
+            add_to_review=False,
         )
 
         assert content_id is not None
         assert isinstance(content_id, UUID)
 
-        # Retrieve content
-        content = await clean_db.get_content(content_id)
+        # Retrieve content using current API
+        content = await clean_db.get_content_by_id(content_id)
         assert content is not None
-        assert content["title"] == "Test Content"
-        assert content["content_type"] == "note"
+        assert content.title == "Test Content"
+        assert content.type == "note"
 
     async def test_insert_chunks(self, clean_db: Database):
         """Test chunk insertion and retrieval."""
-        # Insert content first
+        # Insert content first using current API
         content_id = await clean_db.insert_content(
-            title="Chunked Content",
+            filepath="test/chunked.md",
             content_type="note",
-            source_ref="test/chunked.md",
+            title="Chunked Content",
+            content_for_hash="Chunked content for hashing",
+            add_to_review=False,
         )
 
         # Insert chunks
@@ -78,9 +82,11 @@ class TestDatabaseIntegration:
 
         async def insert_content(n: int) -> UUID:
             return await clean_db.insert_content(
-                title=f"Concurrent Content {n}",
+                filepath=f"test/concurrent_{n}.md",
                 content_type="note",
-                source_ref=f"test/concurrent_{n}.md",
+                title=f"Concurrent Content {n}",
+                content_for_hash=f"Concurrent content {n} for hashing",
+                add_to_review=False,
             )
 
         # Run 20 concurrent inserts
@@ -93,26 +99,32 @@ class TestDatabaseIntegration:
         """Test connection pool statistics."""
         stats = clean_db.get_pool_stats()
 
-        assert "size" in stats
-        assert "free_size" in stats
-        assert "min_size" in stats
-        assert "max_size" in stats
-        assert stats["size"] >= stats["min_size"]
+        assert stats is not None
+        assert hasattr(stats, "size")
+        assert hasattr(stats, "free_size")
+        assert hasattr(stats, "min_size")
+        assert hasattr(stats, "max_size")
+        assert stats.size >= stats.min_size
 
     async def test_health_check(self, clean_db: Database):
         """Test database health check."""
         health = await clean_db.check_health()
 
         assert health["status"] in ["healthy", "degraded", "unhealthy"]
-        assert "latency_ms" in health
-        assert health["latency_ms"] >= 0
+        # check_health returns content stats instead of latency
+        if health["status"] == "healthy":
+            assert "extensions" in health
+            assert "pool" in health
 
     async def test_delete_content(self, clean_db: Database):
-        """Test content deletion cascades to chunks."""
-        # Insert content and chunk
+        """Test content soft deletion."""
+        # Insert content and chunk using current API
         content_id = await clean_db.insert_content(
-            title="To Delete",
+            filepath="test/to_delete.md",
             content_type="note",
+            title="To Delete",
+            content_for_hash="Content to delete for hashing",
+            add_to_review=False,
         )
 
         async with clean_db._pool.acquire() as conn:
@@ -121,39 +133,41 @@ class TestDatabaseIntegration:
                 content_id,
             )
 
-        # Delete content
-        result = await clean_db.delete_content(content_id)
+        # Soft delete content (current API)
+        result = await clean_db.soft_delete_content(content_id)
         assert result is True
 
-        # Verify cascade
-        async with clean_db._pool.acquire() as conn:
-            chunks = await conn.fetchval(
-                "SELECT COUNT(*) FROM chunks WHERE content_id = $1",
-                content_id,
-            )
-            assert chunks == 0
+        # Verify content is soft-deleted (not retrieved by get_content_by_id)
+        content = await clean_db.get_content_by_id(content_id)
+        assert content is None
 
     async def test_namespace_filtering(self, clean_db: Database):
-        """Test namespace-based content filtering."""
-        # Insert content in different namespaces
+        """Test namespace-based content filtering via metadata."""
+        # Insert content in different namespaces using metadata
         await clean_db.insert_content(
-            title="Work Doc",
+            filepath="test/work_doc.md",
             content_type="note",
-            namespace="work",
+            title="Work Doc",
+            content_for_hash="Work doc content for hashing",
+            metadata={"namespace": "work"},
+            add_to_review=False,
         )
         await clean_db.insert_content(
-            title="Personal Doc",
+            filepath="test/personal_doc.md",
             content_type="note",
-            namespace="personal",
+            title="Personal Doc",
+            content_for_hash="Personal doc content for hashing",
+            metadata={"namespace": "personal"},
+            add_to_review=False,
         )
 
-        # Query by namespace
+        # Query by namespace (stored in metadata)
         async with clean_db._pool.acquire() as conn:
             work_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM content WHERE namespace = 'work'"
+                "SELECT COUNT(*) FROM content WHERE metadata->>'namespace' = 'work' AND deleted_at IS NULL"
             )
             personal_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM content WHERE namespace = 'personal'"
+                "SELECT COUNT(*) FROM content WHERE metadata->>'namespace' = 'personal' AND deleted_at IS NULL"
             )
 
         assert work_count == 1

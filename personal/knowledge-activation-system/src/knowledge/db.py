@@ -129,8 +129,15 @@ class Database:
             ) from e
 
     async def _init_connection(self, conn: asyncpg.Connection) -> None:
-        """Initialize each connection with pgvector support."""
+        """Initialize each connection with pgvector and JSON support."""
         await register_vector(conn)
+        # Set up JSON codec for JSONB columns
+        await conn.set_type_codec(
+            "jsonb",
+            encoder=json.dumps,
+            decoder=json.loads,
+            schema="pg_catalog",
+        )
 
     async def disconnect(self) -> None:
         """Close connection pool gracefully."""
@@ -301,7 +308,7 @@ class Database:
     ) -> UUID:
         """Insert a new content record and optionally add to review queue."""
         content_hash = hashlib.sha256(content_for_hash.encode()).hexdigest()
-        metadata_json = json.dumps(metadata or {})
+        metadata_dict = metadata or {}  # Pass dict directly, codec handles JSON encoding
 
         # Check for duplicate content by hash
         if deduplicate:
@@ -337,7 +344,7 @@ class Database:
                 title,
                 summary,
                 tags or [],
-                metadata_json,
+                metadata_dict,
                 captured_at,
             )
             content_id = row["id"]

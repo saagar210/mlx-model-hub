@@ -37,7 +37,7 @@ To serve as the **central knowledge hub** for all personal projects. Other apps 
 | Test Coverage | 419 passing, 3 skipped |
 | API Endpoints | 25+ routes |
 | MCP Tools | kas_search, kas_ingest, kas_review |
-| Evaluation Score | 65.91% composite |
+| Evaluation Score | 71.94% composite (MRR: 0.815, NDCG@5: 0.840) |
 
 ---
 
