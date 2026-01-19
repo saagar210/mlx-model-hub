@@ -430,6 +430,65 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 
 
 # =============================================================================
+# Security Headers Middleware
+# =============================================================================
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to add security headers to all responses.
+
+    Adds protection against:
+    - Clickjacking (X-Frame-Options)
+    - MIME-type sniffing (X-Content-Type-Options)
+    - XSS attacks (legacy X-XSS-Protection)
+    - Referrer leakage (Referrer-Policy)
+    - Unwanted browser features (Permissions-Policy)
+    """
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Add security headers to response."""
+        response = await call_next(request)
+
+        # Prevent clickjacking
+        response.headers["X-Frame-Options"] = "DENY"
+
+        # Prevent MIME-type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+
+        # XSS Protection (legacy but still useful for older browsers)
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+
+        # Referrer Policy - don't leak full URL to other origins
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+
+        # Permissions Policy - disable unnecessary browser features
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=(), payment=()"
+        )
+
+        # Content Security Policy
+        # Note: 'unsafe-inline' needed for some UI frameworks, adjust as needed
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' http://localhost:* https://localhost:*; "
+            "frame-ancestors 'none';"
+        )
+
+        # HSTS - only for HTTPS connections
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+
+        return response
+
+
+# =============================================================================
 # API Version Middleware (P19)
 # =============================================================================
 

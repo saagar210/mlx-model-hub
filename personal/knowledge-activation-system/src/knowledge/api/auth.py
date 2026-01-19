@@ -207,7 +207,7 @@ async def get_api_key(
             logger.warning(
                 "api_key_invalid",
                 path=request.url.path,
-                key_prefix=x_api_key[:8] + "...",
+                key_hash_prefix=key_hash[:16],  # Log hash prefix, not key prefix
             )
             raise InvalidAPIKeyError("Invalid or expired API key")
 

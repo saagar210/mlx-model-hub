@@ -9,7 +9,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from knowledge.ai import close_ai_provider
-from knowledge.api.middleware import APIVersionMiddleware, MetricsMiddleware, SecurityMiddleware
+from knowledge.api.middleware import (
+    APIVersionMiddleware,
+    MetricsMiddleware,
+    SecurityHeadersMiddleware,
+    SecurityMiddleware,
+)
 from knowledge.api.routes import (
     auth,
     batch,
@@ -70,6 +75,9 @@ app.add_middleware(APIVersionMiddleware, version="v1")
 # Metrics middleware (must be early to capture all requests)
 app.add_middleware(MetricsMiddleware)
 
+# Security headers middleware (X-Frame-Options, CSP, etc.)
+app.add_middleware(SecurityHeadersMiddleware)
+
 # Security middleware (rate limiting, API key validation)
 app.add_middleware(SecurityMiddleware)
 
@@ -96,8 +104,24 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Explicit methods
-    allow_headers=["*", settings.api_key_header],  # Include API key header
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        settings.api_key_header,  # X-API-Key
+        "X-Request-ID",
+        "Accept",
+        "Accept-Language",
+        "Cache-Control",
+    ],
+    expose_headers=[
+        "X-Request-ID",
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining",
+        "X-RateLimit-Reset",
+        "X-API-Version",
+    ],
+    max_age=3600,  # Cache preflight for 1 hour
 )
 
 # Include routers
