@@ -104,7 +104,14 @@ class TestDecomposeQuery:
         mock_ai.close = AsyncMock()
 
         original_query = "What are the differences?"
-        sub_queries = await decompose_query(original_query, ai=mock_ai)
+
+        # Also mock Ollama to fail so we test the full fallback
+        with patch(
+            "knowledge.multihop._decompose_with_ollama",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            sub_queries = await decompose_query(original_query, ai=mock_ai)
 
         assert sub_queries == [original_query]
 
