@@ -622,3 +622,32 @@ export async function searchContentByEntity(name: string, limit: number = 10): P
 export async function getRelatedContentByEntity(entityId: string, limit: number = 10): Promise<RelatedContent[]> {
   return apiRequest<RelatedContent[]>(`/entities/${entityId}/related-content?limit=${limit}`);
 }
+
+// Knowledge Graph Visualization API
+
+export interface GraphNode {
+  id: string;
+  name: string;
+  entity_type: string;
+  size: number;
+}
+
+export interface GraphLink {
+  source: string;
+  target: string;
+  relation_type: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  links: GraphLink[];
+  stats: {
+    total_nodes: number;
+    total_links: number;
+    entity_types: number;
+  };
+}
+
+export async function getGraphData(limit: number = 100, minConnections: number = 1): Promise<GraphData> {
+  return apiRequest<GraphData>(`/entities/graph/data?limit=${limit}&min_connections=${minConnections}`);
+}

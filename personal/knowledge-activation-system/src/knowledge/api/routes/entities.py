@@ -297,3 +297,112 @@ async def delete_entities_for_content(
     """Delete all entities for a content item."""
     count = await db.delete_entities_by_content(content_id)
     return {"deleted": count, "content_id": str(content_id)}
+
+
+class GraphNode(BaseModel):
+    """Node in the knowledge graph."""
+
+    id: str
+    name: str
+    entity_type: str
+    size: int = 5  # Based on connection count
+
+
+class GraphLink(BaseModel):
+    """Link between nodes in the knowledge graph."""
+
+    source: str
+    target: str
+    relation_type: str
+
+
+class GraphDataResponse(BaseModel):
+    """Graph data for visualization."""
+
+    nodes: list[GraphNode]
+    links: list[GraphLink]
+    stats: dict
+
+
+@router.get("/graph/data", response_model=GraphDataResponse)
+async def get_graph_data(
+    limit: int = 100,
+    min_connections: int = 1,
+    db: Database = Depends(get_db),
+) -> GraphDataResponse:
+    """Get graph data for force-directed visualization.
+
+    Returns nodes (entities) and links (relationships) suitable
+    for rendering with libraries like d3-force or react-force-graph.
+    """
+    # Get entities and relationships from database
+    query = """
+        WITH entity_connections AS (
+            SELECT
+                e.id,
+                e.name,
+                e.entity_type,
+                COUNT(DISTINCT r.id) as connection_count
+            FROM entities e
+            LEFT JOIN relationships r ON e.id = r.from_entity_id OR e.id = r.to_entity_id
+            GROUP BY e.id, e.name, e.entity_type
+            HAVING COUNT(DISTINCT r.id) >= $1
+            ORDER BY connection_count DESC
+            LIMIT $2
+        )
+        SELECT * FROM entity_connections
+    """
+    entities = await db.fetch_all(query, min_connections, limit)
+
+    # Get entity IDs for filtering relationships
+    entity_ids = [str(e["id"]) for e in entities]
+
+    # Get relationships between these entities
+    rel_query = """
+        SELECT
+            r.id,
+            r.relation_type,
+            e1.name as from_name,
+            e2.name as to_name
+        FROM relationships r
+        JOIN entities e1 ON r.from_entity_id = e1.id
+        JOIN entities e2 ON r.to_entity_id = e2.id
+        WHERE e1.id = ANY($1::uuid[]) AND e2.id = ANY($1::uuid[])
+    """
+    relationships = await db.fetch_all(rel_query, entity_ids)
+
+    # Build nodes list
+    nodes = [
+        GraphNode(
+            id=str(e["id"]),
+            name=e["name"],
+            entity_type=e["entity_type"],
+            size=max(3, min(20, e["connection_count"] * 2)),
+        )
+        for e in entities
+    ]
+
+    # Build links list
+    links = []
+    entity_names = {e["name"]: str(e["id"]) for e in entities}
+    for r in relationships:
+        source_id = entity_names.get(r["from_name"])
+        target_id = entity_names.get(r["to_name"])
+        if source_id and target_id:
+            links.append(
+                GraphLink(
+                    source=source_id,
+                    target=target_id,
+                    relation_type=r["relation_type"],
+                )
+            )
+
+    return GraphDataResponse(
+        nodes=nodes,
+        links=links,
+        stats={
+            "total_nodes": len(nodes),
+            "total_links": len(links),
+            "entity_types": len(set(n.entity_type for n in nodes)),
+        },
+    )
