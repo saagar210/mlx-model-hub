@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -90,13 +89,14 @@ async def add_to_review_queue(content_id: UUID) -> bool:
             raise ValueError(f"Invalid FSRS card state: {error}")
 
         # Insert into queue
+        # Pass dict directly - the custom jsonb codec in db.py handles encoding
         await conn.execute(
             """
             INSERT INTO review_queue (content_id, fsrs_state, next_review, status)
-            VALUES ($1, $2::jsonb, $3, 'active')
+            VALUES ($1, $2, $3, 'active')
             """,
             content_id,
-            json.dumps(card_state),
+            card_state,
             datetime.now(UTC),
         )
 
@@ -371,18 +371,24 @@ async def submit_review(
             logger.error(f"Invalid FSRS state after review: {error}")
             raise ValueError(f"Review produced invalid state: {error}")
 
+        # Convert due date from string to datetime if needed
+        next_review_due = new_state["due"]
+        if isinstance(next_review_due, str):
+            next_review_due = datetime.fromisoformat(next_review_due.replace("Z", "+00:00"))
+
         # Update database
+        # Pass dict directly - the custom jsonb codec in db.py handles encoding
         await conn.execute(
             """
             UPDATE review_queue
-            SET fsrs_state = $1::jsonb,
+            SET fsrs_state = $1,
                 next_review = $2,
                 last_reviewed = $3,
                 review_count = review_count + 1
             WHERE content_id = $4
             """,
-            json.dumps(new_state),
-            new_state["due"],
+            new_state,
+            next_review_due,
             review_time,
             content_id,
         )
@@ -496,16 +502,17 @@ async def reset_item(content_id: UUID) -> bool:
     card_state = create_fsrs_card()
 
     async with db.acquire() as conn:
+        # Pass dict directly - the custom jsonb codec in db.py handles encoding
         result = await conn.execute(
             """
             UPDATE review_queue
-            SET fsrs_state = $1::jsonb,
+            SET fsrs_state = $1,
                 next_review = NOW(),
                 last_reviewed = NULL,
                 review_count = 0
             WHERE content_id = $2
             """,
-            json.dumps(card_state),
+            card_state,
             content_id,
         )
 

@@ -96,11 +96,11 @@ async def list_content(
     )
 
 
-@router.get("/{content_id}", response_model=ContentDetailResponse, dependencies=[Depends(require_scope("read"))])
+@router.get("/{content_id}", dependencies=[Depends(require_scope("read"))])
 @handle_exceptions("get_content")
-async def get_content(content_id: UUID) -> ContentDetailResponse:
+async def get_content(content_id: UUID) -> dict:
     """
-    Get detailed information about a specific content item.
+    Get detailed information about a specific content item including chunks.
     """
     db = await get_db()
     content = await db.get_content_by_id(content_id)
@@ -108,27 +108,41 @@ async def get_content(content_id: UUID) -> ContentDetailResponse:
     if not content:
         raise HTTPException(status_code=404, detail="Content not found")
 
-    # Get chunk count
+    # Get chunks for this content
     async with db.acquire() as conn:
-        count_row = await conn.fetchrow(
-            "SELECT COUNT(*) FROM chunks WHERE content_id = $1",
+        chunk_rows = await conn.fetch(
+            """
+            SELECT id, chunk_index, chunk_text, source_ref
+            FROM chunks
+            WHERE content_id = $1
+            ORDER BY chunk_index
+            """,
             content_id,
         )
 
-    chunk_count = count_row["count"] if count_row else 0
+    chunks = [
+        {
+            "id": str(row["id"]),
+            "chunk_index": row["chunk_index"],
+            "chunk_text": row["chunk_text"],
+            "source_ref": row["source_ref"],
+        }
+        for row in chunk_rows
+    ]
 
-    return ContentDetailResponse(
-        id=content.id,
-        filepath=content.filepath,
-        content_type=content.type,
-        title=content.title,
-        summary=content.summary,
-        tags=content.tags or [],
-        metadata=content.metadata or {},
-        created_at=content.created_at,
-        updated_at=content.updated_at,
-        chunk_count=chunk_count,
-    )
+    return {
+        "id": str(content.id),
+        "filepath": content.filepath,
+        "content_type": content.type,
+        "title": content.title,
+        "url": content.url,
+        "summary": content.summary,
+        "tags": content.tags or [],
+        "metadata": content.metadata or {},
+        "created_at": content.created_at.isoformat(),
+        "updated_at": content.updated_at.isoformat(),
+        "chunks": chunks,
+    }
 
 
 @router.delete("/{content_id}", dependencies=[Depends(require_scope("delete"))])

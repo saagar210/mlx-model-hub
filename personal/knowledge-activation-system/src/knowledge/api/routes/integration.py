@@ -746,6 +746,8 @@ class QuickCaptureResponse(BaseModel):
     success: bool
     content_id: str | None
     title: str
+    content_type: str = "capture"
+    chunks_created: int = 0
     message: str
 
 
@@ -856,6 +858,8 @@ async def quick_capture(request: QuickCaptureRequest) -> QuickCaptureResponse:
             success=True,
             content_id=str(content_id),
             title=title,
+            content_type="capture",
+            chunks_created=len(chunk_records),
             message=f"Captured '{title}' with {len(chunk_records)} chunks",
         )
 
@@ -866,6 +870,8 @@ async def quick_capture(request: QuickCaptureRequest) -> QuickCaptureResponse:
             success=False,
             content_id=None,
             title=request.title or "Unknown",
+            content_type="capture",
+            chunks_created=0,
             message=f"Capture failed: {error_msg}",
         )
 
@@ -919,6 +925,8 @@ async def capture_url(
                 success=False,
                 content_id=None,
                 title=title,
+                content_type="bookmark",
+                chunks_created=0,
                 message="URL content too short or could not be extracted",
             )
 
@@ -996,6 +1004,8 @@ captured_at: '{datetime.now(UTC).isoformat()}'
             success=True,
             content_id=str(content_id),
             title=title,
+            content_type="bookmark",
+            chunks_created=len(chunk_records),
             message=f"Captured '{title}' from URL with {len(chunk_records)} chunks",
         )
 
@@ -1005,6 +1015,8 @@ captured_at: '{datetime.now(UTC).isoformat()}'
             success=False,
             content_id=None,
             title=url,
+            content_type="bookmark",
+            chunks_created=0,
             message=f"Failed to fetch URL: {str(e)}",
         )
     except Exception as e:
@@ -1014,6 +1026,8 @@ captured_at: '{datetime.now(UTC).isoformat()}'
             success=False,
             content_id=None,
             title=url,
+            content_type="bookmark",
+            chunks_created=0,
             message=f"Capture failed: {error_msg}",
         )
 
