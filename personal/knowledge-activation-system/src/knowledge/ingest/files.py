@@ -12,6 +12,7 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from knowledge.autotag import extract_tags
 from knowledge.chunking import ChunkingStrategy, chunk_content
 from knowledge.config import Settings, get_settings
 from knowledge.db import get_db
@@ -104,17 +105,19 @@ async def ingest_file(
     tags: list[str] | None = None,
     settings: Settings | None = None,
     auto_extract_entities: bool = True,
+    auto_tag: bool = False,
 ) -> IngestResult:
     """
     Ingest a local file (PDF, TXT, MD).
 
     1. Read file content
     2. Validate content
-    3. Chunk appropriately (page-based for PDF, recursive for others)
-    4. Generate embeddings
-    5. Create Obsidian note (reference only - doesn't copy file)
-    6. Store in database
-    7. Extract entities (optional, default True)
+    3. Auto-tag content using LLM (optional)
+    4. Chunk appropriately (page-based for PDF, recursive for others)
+    5. Generate embeddings
+    6. Create Obsidian note (reference only - doesn't copy file)
+    7. Store in database
+    8. Extract entities (optional, default True)
 
     Args:
         path: Path to file
@@ -122,6 +125,7 @@ async def ingest_file(
         tags: Optional tags
         settings: Optional settings override
         auto_extract_entities: Auto-extract entities after ingest (default True)
+        auto_tag: Auto-generate tags using LLM (default False - can be slow)
 
     Returns:
         IngestResult with success/failure info
@@ -193,6 +197,28 @@ async def ingest_file(
             frontmatter_tags = frontmatter_fields["tags"]
             if isinstance(frontmatter_tags, list):
                 final_tags.extend(frontmatter_tags)
+
+        # Auto-tag if enabled and we don't have many tags already
+        if auto_tag and len(final_tags) < 3:
+            try:
+                # Use filename as preliminary title for tagging
+                preliminary_title = title or path.stem
+                auto_tags = await extract_tags(preliminary_title, validation.content)
+                if auto_tags:
+                    final_tags.extend(auto_tags)
+                    logger.debug(
+                        "auto_tags_generated",
+                        path=str(path),
+                        tags=auto_tags,
+                    )
+            except Exception as e:
+                # Don't fail ingestion if auto-tagging fails
+                logger.warning(
+                    "auto_tagging_failed",
+                    path=str(path),
+                    error=str(e),
+                )
+
         final_tags = list(dict.fromkeys(final_tags))  # Dedupe preserving order
 
         # Determine title (extract from ORIGINAL content to get YAML frontmatter)
@@ -339,6 +365,7 @@ async def ingest_files_batch(
     paths: list[str | Path],
     tags: list[str] | None = None,
     settings: Settings | None = None,
+    auto_tag: bool = False,
 ) -> list[IngestResult]:
     """
     Ingest multiple files.
@@ -347,13 +374,14 @@ async def ingest_files_batch(
         paths: List of file paths
         tags: Optional tags to apply to all
         settings: Optional settings override
+        auto_tag: Auto-generate tags using LLM (default False)
 
     Returns:
         List of IngestResult for each file
     """
     results = []
     for path in paths:
-        result = await ingest_file(path, tags=tags, settings=settings)
+        result = await ingest_file(path, tags=tags, settings=settings, auto_tag=auto_tag)
         results.append(result)
     return results
 

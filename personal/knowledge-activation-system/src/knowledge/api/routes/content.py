@@ -16,6 +16,7 @@ from knowledge.api.schemas import (
     ContentListResponse,
 )
 from knowledge.api.utils import handle_exceptions
+from knowledge.autotag import extract_tags, suggest_tags
 from knowledge.db import get_db
 
 router = APIRouter(prefix="/content", tags=["content"])
@@ -153,3 +154,68 @@ async def delete_content(content_id: UUID) -> dict:
         )
 
     return {"status": "deleted", "id": str(content_id)}
+
+
+@router.post("/{content_id}/autotag", dependencies=[Depends(require_scope("write"))])
+@handle_exceptions("autotag_content")
+async def autotag_content(
+    content_id: UUID,
+    replace: bool = Query(False, description="Replace existing tags instead of appending"),
+) -> dict:
+    """
+    Auto-generate tags for a content item using LLM.
+
+    By default, appends new tags to existing ones. Set `replace=true` to replace all tags.
+    """
+    db = await get_db()
+
+    # Get content
+    content = await db.get_content_by_id(content_id)
+    if not content:
+        raise HTTPException(status_code=404, detail="Content not found")
+
+    # Get content text from chunks
+    chunks = await db.get_chunks_by_content_id(content_id)
+    if not chunks:
+        raise HTTPException(status_code=400, detail="Content has no chunks to analyze")
+
+    # Combine chunk text (limit to first 5 chunks for efficiency)
+    content_text = " ".join(chunk.chunk_text for chunk in chunks[:5])
+
+    # Extract tags
+    if replace:
+        new_tags = await extract_tags(content.title, content_text)
+    else:
+        # Suggest tags that aren't already present
+        new_tags = await suggest_tags(
+            content.title,
+            content_text,
+            existing_tags=content.tags or [],
+        )
+
+    if not new_tags:
+        return {
+            "content_id": str(content_id),
+            "message": "No new tags suggested",
+            "tags": content.tags or [],
+        }
+
+    # Update tags in database
+    if replace:
+        final_tags = new_tags
+    else:
+        final_tags = list(dict.fromkeys((content.tags or []) + new_tags))
+
+    async with db.acquire() as conn:
+        await conn.execute(
+            "UPDATE content SET tags = $1, updated_at = NOW() WHERE id = $2",
+            final_tags,
+            content_id,
+        )
+
+    return {
+        "content_id": str(content_id),
+        "new_tags": new_tags,
+        "all_tags": final_tags,
+        "replaced": replace,
+    }
