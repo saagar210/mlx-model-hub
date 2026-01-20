@@ -20,19 +20,4 @@
             roll_keep 5
         }
     }
-
-    # Health check endpoint passthrough
-    handle /health {
-        reverse_proxy api:8000
-    }
-
-    # Metrics endpoint (internal only)
-    @internal {
-        remote_ip 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 127.0.0.0/8
-    }
-
-    handle /metrics {
-        @internal
-        reverse_proxy api:8000
-    }
 }
