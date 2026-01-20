@@ -335,7 +335,7 @@ export async function suspendReview(contentId: string): Promise<void> {
 }
 
 export async function enableReview(contentId: string): Promise<void> {
-  await apiRequest<{ message: string }>(`/review/${contentId}/enable`, {
+  await apiRequest<{ message: string }>(`/review/${contentId}/add`, {
     method: "POST",
   });
 }
@@ -385,9 +385,12 @@ export async function captureContent(data: CaptureRequest): Promise<CaptureRespo
 }
 
 export async function captureUrl(data: CaptureUrlRequest): Promise<CaptureResponse> {
-  return apiRequest<CaptureResponse>("/api/v1/capture/url", {
+  const params = new URLSearchParams({ url: data.url });
+  if (data.tags && data.tags.length > 0) {
+    params.set("tags", data.tags.join(","));
+  }
+  return apiRequest<CaptureResponse>(`/api/v1/capture/url?${params}`, {
     method: "POST",
-    body: JSON.stringify(data),
   });
 }
 
@@ -414,17 +417,16 @@ export interface ImportResult {
 }
 
 export async function exportContent(options: ExportOptions = {}): Promise<Blob> {
-  const params = new URLSearchParams();
-  if (options.namespace) params.set("namespace", options.namespace);
-  if (options.content_type) params.set("content_type", options.content_type);
-  if (options.format) params.set("format", options.format);
-  if (options.include_chunks !== undefined) {
-    params.set("include_chunks", String(options.include_chunks));
-  }
-
-  const url = `${API_BASE}/api/v1/export?${params}`;
+  const url = `${API_BASE}/api/v1/export`;
   const response = await fetch(url, {
+    method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      namespace: options.namespace || null,
+      content_type: options.content_type || null,
+      format: options.format || "json",
+      include_chunks: options.include_chunks ?? true,
+    }),
   });
 
   if (!response.ok) {
