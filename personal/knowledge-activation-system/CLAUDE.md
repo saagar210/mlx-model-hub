@@ -4,19 +4,34 @@
 
 **READ FIRST:** `docs/SESSION_HANDOFF.md` contains complete context including:
 - What KAS is and why it exists
-- All completed work (P1-P38)
+- All completed work (P1-P38 + Integrations)
 - Key files reference
-- SDK usage examples
+- What's next
 
 **Current Phase:** ✅ Production Ready
-**Status:** All 38 priorities complete
+**Status:** All features complete, 7 integrations available
 
 ## Project Overview
+
 A hybrid Obsidian-centric personal knowledge management system with:
 - AI-powered semantic + keyword hybrid search
 - Content ingestion (YouTube, bookmarks, local files)
 - FSRS spaced repetition for active engagement
-- Near-zero maintenance through automation
+- Query routing and multi-hop reasoning
+- Entity extraction and knowledge graph
+- Multiple platform integrations
+
+## Current Metrics (2026-01-20)
+
+| Metric | Value |
+|--------|-------|
+| Documents | 2,600+ |
+| Chunks | 11,300+ |
+| Entities | 1,400+ |
+| Tests | 501 passing |
+| API Endpoints | 40+ routes |
+| **Evaluation Score** | **95.57%** |
+| Integrations | 7 |
 
 ## Technology Stack
 
@@ -26,86 +41,98 @@ A hybrid Obsidian-centric personal knowledge management system with:
 | Backend | FastAPI (Python) | 0.115+ |
 | Frontend | Next.js 15 + shadcn/ui | 15.x |
 | Embeddings | Nomic Embed Text v1.5 via Ollama | 768 dims |
-| Reranking | mxbai-rerank-large-v2 via Ollama | - |
+| Reranking | mxbai-rerank-large-v2 | - |
 | Spaced Rep | FSRS (py-fsrs) | 6.3.0 |
-| Transcription | Whisper large-v3 (fallback) | - |
-| AI Tiers | OpenRouter Free → DeepSeek → Claude | - |
+| Package Manager | uv | Latest |
 
-## Key Design Decisions
+## Available Integrations
 
-1. **Source of Truth**: Obsidian YAML frontmatter → PostgreSQL is derived cache
-2. **Search**: Hybrid (BM25 + vector) with RRF fusion, then reranking
-3. **Chunking**: Adaptive by content type (YouTube: timestamps, Bookmarks: semantic, PDFs: page-level)
-4. **Files**: Reference only (store paths, don't copy)
-5. **Git**: Hourly auto-commit, local only
-6. **Vault**: ~/Obsidian/ (existing)
+| Integration | Location | Status |
+|-------------|----------|--------|
+| MCP Server | `mcp-server/` | ✅ Production |
+| Web UI | `web/` | ✅ Production |
+| CLI | `cli.py` | ✅ Production |
+| iOS Shortcuts | `/shortcuts/*` API | ✅ Production |
+| Raycast | `integrations/raycast/` | ✅ Ready |
+| Browser Ext | `integrations/browser-extension/` | ✅ Ready |
+| n8n Node | `integrations/n8n/` | ✅ Ready |
+| Python SDK | `sdk/python/kas_client/` | ✅ Production |
 
-## Implementation Phases
-
-- **Phase 1**: Foundation (PostgreSQL, embeddings, hybrid search, CLI)
-- **Phase 2**: Content Ingestion (YouTube + Whisper fallback, bookmarks, files)
-- **Phase 3**: Intelligence Layer (Q&A with confidence scoring, reranking, auto-tags)
-- **Phase 4**: Web Application (Next.js frontend)
-- **Phase 5**: Active Engagement (FSRS Daily Review)
-- **Phase 6**: Polish & Automation (Dependabot, Watchtower, backups)
-
-## Three Special Features
-
-1. **Whisper Fallback**: When YouTube lacks captions, transcribe via local Whisper
-2. **Confidence Scoring**: Show "low confidence" warning when retrieval score <0.3
-3. **Content Validation**: Skip empty, too-short, or error page content on ingest
-
-## Commands
+## Quick Commands
 
 ```bash
 # Start database
 docker compose up -d
 
-# Run CLI
+# Run API server
+PYTHONPATH=src uv run uvicorn knowledge.api.main:app --reload
+
+# Run tests
+PYTHONPATH=src uv run pytest tests/ -v
+
+# Run evaluation
+PYTHONPATH=src uv run python evaluation/evaluate.py --verbose
+
+# CLI commands
 uv run python cli.py search "query"
-uv run python cli.py ingest youtube <video_id>
-uv run python cli.py review
+uv run python cli.py stats
+uv run python cli.py doctor
+uv run python cli.py maintenance
 
-# Run tests (MUST use uv run to get correct dependencies)
-uv run pytest tests/ -v
-
-# Type check
-uv run mypy src/
+# Launchd jobs
+launchctl list | grep com.kas
+launchctl start com.kas.maintenance
+tail -f /tmp/kas-maintenance.log
 ```
 
-## Planning Documents
+## Key Files Reference
 
-- `docs/SESSION_HANDOFF.md` - **START HERE** - Complete context for new sessions
-- `docs/PROJECT_STATUS.md` - Overall project status and metrics
-- `docs/IMPLEMENTATION_PLAN.md` - Full phased implementation plan
-- `docs/DATABASE_SCHEMA.md` - Complete PostgreSQL schema
-- `docs/ARCHITECTURE.md` - System architecture and data flow
-- `docs/DECISIONS.md` - All user decisions captured during planning
+### API Routes
+| Route | Purpose |
+|-------|---------|
+| `routes/search.py` | Hybrid search with reranking |
+| `routes/content.py` | Content CRUD operations |
+| `routes/shortcuts.py` | iOS Shortcuts integration |
+| `routes/batch.py` | Batch operations |
+| `routes/entities.py` | Entity extraction |
+| `routes/auth.py` | API key management |
 
-## Current Status (2026-01-19)
+### Core Modules
+| File | Purpose |
+|------|---------|
+| `search.py` | Hybrid search (BM25 + vector + RRF) |
+| `reranker.py` | Cross-encoder reranking |
+| `query_router.py` | Query classification |
+| `multihop.py` | Multi-hop reasoning |
+| `autotag.py` | LLM-based auto-tagging |
+| `entity_extraction.py` | Entity and relationship extraction |
 
-**All P1-P38 Complete** ✅
+## Documentation
 
-| Metric | Value |
-|--------|-------|
-| Documents | 2,360 |
-| Chunks | 10,251 |
-| Tests | 441 |
-| API Endpoints | 30+ routes |
-| Evaluation Score | 82.65% composite |
-| MCP Category | 83.17% |
-| MCP Tools | kas_search, kas_ingest, kas_review |
+| Document | Purpose |
+|----------|---------|
+| `docs/SESSION_HANDOFF.md` | **START HERE** - Session continuity |
+| `docs/PROJECT_STATUS.md` | Overall status and metrics |
+| `docs/INTEGRATIONS.md` | Integration documentation |
+| `docs/ROADMAP.md` | Future priorities |
 
-### What's Included:
-- Hybrid search (BM25 + vector + RRF fusion)
-- Cross-encoder reranking
-- Redis caching + query expansion
-- API authentication + rate limiting
-- Circuit breaker + graceful degradation
-- Prometheus metrics + OpenTelemetry tracing
-- Export/import + webhooks
-- Python SDK (`sdk/python/kas_client/`)
-- Load testing + evaluation framework
-- Spaced repetition scheduler (auto-starts with API)
+## What's Next
 
-Run tests: `uv run pytest tests/ -v`
+### High Priority
+1. Push ai-ml category to 95% (currently 91%)
+2. Push infrastructure category to 95% (currently 94%)
+3. Publish Raycast extension to Store
+4. Publish browser extension to Chrome Web Store
+
+### Medium Priority
+5. Multi-user support with user isolation
+6. Mobile native app (iOS/Android)
+7. Voice search integration
+
+See `docs/ROADMAP.md` for complete roadmap.
+
+---
+
+**Last Updated:** 2026-01-20
+**Branch:** `feat/knowledge-activation-system`
+**Tests:** 501 passing
