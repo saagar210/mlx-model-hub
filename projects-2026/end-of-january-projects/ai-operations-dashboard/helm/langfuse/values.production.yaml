@@ -1,0 +1,144 @@
+# Production configuration for AWS EKS / cloud deployment
+
+namespace: langfuse-prod
+
+# Langfuse Web Server
+langfuse:
+  web:
+    replicas: 3
+    image: langfuse/langfuse:3
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    env:
+      NODE_ENV: production
+      LANGFUSE_LOG_LEVEL: warn
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
+    # Pod disruption budget
+    pdb:
+      minAvailable: 2
+    # Horizontal Pod Autoscaler
+    hpa:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+
+  worker:
+    replicas: 4
+    image: langfuse/langfuse-worker:3
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "2Gi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+    hpa:
+      enabled: true
+      minReplicas: 4
+      maxReplicas: 20
+      targetCPUUtilizationPercentage: 70
+
+# PostgreSQL - Use AWS RDS in production
+postgresql:
+  # Disable in-cluster PostgreSQL for production
+  enabled: false
+  # External RDS connection
+  external:
+    host: langfuse-db.xxxxx.us-east-1.rds.amazonaws.com
+    port: 5432
+    database: langfuse
+    # Credentials via Kubernetes secret
+    existingSecret: langfuse-db-credentials
+
+# ClickHouse - Production configuration
+clickhouse:
+  enabled: true
+  image: clickhouse/clickhouse-server:24.3
+  resources:
+    requests:
+      cpu: "4000m"
+      memory: "16Gi"
+    limits:
+      cpu: "8000m"
+      memory: "32Gi"
+  storage:
+    size: 500Gi
+    storageClass: gp3
+  retention:
+    # 30-day retention for production
+    days: 30
+  # ClickHouse cluster settings
+  cluster:
+    shards: 2
+    replicasPerShard: 2
+
+# Redis - Use ElastiCache in production
+redis:
+  enabled: false
+  external:
+    host: langfuse-redis.xxxxx.cache.amazonaws.com
+    port: 6379
+    # TLS enabled
+    tls: true
+    existingSecret: langfuse-redis-credentials
+
+# S3 - Use AWS S3 in production
+localstack:
+  enabled: false
+
+s3:
+  enabled: true
+  endpoint: s3.amazonaws.com
+  bucket: langfuse-traces-production
+  region: us-east-1
+  # Use IAM role for service account (IRSA)
+  useIRSA: true
+  serviceAccountAnnotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/langfuse-s3-role
+
+# Service exposure
+service:
+  web:
+    type: ClusterIP
+    port: 3000
+
+# Authentication - via external secrets
+auth:
+  existingSecret: langfuse-auth-secrets
+
+# Ingress with ALB
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:ACCOUNT_ID:certificate/xxx
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+  hosts:
+    - host: langfuse.yourdomain.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - hosts:
+        - langfuse.yourdomain.com
+
+# Monitoring
+monitoring:
+  prometheus:
+    enabled: true
+    scrapeInterval: 15s
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+  # Datadog integration
+  datadog:
+    enabled: false

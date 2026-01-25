@@ -1,0 +1,18 @@
+apiVersion: v2
+name: langfuse
+description: Self-hosted Langfuse LLM Observability Platform
+type: application
+version: 1.0.0
+appVersion: "3.0.0"
+keywords:
+  - langfuse
+  - observability
+  - llm
+  - tracing
+  - evaluation
+maintainers:
+  - name: AI Operations Dashboard
+home: https://langfuse.com
+sources:
+  - https://github.com/langfuse/langfuse
+dependencies: []

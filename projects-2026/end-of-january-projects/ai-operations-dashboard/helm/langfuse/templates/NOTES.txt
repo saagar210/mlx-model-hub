@@ -1,0 +1,76 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your Langfuse deployment is being configured.
+
+===============================================================================
+ACCESS LANGFUSE
+===============================================================================
+
+1. Get the Langfuse URL:
+
+   Local (k3d): http://localhost:3002
+
+   Port-forward (if not using k3d load balancer):
+   kubectl port-forward svc/langfuse-web 3002:3000 -n {{ .Values.namespace }}
+
+2. Default credentials (if configured):
+   Email: {{ .Values.auth.adminEmail | default "admin@localhost" }}
+   Password: {{ .Values.auth.adminPassword | default "(see values.yaml)" }}
+
+===============================================================================
+VERIFY DEPLOYMENT
+===============================================================================
+
+Check pod status:
+  kubectl get pods -n {{ .Values.namespace }}
+
+Check services:
+  kubectl get svc -n {{ .Values.namespace }}
+
+Test API health:
+  curl http://localhost:3002/api/public/health
+
+===============================================================================
+COMPONENTS
+===============================================================================
+
+{{- if .Values.postgresql.enabled }}
+- PostgreSQL: langfuse-postgresql:5432
+{{- end }}
+{{- if .Values.clickhouse.enabled }}
+- ClickHouse: langfuse-clickhouse:8123
+{{- end }}
+{{- if .Values.redis.enabled }}
+- Redis: langfuse-redis:6379
+{{- end }}
+{{- if .Values.localstack.enabled }}
+- LocalStack (S3): langfuse-localstack:4566
+  Bucket: {{ .Values.localstack.s3.bucketName }}
+{{- end }}
+
+===============================================================================
+INTEGRATION
+===============================================================================
+
+To send traces from your applications:
+
+Python SDK:
+  from langfuse import Langfuse
+
+  langfuse = Langfuse(
+      public_key="<your-public-key>",
+      secret_key="<your-secret-key>",
+      host="http://localhost:3002"
+  )
+
+Create API keys at: http://localhost:3002/project/default/settings
+
+===============================================================================
+DOCUMENTATION
+===============================================================================
+
+- Langfuse Docs: https://langfuse.com/docs
+- Self-Hosting: https://langfuse.com/self-hosting
+- Python SDK: https://langfuse.com/docs/sdk/python
+
+===============================================================================
