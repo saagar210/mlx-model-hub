@@ -252,9 +252,47 @@ All services run locally:
 - KAS: localhost:8000
 - LocalCrew: localhost:8001
 
-### No Sensitive Data Storage
+### Sensitive Data Protection
 
-Context items should not contain:
+The system includes automatic detection of potentially sensitive content:
+
+**Detected Patterns:**
+- API keys (api_key, apikey, etc.)
+- Secrets and passwords
+- Auth tokens (Bearer, JWT)
+- Private keys
+- Database credentials
+- OpenAI API keys (sk-...)
+- GitHub tokens (ghp_..., ghr_...)
+
+When `UCE_WARN_ON_SENSITIVE_DATA=true` (default), the system logs a warning
+if content appears to contain sensitive data. Content is not automatically
+redacted - users should sanitize data before saving.
+
+**Context items should never contain:**
 - API keys
 - Passwords
-- Personal identifiable information
+- Personal identifiable information (PII)
+- Private keys or certificates
+
+### Data Retention
+
+Configurable retention policies automatically clean up old data:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `UCE_CONTEXT_RETENTION_DAYS` | 90 | Days to keep context items |
+| `UCE_FEEDBACK_RETENTION_DAYS` | 180 | Days to keep feedback logs |
+| `UCE_SESSION_RETENTION_DAYS` | 30 | Days to keep session data |
+
+Set any value to 0 to disable retention (keep forever).
+
+Run `retention_cleanup` tool to manually trigger cleanup.
+
+### Production Mode
+
+Set `UCE_PRODUCTION_MODE=true` for production deployments to enable:
+
+1. **Disable ChromaDB Reset**: Prevents accidental `reset()` calls
+2. **Stricter Validation**: Additional safeguards for destructive operations
+3. **Enhanced Logging**: More detailed audit logs

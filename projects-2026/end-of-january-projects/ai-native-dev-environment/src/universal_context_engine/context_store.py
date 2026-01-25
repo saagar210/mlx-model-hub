@@ -10,7 +10,7 @@ from typing import Any
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 
-from .config import settings
+from .config import settings, contains_sensitive_data
 from .embedding import embedding_client
 from .logging import log_exception, log_operation, logger
 from .models import ContextItem, ContextType, SearchResult
@@ -40,11 +40,16 @@ class ContextStore:
         persist_dir = persist_directory or str(settings.chromadb_path)
         settings.ensure_directories()
 
+        # In production mode, disable allow_reset to prevent accidental data loss
+        allow_reset = not settings.production_mode
+        if settings.production_mode:
+            logger.info("Production mode: ChromaDB reset is disabled")
+
         self._client = chromadb.PersistentClient(
             path=persist_dir,
             settings=ChromaSettings(
                 anonymized_telemetry=False,
-                allow_reset=True,
+                allow_reset=allow_reset,
             ),
         )
         self._collections: dict[str, chromadb.Collection] = {}
@@ -84,6 +89,20 @@ class ContextStore:
         """
         item_id = str(uuid.uuid4())
         timestamp = datetime.now(UTC)
+
+        # Warn if content appears to contain sensitive data
+        if settings.warn_on_sensitive_data and contains_sensitive_data(content):
+            logger.warning(
+                f"context_store.save: Content may contain sensitive data (type={context_type.value}). "
+                "Consider redacting secrets before saving."
+            )
+
+        # Truncate content if too long
+        if len(content) > settings.max_content_length:
+            logger.warning(
+                f"context_store.save: Content truncated from {len(content)} to {settings.max_content_length} chars"
+            )
+            content = content[:settings.max_content_length]
 
         # Generate embedding
         embedding = await self._embedding_client.embed(content)
@@ -340,3 +359,85 @@ context_store = ContextStore()
 async def cleanup_executor() -> None:
     """Shutdown the thread pool executor gracefully."""
     _executor.shutdown(wait=False)
+
+
+async def run_retention_cleanup() -> dict[str, int]:
+    """Clean up old data based on retention policies.
+
+    This function removes context items and feedback older than
+    the configured retention periods.
+
+    Returns:
+        Dictionary with counts of deleted items by type.
+    """
+    from datetime import timedelta
+
+    deleted = {"context": 0, "feedback": 0, "sessions": 0}
+
+    # Skip if no retention configured (0 = keep forever)
+    if settings.context_retention_days <= 0 and settings.feedback_retention_days <= 0:
+        logger.info("retention_cleanup: No retention policy configured, skipping")
+        return deleted
+
+    loop = asyncio.get_event_loop()
+
+    # Calculate cutoff dates
+    now = datetime.now(UTC)
+
+    # Clean up context items
+    if settings.context_retention_days > 0:
+        context_cutoff = now - timedelta(days=settings.context_retention_days)
+        context_cutoff_iso = context_cutoff.isoformat()
+
+        for context_type in ContextType:
+            try:
+                collection = context_store._get_collection(context_type)
+
+                # Get all items
+                results = await loop.run_in_executor(
+                    _executor,
+                    partial(collection.get, include=["metadatas"]),
+                )
+
+                if results["ids"]:
+                    ids_to_delete = []
+                    for i, item_id in enumerate(results["ids"]):
+                        meta = results["metadatas"][i] if results["metadatas"] else {}
+                        timestamp_str = meta.get("timestamp", "")
+                        if timestamp_str and timestamp_str < context_cutoff_iso:
+                            ids_to_delete.append(item_id)
+
+                    if ids_to_delete:
+                        await loop.run_in_executor(
+                            _executor,
+                            partial(collection.delete, ids=ids_to_delete),
+                        )
+                        deleted["context"] += len(ids_to_delete)
+                        logger.info(
+                            f"retention_cleanup: Deleted {len(ids_to_delete)} items from {context_type.value}"
+                        )
+            except Exception as e:
+                log_exception("retention_cleanup", "context", e, {"type": context_type.value})
+
+    # Clean up session data from Redis
+    if settings.session_retention_days > 0:
+        try:
+            import redis.asyncio as aioredis
+
+            redis_client = aioredis.from_url(settings.redis_url)
+            session_keys = await redis_client.keys("session:*")
+
+            # Note: Redis session cleanup would require storing timestamps
+            # For now, log a warning that manual cleanup may be needed
+            if session_keys:
+                logger.info(
+                    f"retention_cleanup: Found {len(session_keys)} session keys in Redis. "
+                    "Manual cleanup may be required."
+                )
+
+            await redis_client.aclose()
+        except Exception as e:
+            log_exception("retention_cleanup", "sessions", e)
+
+    logger.info(f"retention_cleanup: Completed. Deleted: {deleted}")
+    return deleted

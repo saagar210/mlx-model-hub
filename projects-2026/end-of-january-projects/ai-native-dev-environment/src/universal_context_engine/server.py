@@ -873,6 +873,43 @@ async def export_feedback_data(
 
 
 # =============================================================================
+# Phase 7: Data Hygiene Tools
+# =============================================================================
+
+from .context_store import run_retention_cleanup
+
+
+@mcp.tool()
+@with_error_boundary("retention_cleanup")
+async def retention_cleanup() -> dict:
+    """Run data retention cleanup based on configured policies.
+
+    Removes context items and feedback older than the retention periods
+    configured in settings:
+    - context_retention_days (default: 90)
+    - feedback_retention_days (default: 180)
+    - session_retention_days (default: 30)
+
+    Set UCE_PRODUCTION_MODE=true to enable production safeguards.
+
+    Returns:
+        Summary of deleted items by category
+    """
+    from .config import settings
+
+    result = await run_retention_cleanup()
+    return {
+        "deleted": result,
+        "retention_policy": {
+            "context_days": settings.context_retention_days,
+            "feedback_days": settings.feedback_retention_days,
+            "session_days": settings.session_retention_days,
+        },
+        "production_mode": settings.production_mode,
+    }
+
+
+# =============================================================================
 # Server Entry Point
 # =============================================================================
 

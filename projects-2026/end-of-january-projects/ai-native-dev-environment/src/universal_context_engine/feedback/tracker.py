@@ -9,6 +9,7 @@ import chromadb
 from chromadb.config import Settings as ChromaSettings
 
 from ..config import settings
+from ..logging import logger
 
 
 @dataclass
@@ -39,11 +40,17 @@ class FeedbackTracker:
         """Lazily initialize the ChromaDB client and collection."""
         if self._collection is None:
             settings.ensure_directories()
+
+            # In production mode, disable allow_reset
+            allow_reset = not settings.production_mode
+            if settings.production_mode:
+                logger.info("FeedbackTracker: Production mode, reset disabled")
+
             self._client = chromadb.PersistentClient(
                 path=self._persist_dir,
                 settings=ChromaSettings(
                     anonymized_telemetry=False,
-                    allow_reset=True,
+                    allow_reset=allow_reset,
                 ),
             )
             self._collection = self._client.get_or_create_collection(
