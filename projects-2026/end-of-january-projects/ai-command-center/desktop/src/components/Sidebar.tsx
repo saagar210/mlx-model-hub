@@ -1,4 +1,4 @@
-import { Activity, BarChart3, Cog, Database, FileText } from 'lucide-react';
+import { Activity, BarChart3, Cog, Database, FileText, TestTube2 } from 'lucide-react';
 import clsx from 'clsx';
 import { useAppStore, Tab } from '../stores/appStore';
 
@@ -8,6 +8,7 @@ const navItems: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'config', label: 'Config', icon: <Cog className="w-5 h-5" /> },
   { id: 'models', label: 'Models', icon: <Database className="w-5 h-5" /> },
   { id: 'logs', label: 'Logs', icon: <FileText className="w-5 h-5" /> },
+  { id: 'tests', label: 'Tests', icon: <TestTube2 className="w-5 h-5" /> },
 ];
 
 export function Sidebar() {

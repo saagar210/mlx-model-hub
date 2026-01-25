@@ -519,6 +519,180 @@ async fn read_log_tail(service: String, lines: usize) -> Result<Vec<String>, Str
     Ok(all_lines[start..].to_vec())
 }
 
+// Test commands
+#[derive(Serialize, Deserialize)]
+pub struct TestResult {
+    pub service: String,
+    pub success: bool,
+    pub message: String,
+    pub latency_ms: Option<u64>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ChatTestResult {
+    pub success: bool,
+    pub model: String,
+    pub response_preview: String,
+    pub latency_ms: u64,
+    pub routing_info: Option<RoutingInfo>,
+    pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct RoutingInfo {
+    pub is_sensitive: bool,
+    pub complexity: String,
+    pub routed_model: String,
+}
+
+#[tauri::command]
+async fn test_service_connection(service: String) -> TestResult {
+    let url = match service.as_str() {
+        "router" => "http://localhost:4000/health",
+        "litellm" => "http://localhost:4001/health",
+        "ollama" => "http://localhost:11434/api/tags",
+        "redis" => {
+            // Test Redis via command
+            let output = std::process::Command::new("redis-cli")
+                .args(["ping"])
+                .output();
+            return match output {
+                Ok(out) => {
+                    let stdout = String::from_utf8_lossy(&out.stdout);
+                    TestResult {
+                        service,
+                        success: stdout.trim() == "PONG",
+                        message: if stdout.trim() == "PONG" {
+                            "Connected".to_string()
+                        } else {
+                            stdout.to_string()
+                        },
+                        latency_ms: None,
+                    }
+                }
+                Err(e) => TestResult {
+                    service,
+                    success: false,
+                    message: format!("Error: {}", e),
+                    latency_ms: None,
+                },
+            };
+        }
+        "langfuse" => "http://localhost:3001/api/public/health",
+        _ => {
+            return TestResult {
+                service,
+                success: false,
+                message: "Unknown service".to_string(),
+                latency_ms: None,
+            }
+        }
+    };
+
+    let client = reqwest::Client::new();
+    let start = std::time::Instant::now();
+
+    match client.get(url).timeout(std::time::Duration::from_secs(5)).send().await {
+        Ok(resp) => {
+            let latency = start.elapsed().as_millis() as u64;
+            TestResult {
+                service,
+                success: resp.status().is_success(),
+                message: if resp.status().is_success() {
+                    "Connected".to_string()
+                } else {
+                    format!("Status: {}", resp.status())
+                },
+                latency_ms: Some(latency),
+            }
+        }
+        Err(e) => TestResult {
+            service,
+            success: false,
+            message: format!("Error: {}", e),
+            latency_ms: None,
+        },
+    }
+}
+
+#[tauri::command]
+async fn test_chat_completion(prompt: String, model: String) -> ChatTestResult {
+    let client = reqwest::Client::new();
+    let start = std::time::Instant::now();
+
+    let request_body = serde_json::json!({
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": 50
+    });
+
+    match client
+        .post("http://localhost:4000/v1/chat/completions")
+        .header("Authorization", "Bearer sk-command-center-local")
+        .header("Content-Type", "application/json")
+        .json(&request_body)
+        .timeout(std::time::Duration::from_secs(60))
+        .send()
+        .await
+    {
+        Ok(resp) => {
+            let latency = start.elapsed().as_millis() as u64;
+            if resp.status().is_success() {
+                match resp.json::<serde_json::Value>().await {
+                    Ok(data) => {
+                        let response_text = data["choices"][0]["message"]["content"]
+                            .as_str()
+                            .unwrap_or("")
+                            .chars()
+                            .take(100)
+                            .collect::<String>();
+
+                        let routing_info = data.get("_routing").map(|r| RoutingInfo {
+                            is_sensitive: r["is_sensitive"].as_bool().unwrap_or(false),
+                            complexity: r["complexity"].as_str().unwrap_or("unknown").to_string(),
+                            routed_model: r["routed_model"].as_str().unwrap_or(&model).to_string(),
+                        });
+
+                        ChatTestResult {
+                            success: true,
+                            model,
+                            response_preview: response_text,
+                            latency_ms: latency,
+                            routing_info,
+                            error: None,
+                        }
+                    }
+                    Err(e) => ChatTestResult {
+                        success: false,
+                        model,
+                        response_preview: String::new(),
+                        latency_ms: latency,
+                        routing_info: None,
+                        error: Some(format!("Parse error: {}", e)),
+                    },
+                }
+            } else {
+                ChatTestResult {
+                    success: false,
+                    model,
+                    response_preview: String::new(),
+                    latency_ms: latency,
+                    routing_info: None,
+                    error: Some(format!("Status: {}", resp.status())),
+                }
+            }
+        }
+        Err(e) => ChatTestResult {
+            success: false,
+            model,
+            response_preview: String::new(),
+            latency_ms: start.elapsed().as_millis() as u64,
+            routing_info: None,
+            error: Some(format!("Error: {}", e)),
+        },
+    }
+}
+
 // Helper functions for tray actions
 async fn do_start_all(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let _ = start_litellm(state.clone()).await;
@@ -632,6 +806,8 @@ fn main() {
             pull_ollama_model,
             delete_ollama_model,
             read_log_tail,
+            test_service_connection,
+            test_chat_completion,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

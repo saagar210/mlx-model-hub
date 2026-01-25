@@ -7,13 +7,25 @@ import { Dashboard } from './components/Dashboard';
 import { ConfigEditor } from './components/ConfigEditor';
 import { OllamaModels } from './components/OllamaModels';
 import { LogViewer } from './components/LogViewer';
+import { TestRunner } from './components/TestRunner';
+import { SetupWizard } from './components/SetupWizard';
 import { useAppStore } from './stores/appStore';
 import type { AllHealth } from './lib/types';
+
+const SETUP_COMPLETE_KEY = 'ai-command-center-setup-complete';
 
 function App() {
   const [health, setHealth] = useState<AllHealth | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showSetup, setShowSetup] = useState(() => {
+    return localStorage.getItem(SETUP_COMPLETE_KEY) !== 'true';
+  });
   const { activeTab } = useAppStore();
+
+  const handleSetupComplete = () => {
+    localStorage.setItem(SETUP_COMPLETE_KEY, 'true');
+    setShowSetup(false);
+  };
 
   const fetchHealth = async () => {
     try {
@@ -90,6 +102,11 @@ function App() {
     ? [health.router, health.litellm, health.ollama, health.redis, health.langfuse]
         .filter((s) => s.healthy).length
     : 0;
+
+  // Show setup wizard on first run
+  if (showSetup) {
+    return <SetupWizard onComplete={handleSetupComplete} />;
+  }
 
   return (
     <div className="flex h-screen bg-gray-900 text-gray-100">
@@ -198,6 +215,7 @@ function App() {
         {activeTab === 'config' && <ConfigEditor />}
         {activeTab === 'models' && <OllamaModels />}
         {activeTab === 'logs' && <LogViewer />}
+        {activeTab === 'tests' && <TestRunner />}
       </main>
     </div>
   );
