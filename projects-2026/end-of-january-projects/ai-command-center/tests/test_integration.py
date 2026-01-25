@@ -108,6 +108,49 @@ class TestSmartRouter:
         data = response.json()
         assert "data" in data
 
+    def test_metrics_endpoint(self, client):
+        """Metrics endpoint returns valid JSON schema."""
+        response = client.get(f"{ROUTER_URL}/metrics")
+        assert response.status_code == 200
+        data = response.json()
+        # Validate schema matches desktop/src/lib/types.ts Metrics interface
+        assert "requests" in data
+        assert "total" in data["requests"]
+        assert isinstance(data["requests"]["total"], int)
+        assert "by_model" in data["requests"]
+        assert isinstance(data["requests"]["by_model"], dict)
+        assert "by_complexity" in data["requests"]
+        assert "latency" in data
+        assert "p50_ms" in data["latency"]
+        assert "p95_ms" in data["latency"]
+        assert "p99_ms" in data["latency"]
+        assert "avg_ms" in data["latency"]
+        assert "errors" in data
+        assert "total" in data["errors"]
+        assert "rate" in data["errors"]
+        assert "security" in data
+        assert "sensitive_requests" in data["security"]
+        assert "injection_attempts" in data["security"]
+        assert "cache" in data
+        assert "hits" in data["cache"]
+        assert "misses" in data["cache"]
+        assert "hit_rate" in data["cache"]
+        assert "timestamp" in data
+
+    def test_metrics_history_endpoint(self, client):
+        """Metrics history endpoint returns latency data."""
+        response = client.get(f"{ROUTER_URL}/metrics/history?minutes=60")
+        assert response.status_code == 200
+        data = response.json()
+        assert "history" in data
+        assert "minutes" in data
+        assert isinstance(data["history"], list)
+        # Each entry should have timestamp and latency_ms
+        if len(data["history"]) > 0:
+            entry = data["history"][0]
+            assert "timestamp" in entry
+            assert "latency_ms" in entry
+
 
 class TestLiteLLM:
     """Integration tests for LiteLLM proxy."""

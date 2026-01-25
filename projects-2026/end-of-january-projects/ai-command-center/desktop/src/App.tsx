@@ -44,60 +44,6 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleStartAll = async () => {
-    try {
-      await invoke('start_all');
-      await fetchHealth();
-    } catch (error) {
-      console.error('Failed to start services:', error);
-    }
-  };
-
-  const handleStopAll = async () => {
-    try {
-      await invoke('stop_all');
-      await fetchHealth();
-    } catch (error) {
-      console.error('Failed to stop services:', error);
-    }
-  };
-
-  const handleStartRouter = async () => {
-    try {
-      await invoke('start_router');
-      await fetchHealth();
-    } catch (error) {
-      console.error('Failed to start router:', error);
-    }
-  };
-
-  const handleStopRouter = async () => {
-    try {
-      await invoke('stop_router');
-      await fetchHealth();
-    } catch (error) {
-      console.error('Failed to stop router:', error);
-    }
-  };
-
-  const handleStartLitellm = async () => {
-    try {
-      await invoke('start_litellm');
-      await fetchHealth();
-    } catch (error) {
-      console.error('Failed to start LiteLLM:', error);
-    }
-  };
-
-  const handleStopLitellm = async () => {
-    try {
-      await invoke('stop_litellm');
-      await fetchHealth();
-    } catch (error) {
-      console.error('Failed to stop LiteLLM:', error);
-    }
-  };
-
   const healthyCount = health
     ? [health.router, health.litellm, health.ollama, health.redis, health.langfuse]
         .filter((s) => s.healthy).length
@@ -116,21 +62,7 @@ function App() {
         {activeTab === 'status' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold">Service Status</h1>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleStartAll}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg font-medium"
-                >
-                  Start All
-                </button>
-                <button
-                  onClick={handleStopAll}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg font-medium"
-                >
-                  Stop All
-                </button>
-              </div>
+              <h1 className="text-2xl font-bold text-white">Service Status</h1>
             </div>
 
             {loading ? (
@@ -142,16 +74,14 @@ function App() {
                   icon={<Layers className="w-6 h-6" />}
                   status={health.router}
                   port={4000}
-                  onStart={handleStartRouter}
-                  onStop={handleStopRouter}
+                  managed
                 />
                 <ServiceCard
                   name="LiteLLM Proxy"
                   icon={<Server className="w-6 h-6" />}
                   status={health.litellm}
                   port={4001}
-                  onStart={handleStartLitellm}
-                  onStop={handleStopLitellm}
+                  managed
                 />
                 <ServiceCard
                   name="Ollama"
@@ -181,13 +111,13 @@ function App() {
             )}
 
             <div className="mt-8 p-4 bg-gray-800 rounded-lg">
-              <h2 className="text-lg font-semibold mb-2">Quick Summary</h2>
+              <h2 className="text-lg font-semibold mb-2 text-white">Quick Summary</h2>
               <p className="text-gray-400">
                 {healthyCount}/5 services healthy
               </p>
               {health && !health.router.healthy && !health.litellm.healthy && (
                 <p className="text-yellow-400 mt-2 text-sm">
-                  Click "Start All" to launch the Smart Router and LiteLLM
+                  Services are managed by LaunchAgents. Run: launchctl start com.aicommandcenter.router
                 </p>
               )}
             </div>

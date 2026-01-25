@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:4000 http://localhost:4001 http://localhost:11434 http://localhost:6379 http://localhost:3001; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
@@ -50,11 +50,6 @@
     "macOS": {
       "entitlements": null,
       "minimumSystemVersion": "11.0"
-    }
-  },
-  "plugins": {
-    "shell": {
-      "open": true
     }
   }
 }

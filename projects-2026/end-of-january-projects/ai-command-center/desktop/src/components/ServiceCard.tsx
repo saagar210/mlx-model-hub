@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { ExternalLink, Play, Square } from 'lucide-react';
+import { ExternalLink, Info } from 'lucide-react';
 import clsx from 'clsx';
 import type { HealthStatus } from '../lib/types';
 
@@ -10,8 +10,7 @@ interface ServiceCardProps {
   port: number;
   external?: boolean;
   url?: string;
-  onStart?: () => void;
-  onStop?: () => void;
+  managed?: boolean;
 }
 
 export function ServiceCard({
@@ -21,8 +20,7 @@ export function ServiceCard({
   port,
   external,
   url,
-  onStart,
-  onStop,
+  managed,
 }: ServiceCardProps) {
   return (
     <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
@@ -53,35 +51,11 @@ export function ServiceCard({
       </div>
 
       <div className="flex gap-2">
-        {!external && (
-          <>
-            <button
-              onClick={onStart}
-              disabled={status.healthy}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded text-sm font-medium',
-                status.healthy
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
-              )}
-            >
-              <Play className="w-4 h-4" />
-              Start
-            </button>
-            <button
-              onClick={onStop}
-              disabled={!status.healthy}
-              className={clsx(
-                'flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded text-sm font-medium',
-                !status.healthy
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-700 text-white'
-              )}
-            >
-              <Square className="w-4 h-4" />
-              Stop
-            </button>
-          </>
+        {managed && (
+          <div className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm text-gray-400 bg-gray-700/50">
+            <Info className="w-3.5 h-3.5" />
+            Managed by LaunchAgents
+          </div>
         )}
         {url && (
           <a
@@ -94,7 +68,7 @@ export function ServiceCard({
             Open
           </a>
         )}
-        {external && !url && (
+        {external && !url && !managed && (
           <div className="flex-1 flex items-center justify-center px-3 py-1.5 rounded text-sm text-gray-500 bg-gray-700/50">
             External Service
           </div>

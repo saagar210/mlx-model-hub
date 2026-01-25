@@ -134,120 +134,57 @@ fn get_config_dir() -> Result<std::path::PathBuf, String> {
         .ok_or_else(|| "Could not find home directory".to_string())
 }
 
-// Service management commands
+// Service management commands - DISABLED per architecture mandate
+// Services are managed by LaunchAgents, not the desktop app.
+// These commands are kept as no-ops to maintain API compatibility.
+
 #[tauri::command]
-async fn start_router(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let mut pid_guard = state.router_pid.lock().await;
-    if pid_guard.is_some() {
-        return Err("Router already running".to_string());
-    }
-
-    let config_dir = get_config_dir()?;
-    let start_script = config_dir.join("start_router.sh");
-
-    if !start_script.exists() {
-        return Err(format!("Start script not found: {:?}", start_script));
-    }
-
-    let child = Command::new("bash")
-        .arg(start_script.to_str().unwrap())
-        .current_dir(&config_dir)
-        .spawn()
-        .map_err(|e| format!("Failed to start router: {}", e))?;
-
-    let pid = child.id();
-    *pid_guard = Some(pid);
-
-    Ok(format!("Router started with PID {}", pid))
+async fn start_router(_state: tauri::State<'_, AppState>) -> Result<String, String> {
+    Err("Service management disabled. Services are managed by LaunchAgents. Run: launchctl start com.aicommandcenter.router".to_string())
 }
 
 #[tauri::command]
-async fn stop_router(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let mut pid_guard = state.router_pid.lock().await;
-
-    // Try to kill by port (more reliable than PID for spawned scripts)
-    let output = Command::new("bash")
-        .args(["-c", "lsof -ti:4000 | xargs kill -9 2>/dev/null || true"])
-        .output()
-        .map_err(|e| format!("Failed to stop router: {}", e))?;
-
-    *pid_guard = None;
-
-    if output.status.success() {
-        Ok("Router stopped".to_string())
-    } else {
-        Ok("Router was not running".to_string())
-    }
+async fn stop_router(_state: tauri::State<'_, AppState>) -> Result<String, String> {
+    Err("Service management disabled. Services are managed by LaunchAgents. Run: launchctl stop com.aicommandcenter.router".to_string())
 }
 
 #[tauri::command]
-async fn start_litellm(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let mut pid_guard = state.litellm_pid.lock().await;
-    if pid_guard.is_some() {
-        return Err("LiteLLM already running".to_string());
-    }
-
-    let config_dir = get_config_dir()?;
-    let start_script = config_dir.join("start_litellm.sh");
-
-    if !start_script.exists() {
-        return Err(format!("Start script not found: {:?}", start_script));
-    }
-
-    let child = Command::new("bash")
-        .arg(start_script.to_str().unwrap())
-        .current_dir(&config_dir)
-        .spawn()
-        .map_err(|e| format!("Failed to start LiteLLM: {}", e))?;
-
-    let pid = child.id();
-    *pid_guard = Some(pid);
-
-    Ok(format!("LiteLLM started with PID {}", pid))
+async fn start_litellm(_state: tauri::State<'_, AppState>) -> Result<String, String> {
+    Err("Service management disabled. Services are managed by LaunchAgents. Run: launchctl start com.aicommandcenter.litellm".to_string())
 }
 
 #[tauri::command]
-async fn stop_litellm(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let mut pid_guard = state.litellm_pid.lock().await;
-
-    // Try to kill by port
-    let output = Command::new("bash")
-        .args(["-c", "lsof -ti:4001 | xargs kill -9 2>/dev/null || true"])
-        .output()
-        .map_err(|e| format!("Failed to stop LiteLLM: {}", e))?;
-
-    *pid_guard = None;
-
-    if output.status.success() {
-        Ok("LiteLLM stopped".to_string())
-    } else {
-        Ok("LiteLLM was not running".to_string())
-    }
+async fn stop_litellm(_state: tauri::State<'_, AppState>) -> Result<String, String> {
+    Err("Service management disabled. Services are managed by LaunchAgents. Run: launchctl stop com.aicommandcenter.litellm".to_string())
 }
 
 #[tauri::command]
-async fn start_all(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let _ = start_litellm(state.clone()).await;
-    // Give LiteLLM time to start
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-    let _ = start_router(state).await;
-    Ok("All services started".to_string())
+async fn start_all(_state: tauri::State<'_, AppState>) -> Result<String, String> {
+    Err("Service management disabled. Services are managed by LaunchAgents.".to_string())
 }
 
 #[tauri::command]
-async fn stop_all(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let _ = stop_router(state.clone()).await;
-    let _ = stop_litellm(state).await;
-    Ok("All services stopped".to_string())
+async fn stop_all(_state: tauri::State<'_, AppState>) -> Result<String, String> {
+    Err("Service management disabled. Services are managed by LaunchAgents.".to_string())
 }
 
 // Health check commands
 async fn check_http_health(url: &str, service: &str) -> HealthStatus {
     let start = std::time::Instant::now();
-    let client = reqwest::Client::builder()
+    let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(5))
         .build()
-        .unwrap();
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return HealthStatus {
+                service: service.to_string(),
+                healthy: false,
+                message: format!("Failed to create HTTP client: {}", e),
+                latency_ms: None,
+            };
+        }
+    };
 
     match client.get(url).send().await {
         Ok(resp) => {
@@ -490,9 +427,11 @@ async fn delete_ollama_model(model_name: String) -> Result<String, String> {
     }
 }
 
-// Log reading
+// Log reading - optimized tail-only implementation
 #[tauri::command]
 async fn read_log_tail(service: String, lines: usize) -> Result<Vec<String>, String> {
+    use std::io::{BufRead, BufReader, Seek, SeekFrom};
+
     let config_dir = get_config_dir()?;
     let filename = match service.as_str() {
         "router" => "router.out.log",
@@ -506,16 +445,42 @@ async fn read_log_tail(service: String, lines: usize) -> Result<Vec<String>, Str
         return Ok(vec![format!("Log file not found: {:?}", log_path)]);
     }
 
-    let content = std::fs::read_to_string(&log_path)
-        .map_err(|e| format!("Failed to read log: {}", e))?;
+    // Tail-only read: read from end of file to avoid loading entire file
+    let file = std::fs::File::open(&log_path)
+        .map_err(|e| format!("Failed to open log: {}", e))?;
 
-    let all_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-    let start = if all_lines.len() > lines {
-        all_lines.len() - lines
-    } else {
-        0
-    };
+    let metadata = file.metadata()
+        .map_err(|e| format!("Failed to get file metadata: {}", e))?;
 
+    let file_size = metadata.len();
+
+    // For small files (< 64KB), just read the whole thing
+    if file_size < 65536 {
+        let reader = BufReader::new(file);
+        let all_lines: Vec<String> = reader.lines()
+            .filter_map(|l| l.ok())
+            .collect();
+        let start = all_lines.len().saturating_sub(lines);
+        return Ok(all_lines[start..].to_vec());
+    }
+
+    // For larger files, read last ~64KB and extract lines
+    let mut file = file;
+    let seek_pos = file_size.saturating_sub(65536);
+    file.seek(SeekFrom::Start(seek_pos))
+        .map_err(|e| format!("Failed to seek: {}", e))?;
+
+    let reader = BufReader::new(file);
+    let mut all_lines: Vec<String> = reader.lines()
+        .filter_map(|l| l.ok())
+        .collect();
+
+    // If we seeked into the middle of a line, discard the first partial line
+    if seek_pos > 0 && !all_lines.is_empty() {
+        all_lines.remove(0);
+    }
+
+    let start = all_lines.len().saturating_sub(lines);
     Ok(all_lines[start..].to_vec())
 }
 
@@ -693,31 +658,19 @@ async fn test_chat_completion(prompt: String, model: String) -> ChatTestResult {
     }
 }
 
-// Helper functions for tray actions
-async fn do_start_all(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let _ = start_litellm(state.clone()).await;
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-    let _ = start_router(state).await;
-    Ok("All services started".to_string())
-}
-
-async fn do_stop_all(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let _ = stop_router(state.clone()).await;
-    let _ = stop_litellm(state).await;
-    Ok("All services stopped".to_string())
-}
-
-// Setup system tray
+// Setup system tray - Read-only mode (service management disabled)
 fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::Error>> {
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let show_item = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
-    let start_item = MenuItem::with_id(app, "start_all_svc", "Start All Services", true, None::<&str>)?;
-    let stop_item = MenuItem::with_id(app, "stop_all_svc", "Stop All Services", true, None::<&str>)?;
 
-    let menu = Menu::with_items(app, &[&show_item, &start_item, &stop_item, &quit_item])?;
+    let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+    let icon = app.default_window_icon()
+        .ok_or("No default window icon configured")?
+        .clone();
 
     let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icon)
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
             "quit" => {
@@ -728,20 +681,6 @@ fn setup_tray<R: Runtime>(app: &AppHandle<R>) -> Result<(), Box<dyn std::error::
                     let _ = window.show();
                     let _ = window.set_focus();
                 }
-            }
-            "start_all_svc" => {
-                let app_handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let state = app_handle.state::<AppState>();
-                    let _ = do_start_all(state).await;
-                });
-            }
-            "stop_all_svc" => {
-                let app_handle = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    let state = app_handle.state::<AppState>();
-                    let _ = do_stop_all(state).await;
-                });
             }
             _ => {}
         })
@@ -769,9 +708,8 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_fs::init())
+        // Removed shell and fs plugins per security audit
         .manage(AppState::default())
         .setup(|app| {
             setup_tray(app.handle())?;
@@ -811,4 +749,145 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_config_dir() {
+        let result = get_config_dir();
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.ends_with(".config/ai-command-center"));
+    }
+
+    #[test]
+    fn test_validation_empty_model_list() {
+        let config = Config {
+            model_list: vec![],
+            litellm_settings: serde_yaml::Value::Null,
+            router_settings: serde_yaml::Value::Null,
+            general_settings: serde_yaml::Value::Null,
+        };
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(validate_config(config));
+
+        assert!(!result.valid);
+        assert!(result.errors.iter().any(|e| e.contains("At least one model")));
+    }
+
+    #[test]
+    fn test_validation_empty_model_name() {
+        let config = Config {
+            model_list: vec![ModelConfig {
+                model_name: "".to_string(),
+                litellm_params: LiteLLMParams {
+                    model: "ollama/test".to_string(),
+                    api_base: "http://localhost:11434".to_string(),
+                },
+            }],
+            litellm_settings: serde_yaml::Value::Null,
+            router_settings: serde_yaml::Value::Null,
+            general_settings: serde_yaml::Value::Null,
+        };
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(validate_config(config));
+
+        assert!(!result.valid);
+        assert!(result.errors.iter().any(|e| e.contains("name cannot be empty")));
+    }
+
+    #[test]
+    fn test_validation_invalid_api_base() {
+        let config = Config {
+            model_list: vec![ModelConfig {
+                model_name: "test-model".to_string(),
+                litellm_params: LiteLLMParams {
+                    model: "ollama/test".to_string(),
+                    api_base: "invalid-url".to_string(),
+                },
+            }],
+            litellm_settings: serde_yaml::Value::Null,
+            router_settings: serde_yaml::Value::Null,
+            general_settings: serde_yaml::Value::Null,
+        };
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(validate_config(config));
+
+        assert!(!result.valid);
+        assert!(result.errors.iter().any(|e| e.contains("Invalid api_base")));
+    }
+
+    #[test]
+    fn test_validation_valid_config() {
+        let config = Config {
+            model_list: vec![
+                ModelConfig {
+                    model_name: "llama-fast".to_string(),
+                    litellm_params: LiteLLMParams {
+                        model: "ollama/llama3.2".to_string(),
+                        api_base: "http://localhost:11434".to_string(),
+                    },
+                },
+            ],
+            litellm_settings: serde_yaml::Value::Null,
+            router_settings: serde_yaml::Value::Null,
+            general_settings: serde_yaml::Value::Null,
+        };
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(validate_config(config));
+
+        assert!(result.valid);
+        assert!(result.errors.is_empty());
+    }
+
+    #[test]
+    fn test_validation_warns_missing_llama_fast() {
+        let config = Config {
+            model_list: vec![ModelConfig {
+                model_name: "qwen-local".to_string(),
+                litellm_params: LiteLLMParams {
+                    model: "ollama/qwen2.5".to_string(),
+                    api_base: "http://localhost:11434".to_string(),
+                },
+            }],
+            litellm_settings: serde_yaml::Value::Null,
+            router_settings: serde_yaml::Value::Null,
+            general_settings: serde_yaml::Value::Null,
+        };
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(validate_config(config));
+
+        assert!(result.valid); // Valid but with warning
+        assert!(result.warnings.iter().any(|w| w.contains("llama-fast")));
+    }
+
+    #[test]
+    fn test_health_status_serialization() {
+        let status = HealthStatus {
+            service: "test".to_string(),
+            healthy: true,
+            message: "OK".to_string(),
+            latency_ms: Some(42),
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("\"healthy\":true"));
+        assert!(json.contains("\"latency_ms\":42"));
+    }
+
+    #[test]
+    fn test_routing_policy_default() {
+        let policy: RoutingPolicy = serde_yaml::from_str("{}").unwrap();
+        assert!(!policy.privacy.enabled);
+        assert!(!policy.complexity.enabled);
+        assert!(!policy.injection.enabled);
+    }
 }

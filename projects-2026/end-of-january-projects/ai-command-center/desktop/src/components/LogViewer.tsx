@@ -29,8 +29,8 @@ export function LogViewer() {
 
   useEffect(() => {
     loadLogs();
-    // Poll for new logs every 2 seconds
-    const interval = setInterval(loadLogs, 2000);
+    // Poll for new logs every 5 seconds (reduced from 2s for performance)
+    const interval = setInterval(loadLogs, 5000);
     return () => clearInterval(interval);
   }, [selectedLog]);
 

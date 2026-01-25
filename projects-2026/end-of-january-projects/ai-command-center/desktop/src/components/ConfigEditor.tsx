@@ -276,20 +276,60 @@ export function ConfigEditor() {
               </label>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Entropy Threshold</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={policy.privacy.entropy_threshold}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 0) {
+                      const newPolicy = { ...policy, privacy: { ...policy.privacy, entropy_threshold: val } };
+                      setPolicy(newPolicy);
+                      setDirty(true);
+                    }
+                  }}
+                  className="w-full bg-gray-700 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Higher values detect more secrets</p>
+              </div>
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Min Token Length</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={policy.privacy.min_token_length}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= 1) {
+                      const newPolicy = { ...policy, privacy: { ...policy.privacy, min_token_length: val } };
+                      setPolicy(newPolicy);
+                      setDirty(true);
+                    }
+                  }}
+                  className="w-full bg-gray-700 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Min chars for entropy check</p>
+              </div>
+            </div>
+
             <div>
-              <label className="text-sm text-gray-400 block mb-1">Entropy Threshold</label>
+              <label className="text-sm text-gray-400 block mb-1">Sensitive Content Model</label>
               <input
-                type="number"
-                step="0.1"
-                value={policy.privacy.entropy_threshold}
+                type="text"
+                value={policy.privacy.sensitive_model}
                 onChange={(e) => {
-                  const newPolicy = { ...policy, privacy: { ...policy.privacy, entropy_threshold: parseFloat(e.target.value) || 0 } };
+                  const newPolicy = { ...policy, privacy: { ...policy.privacy, sensitive_model: e.target.value } };
                   setPolicy(newPolicy);
                   setDirty(true);
                 }}
                 className="w-full bg-gray-700 px-3 py-2 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="llama-fast"
               />
-              <p className="text-xs text-gray-500 mt-1">Higher values detect more potential secrets</p>
+              <p className="text-xs text-gray-500 mt-1">Model used for sensitive content (local only)</p>
             </div>
 
             {/* PII Patterns */}
