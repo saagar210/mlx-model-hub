@@ -32,7 +32,7 @@ def mock_services():
         mock_embed.health_check = AsyncMock(return_value=True)
         mock_kas.health = AsyncMock(return_value={"status": "healthy"})
         mock_localcrew.health = AsyncMock(return_value={"status": "healthy"})
-        mock_store.get_stats = MagicMock(return_value={"session": 10, "decision": 5, "context": 15})
+        mock_store.get_stats = AsyncMock(return_value={"session": 10, "decision": 5, "context": 15})
         mock_store.get_recent = AsyncMock(return_value=[])
 
         # Mock Redis

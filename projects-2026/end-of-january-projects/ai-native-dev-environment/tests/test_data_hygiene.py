@@ -23,7 +23,7 @@ class TestSensitiveDataDetection:
 
     def test_detects_tokens(self):
         """Should detect token patterns."""
-        assert contains_sensitive_data("Bearer abc123xyz")
+        assert contains_sensitive_data("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9")
         assert contains_sensitive_data("auth_token=xyz")
         assert contains_sensitive_data("auth-token: abc123")
 

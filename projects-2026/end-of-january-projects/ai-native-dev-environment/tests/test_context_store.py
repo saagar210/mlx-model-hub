@@ -151,7 +151,7 @@ async def test_get_stats(temp_store):
         context_type=ContextType.DECISION,
     )
 
-    stats = temp_store.get_stats()
+    stats = await temp_store.get_stats()
 
     assert stats["session"] == 1
     assert stats["decision"] == 2
@@ -171,5 +171,5 @@ async def test_delete(temp_store):
     assert result is True
 
     # Verify it's gone
-    stats = temp_store.get_stats()
+    stats = await temp_store.get_stats()
     assert stats["context"] == 0

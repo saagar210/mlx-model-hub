@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 SENSITIVE_PATTERNS = [
     r"\b(api[_-]?key|apikey)\b",
     r"\b(secret|password|passwd|pwd)\b",
-    r"\b(bearer\s+\S+)",  # Bearer token (must have value after)
+    r"\bbearer\s+[a-zA-Z0-9_\-\.]{20,}",  # Bearer token (must be 20+ alphanumeric chars)
     r"\bauth[_-]?token\b",  # auth_token specifically
     r"\b(private[_-]?key)\b",
     r"\bcredentials?\s*[=:]",  # credentials = or credentials:

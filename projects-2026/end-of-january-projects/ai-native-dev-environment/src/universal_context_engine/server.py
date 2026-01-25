@@ -252,7 +252,7 @@ async def recall_work(project: str | None = None) -> dict:
     )
 
     # Get stats
-    stats = context_store.get_stats()
+    stats = await context_store.get_stats()
 
     # Build summary
     summary_parts = []
@@ -300,7 +300,7 @@ async def context_stats() -> dict:
     Returns:
         Dictionary with context statistics
     """
-    stats = context_store.get_stats()
+    stats = await context_store.get_stats()
     return {
         "items_by_type": stats,
         "total_items": sum(stats.values()),

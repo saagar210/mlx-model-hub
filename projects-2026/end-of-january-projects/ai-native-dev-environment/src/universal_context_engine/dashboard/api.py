@@ -74,7 +74,7 @@ async def health() -> dict[str, Any]:
 
     # Check ChromaDB (context store)
     try:
-        stats = context_store.get_stats()
+        stats = await context_store.get_stats()
         services["chromadb"] = {
             "status": "healthy",
             "path": str(settings.chromadb_path),
@@ -96,7 +96,7 @@ async def health() -> dict[str, Any]:
 @app.get("/stats")
 async def stats() -> dict[str, Any]:
     """Get usage statistics."""
-    context_stats = context_store.get_stats()
+    context_stats = await context_store.get_stats()
 
     return {
         "timestamp": datetime.now(UTC).isoformat(),

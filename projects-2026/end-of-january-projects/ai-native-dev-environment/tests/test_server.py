@@ -128,7 +128,7 @@ async def test_recall_work_tool(mock_context_store, mock_git_info):
 
     # Setup mock
     mock_context_store.get_recent = AsyncMock(return_value=[])
-    mock_context_store.get_stats = MagicMock(return_value={
+    mock_context_store.get_stats = AsyncMock(return_value={
         "session": 5,
         "decision": 10,
         "pattern": 3,
@@ -153,7 +153,7 @@ async def test_context_stats_tool(mock_context_store):
     from universal_context_engine.server import context_stats
 
     # Setup mock
-    mock_context_store.get_stats = MagicMock(return_value={
+    mock_context_store.get_stats = AsyncMock(return_value={
         "session": 5,
         "decision": 10,
         "pattern": 3,

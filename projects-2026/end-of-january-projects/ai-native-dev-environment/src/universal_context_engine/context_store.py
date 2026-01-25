@@ -329,23 +329,32 @@ class ContextStore:
         """
         try:
             collection = self._get_collection(context_type)
-            collection.delete(ids=[item_id])
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(
+                _executor,
+                partial(collection.delete, ids=[item_id]),
+            )
             return True
         except Exception as e:
             log_exception("context_store", "delete", e, {"item_id": item_id})
             return False
 
-    def get_stats(self) -> dict[str, int]:
+    async def get_stats(self) -> dict[str, int]:
         """Get statistics about stored context items.
 
         Returns:
             Dictionary mapping collection names to item counts.
         """
         stats = {}
+        loop = asyncio.get_event_loop()
         for context_type in ContextType:
             try:
                 collection = self._get_collection(context_type)
-                stats[context_type.value] = collection.count()
+                count = await loop.run_in_executor(
+                    _executor,
+                    collection.count,
+                )
+                stats[context_type.value] = count
             except Exception as e:
                 log_exception("context_store", "get_stats", e, {"context_type": context_type.value})
                 stats[context_type.value] = 0
