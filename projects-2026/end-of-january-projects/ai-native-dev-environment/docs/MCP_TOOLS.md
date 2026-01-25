@@ -12,9 +12,8 @@ Save a context item with semantic embedding for later retrieval.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `content` | string | Yes | The content to save |
-| `context_type` | string | Yes | One of: session, decision, pattern, context, blocker, error |
-| `project` | string | No | Project name or path |
-| `branch` | string | No | Git branch name |
+| `context_type` | string | No | One of: session, decision, pattern, context, blocker, error (default: context) |
+| `project` | string | No | Project name or path (auto-detected from git) |
 | `metadata` | object | No | Additional metadata |
 
 **Example:**
@@ -37,9 +36,9 @@ Search saved context using natural language queries.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `query` | string | Yes | Natural language search query |
-| `context_type` | string | No | Filter by type |
-| `project` | string | No | Filter by project |
-| `limit` | integer | No | Max results (default: 10) |
+| `type_filter` | string | No | Filter by type: session, decision, pattern, context, blocker, error |
+| `project` | string | No | Filter by project (auto-detected if not provided) |
+| `limit` | integer | No | Max results (default: 5) |
 
 **Example:**
 ```
@@ -59,10 +58,10 @@ Get recent context items, optionally filtered.
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `project` | string | No | Filter by project |
+| `project` | string | No | Filter by project (auto-detected if not provided) |
 | `hours` | integer | No | Time window in hours (default: 24) |
-| `context_type` | string | No | Filter by type |
-| `limit` | integer | No | Max results (default: 20) |
+| `type_filter` | string | No | Filter by type: session, decision, pattern, context, blocker, error |
+| `limit` | integer | No | Max results (default: 10) |
 
 **Example:**
 ```
@@ -120,8 +119,7 @@ Initialize a new development session with context loading.
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `project` | string | Yes | Project path or name |
-| `branch` | string | No | Git branch (auto-detected if not provided) |
+| `project` | string | No | Project path override (auto-detected from git if not provided) |
 
 **Example:**
 ```
@@ -140,11 +138,15 @@ End the current session, generating a summary.
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `session_id` | string | No | Session ID (uses current if not provided) |
+| `conversation_excerpt` | string | No | Key points or summary of what was done |
+| `files_modified` | array | No | List of files that were modified |
 
 **Example:**
 ```
-end_session()
+end_session(
+    conversation_excerpt="Implemented OAuth flow and fixed redirect bug",
+    files_modified=["auth.py", "routes.py"]
+)
 ```
 
 **Returns:**
@@ -181,7 +183,7 @@ Record a blocker or issue for follow-up.
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `blocker` | string | Yes | Description of the blocker |
+| `description` | string | Yes | Description of the blocker |
 | `severity` | string | No | low, medium, high (default: medium) |
 | `context` | string | No | Additional context |
 

@@ -50,7 +50,7 @@ ChromaDB-backed persistent storage for context items.
 **Key Features:**
 - Semantic search using Ollama embeddings
 - Metadata filtering by type, project, time
-- Automatic deduplication
+- Per-type collections for efficient queries
 
 ### Session Manager (`session.py`)
 
@@ -227,17 +227,19 @@ All components share these settings to avoid conflicts.
 
 ## Performance Considerations
 
-### Embedding Cache
+### HTTP Client Management
 
-Ollama embeddings are cached in Redis to avoid redundant API calls.
-
-### Lazy Initialization
-
-Components initialize their connections lazily on first use.
+HTTP clients for Ollama and external APIs use lazy initialization - connections are created on first use and reused for subsequent requests.
 
 ### Batch Operations
 
 Where possible, batch operations are used for efficiency.
+
+### Future Optimizations (Planned)
+
+- Embedding caching in Redis for frequently accessed content
+- Result deduplication in unified search
+- Async-safe ChromaDB access via executor
 
 ## Security
 

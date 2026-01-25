@@ -119,7 +119,11 @@ The dashboard runs on port 8002 and provides observability endpoints:
 
 Start the dashboard:
 ```bash
-uv run uvicorn universal_context_engine.dashboard.api:app --host 0.0.0.0 --port 8002
+# Localhost only (default, secure)
+uv run python -m universal_context_engine.dashboard.api
+
+# Or expose to network (not recommended without auth)
+UCE_DASHBOARD_HOST=0.0.0.0 uv run python -m universal_context_engine.dashboard.api
 ```
 
 ## Services
