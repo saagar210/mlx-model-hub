@@ -877,9 +877,39 @@ async def export_feedback_data(
 # =============================================================================
 
 
+async def cleanup_resources():
+    """Clean up HTTP clients and resources on shutdown."""
+    from .context_store import cleanup_executor
+
+    # Close HTTP clients
+    await embedding_client.close()
+    await generate_client.close()
+    await kas_adapter.close()
+    await localcrew_adapter.close()
+
+    # Shutdown executor
+    await cleanup_executor()
+
+    logger.info("Resources cleaned up successfully")
+
+
 def main():
     """Run the MCP server."""
-    import sys
+    import atexit
+    import asyncio
+
+    # Register cleanup handler
+    def sync_cleanup():
+        try:
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(cleanup_resources())
+            loop.close()
+        except Exception as e:
+            # Best effort cleanup, don't crash on exit
+            pass
+
+    atexit.register(sync_cleanup)
+
     mcp.run(transport="stdio")
 
 

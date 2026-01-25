@@ -1,7 +1,10 @@
 """ChromaDB-based context store for Universal Context Engine."""
 
+import asyncio
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 
 import chromadb
@@ -11,6 +14,9 @@ from .config import settings
 from .embedding import embedding_client
 from .logging import log_exception, log_operation, logger
 from .models import ContextItem, ContextType, SearchResult
+
+# Thread pool for blocking ChromaDB operations
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="chromadb-")
 
 
 class ContextStore:
@@ -97,13 +103,18 @@ class ContextStore:
                 if isinstance(value, (str, int, float, bool)):
                     chroma_metadata[f"meta_{key}"] = value
 
-        # Save to collection
+        # Save to collection (run blocking ChromaDB call in executor)
         collection = self._get_collection(context_type)
-        collection.add(
-            ids=[item_id],
-            embeddings=[embedding],
-            documents=[content],
-            metadatas=[chroma_metadata],
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            _executor,
+            partial(
+                collection.add,
+                ids=[item_id],
+                embeddings=[embedding],
+                documents=[content],
+                metadatas=[chroma_metadata],
+            ),
         )
 
         return ContextItem(
@@ -152,13 +163,20 @@ class ContextStore:
                 self._get_collection(ct) for ct in ContextType
             ]
 
+        loop = asyncio.get_event_loop()
+
         for collection in collections_to_search:
             try:
-                search_results = collection.query(
-                    query_embeddings=[query_embedding],
-                    n_results=limit,
-                    where=where,
-                    include=["documents", "metadatas", "distances"],
+                # Run blocking ChromaDB query in executor
+                search_results = await loop.run_in_executor(
+                    _executor,
+                    partial(
+                        collection.query,
+                        query_embeddings=[query_embedding],
+                        n_results=limit,
+                        where=where,
+                        include=["documents", "metadatas", "distances"],
+                    ),
                 )
 
                 # Process results
@@ -230,18 +248,27 @@ class ContextStore:
                 (ct, self._get_collection(ct)) for ct in ContextType
             ]
 
+        loop = asyncio.get_event_loop()
+
         for ct, collection in collections_to_search:
             try:
                 # Build where clause
-                where_clauses = []
-                if project:
-                    where_clauses.append({"project": project})
+                where_clause = {"project": project} if project else None
 
                 # ChromaDB doesn't support timestamp comparisons well,
-                # so we get all and filter in Python
-                results = collection.get(
-                    include=["documents", "metadatas"],
-                    where={"project": project} if project else None,
+                # so we get items and filter in Python
+                # Use limit to reduce data loaded (multiply by collection count for safety margin)
+                fetch_limit = limit * len(collections_to_search) * 2
+
+                # Run blocking ChromaDB call in executor
+                results = await loop.run_in_executor(
+                    _executor,
+                    partial(
+                        collection.get,
+                        include=["documents", "metadatas"],
+                        where=where_clause,
+                        limit=fetch_limit,  # Limit data loaded from ChromaDB
+                    ),
                 )
 
                 if results["ids"]:
@@ -308,3 +335,8 @@ class ContextStore:
 
 # Default context store instance
 context_store = ContextStore()
+
+
+async def cleanup_executor() -> None:
+    """Shutdown the thread pool executor gracefully."""
+    _executor.shutdown(wait=False)
