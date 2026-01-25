@@ -1,0 +1,10 @@
+# Custom entity aliases
+# Format: alias: canonical_name
+
+# Project-specific aliases
+uce: universal_context_engine
+"universal context engine": universal_context_engine
+ke: knowledge_engine
+kas: knowledge_activation_system
+
+# Add your custom aliases here

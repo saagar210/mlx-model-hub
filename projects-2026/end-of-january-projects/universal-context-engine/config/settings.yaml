@@ -1,0 +1,54 @@
+# Universal Context Engine Configuration
+
+# Application settings
+app:
+  name: Universal Context Engine
+  version: 0.1.0
+  debug: false
+
+# Database
+database:
+  url: postgresql+asyncpg://uce:uce@localhost:5434/universal_context
+  pool_size: 10
+
+# Ollama (for embeddings)
+ollama:
+  url: http://localhost:11434
+  embedding_model: nomic-embed-text
+  embedding_dimensions: 768
+  rerank_model: mxbai-rerank-large-v2
+
+# Search settings
+search:
+  default_limit: 20
+  rrf_k: 60
+  decay_half_life_hours: 168  # 1 week
+
+# Source connections
+sources:
+  kas:
+    db_url: postgresql://knowledge:localdev@localhost:5433/knowledge
+    api_url: http://localhost:8000
+    enabled: true
+    sync_interval_minutes: 30
+
+  git:
+    repo_paths:
+      - ~/claude-code/projects-2026
+      - ~/claude-code/personal
+    enabled: true
+    sync_interval_minutes: 2
+
+  browser:
+    enabled: true
+    sync_interval_minutes: 1
+
+# API settings
+api:
+  host: 0.0.0.0
+  port: 8100
+
+# Sync settings
+sync:
+  enabled: true
+  default_interval_seconds: 300

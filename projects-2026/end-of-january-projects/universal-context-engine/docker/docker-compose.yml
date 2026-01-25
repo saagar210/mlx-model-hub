@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  uce:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8100:8100"
+    environment:
+      - UCE_DATABASE_URL=postgresql+asyncpg://uce:${UCE_DB_PASSWORD:-uce}@postgres:5432/universal_context
+      - UCE_OLLAMA_URL=http://host.docker.internal:11434
+      - UCE_KAS_DB_URL=postgresql://knowledge:localdev@host.docker.internal:5433/knowledge
+      - UCE_DEBUG=${UCE_DEBUG:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - uce-network
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    ports:
+      - "127.0.0.1:5434:5432"
+    environment:
+      - POSTGRES_USER=uce
+      - POSTGRES_PASSWORD=${UCE_DB_PASSWORD:-uce}
+      - POSTGRES_DB=universal_context
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-extensions.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uce -d universal_context"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - uce-network
+
+networks:
+  uce-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

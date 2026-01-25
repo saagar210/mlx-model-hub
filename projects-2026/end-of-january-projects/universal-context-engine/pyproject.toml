@@ -1,0 +1,80 @@
+[project]
+name = "universal-context-engine"
+version = "0.1.0"
+description = "Unified context aggregation layer with temporal knowledge graph capabilities"
+authors = [{ name = "Your Name", email = "you@example.com" }]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # Core
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+
+    # Database
+    "asyncpg>=0.29.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+
+    # API
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "httpx>=0.26.0",
+
+    # Async
+    "anyio>=4.2.0",
+
+    # Search & Vectors
+    "numpy>=1.26.0",
+
+    # Scheduling
+    "apscheduler>=3.10.0",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "structlog>=24.1.0",
+    "pyyaml>=6.0.0",
+    "orjson>=3.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.8.0",
+]
+neo4j = [
+    "neo4j>=5.15.0",
+]
+
+[project.scripts]
+uce = "uce.main:main"
+uce-mcp = "uce.mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/uce"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.isort]
+known-first-party = ["uce"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
