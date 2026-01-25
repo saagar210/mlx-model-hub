@@ -20,12 +20,12 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Add CORS for frontend access
+# Add CORS for frontend access (restricted to localhost by default)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=False,  # Disabled unless explicitly needed
+    allow_methods=["GET"],  # Dashboard is read-only
     allow_headers=["*"],
 )
 
@@ -212,9 +212,14 @@ async def blockers(include_resolved: bool = False) -> dict[str, Any]:
 
 
 def main():
-    """Run the dashboard server."""
+    """Run the dashboard server.
+
+    WARNING: The dashboard binds to 127.0.0.1 by default for security.
+    To expose externally, set UCE_DASHBOARD_HOST=0.0.0.0 - this is NOT
+    recommended without additional authentication.
+    """
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8002)
+    uvicorn.run(app, host=settings.dashboard_host, port=settings.dashboard_port)
 
 
 if __name__ == "__main__":

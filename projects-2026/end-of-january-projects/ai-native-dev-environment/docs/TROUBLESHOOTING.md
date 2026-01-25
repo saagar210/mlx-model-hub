@@ -2,6 +2,25 @@
 
 Common issues and solutions for the Universal Context Engine.
 
+## Security Notice
+
+**IMPORTANT:** All services bind to `127.0.0.1` (localhost) by default for security.
+
+To expose services externally:
+```bash
+UCE_BIND_HOST=0.0.0.0 ./scripts/start_services.sh
+```
+
+**WARNING:** Exposing services to the network without authentication is a security risk:
+- Dashboard has no authentication and exposes internal metrics
+- KAS and LocalCrew APIs have no authentication
+- Context data may contain sensitive information
+
+If you must expose services externally:
+1. Use a reverse proxy (nginx/caddy) with authentication
+2. Configure firewall rules to restrict access
+3. Consider VPN or SSH tunneling instead
+
 ## Service Issues
 
 ### Ollama Not Running

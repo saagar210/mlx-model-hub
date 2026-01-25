@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # LocalCrew API
     localcrew_base_url: str = "http://localhost:8001"
 
+    # Dashboard settings
+    dashboard_host: str = "127.0.0.1"  # Bind to localhost only for security
+    dashboard_port: int = 8002
+    cors_allowed_origins: list[str] = ["http://localhost:8002", "http://127.0.0.1:8002"]
+
     # ChromaDB settings
     chroma_collection_prefix: str = "uce"
 
