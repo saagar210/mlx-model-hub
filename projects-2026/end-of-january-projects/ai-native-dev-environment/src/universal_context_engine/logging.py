@@ -145,7 +145,8 @@ def with_error_boundary(tool_name: str) -> Callable:
     """Decorator to add error boundary to MCP tools.
 
     Catches all exceptions and returns structured error responses
-    instead of raising unhandled exceptions.
+    instead of raising unhandled exceptions. Also logs interactions
+    to the feedback tracker for quality metrics.
 
     Args:
         tool_name: Name of the tool for error context
@@ -157,16 +158,42 @@ def with_error_boundary(tool_name: str) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> dict[str, Any]:
             import time
+            from .feedback import feedback_tracker
+
             start_time = time.time()
+            error_msg = None
+            result = None
+
             try:
                 result = await func(*args, **kwargs)
                 latency_ms = (time.time() - start_time) * 1000
                 log_operation("tool", tool_name, success=True, latency_ms=latency_ms)
+
+                # Log successful interaction to feedback tracker
+                feedback_tracker.log_interaction(
+                    tool=tool_name,
+                    input_params=kwargs,
+                    output=result,
+                    latency_ms=int(latency_ms),
+                    error=None,
+                )
                 return result
+
             except Exception as e:
                 latency_ms = (time.time() - start_time) * 1000
+                error_msg = str(e)
                 log_exception("tool", tool_name, e, context={"args": str(args)[:200], "kwargs": str(kwargs)[:200]})
                 log_operation("tool", tool_name, success=False, latency_ms=latency_ms)
+
+                # Log failed interaction to feedback tracker
+                feedback_tracker.log_interaction(
+                    tool=tool_name,
+                    input_params=kwargs,
+                    output=None,
+                    latency_ms=int(latency_ms),
+                    error=error_msg,
+                )
                 return create_error_response(e, tool_name)
+
         return wrapper
     return decorator
