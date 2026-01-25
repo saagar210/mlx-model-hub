@@ -1,0 +1,116 @@
+[project]
+name = "sia"
+version = "0.1.0"
+description = "Self-Improving Agents Framework - Production-grade framework for AI agents that improve through code self-modification, skill accumulation, and prompt optimization"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "SIA Team" }]
+keywords = ["ai", "agents", "self-improving", "dspy", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # Core
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    # Database
+    "asyncpg>=0.29.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "pgvector>=0.3.0",
+    # API
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "httpx>=0.27.0",
+    # CLI
+    "typer>=0.12.0",
+    "rich>=13.0",
+    # LLM
+    "openai>=1.0",  # OpenAI-compatible client for Ollama/OpenRouter
+    "tiktoken>=0.7.0",  # Token counting
+    # DSPy for prompt optimization
+    "dspy>=2.5.0",
+    # Observability
+    "langfuse>=2.0",
+    "prometheus-client>=0.20.0",
+    "structlog>=24.0",
+    # Utilities
+    "python-dotenv>=1.0",
+    "tenacity>=8.0",  # Retry logic
+    "aiofiles>=24.0",
+    "orjson>=3.10",  # Fast JSON
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10",
+    "pre-commit>=3.0",
+    "httpx>=0.27.0",  # For testing FastAPI
+]
+
+[project.scripts]
+sia = "sia.cli.main:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sia"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = ["E501"]  # Line length handled by formatter
+
+[tool.ruff.lint.isort]
+known-first-party = ["sia"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["asyncpg.*", "dspy.*", "langfuse.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/sia"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
