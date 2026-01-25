@@ -1,0 +1,196 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Project Setup and Environment Configuration",
+      "description": "Create pyproject.toml with all dependencies, set up src/streamind package structure, configure development tools (ruff, pytest, mypy), create __main__.py entry point, and verify Ollama models are accessible.",
+      "status": "done",
+      "priority": "high",
+      "dependencies": [],
+      "tags": ["setup", "phase-1"]
+    },
+    {
+      "id": 2,
+      "title": "Screen Capture Module",
+      "description": "Implement ScreenCapture class in capture/screen.py with methods for full screen capture (capture_screen), specific monitor capture (capture_monitor), basic frame caching, and continuous capture mode. Write tests for capture functionality.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "tags": ["capture", "phase-1"]
+    },
+    {
+      "id": 3,
+      "title": "Ollama Vision Integration",
+      "description": "Create VisionEngine class in vision/engine.py with async analyze() method, image encoding (base64) helper, Ollama connection handling with timeouts, and basic prompting. Test with static screenshots.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "tags": ["vision", "ollama", "phase-1"]
+    },
+    {
+      "id": 4,
+      "title": "Basic CLI Implementation",
+      "description": "Create cli.py using Click framework with 'streamind ask \"query\"' command, connect CLI to capture and vision modules, add basic error handling and loading indicators. Test end-to-end flow.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [2, 3],
+      "tags": ["cli", "phase-1"]
+    },
+    {
+      "id": 5,
+      "title": "End-to-End Integration Testing",
+      "description": "Test complete capture -> vision -> response pipeline, measure response time (target <3s), test with various screen content types (code, terminal, browser), add integration test suite, document findings.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [4],
+      "tags": ["testing", "phase-1"]
+    },
+    {
+      "id": 6,
+      "title": "Active Window Detection",
+      "description": "Implement WindowInfo dataclass and capture/window.py using PyObjC. Add get_active_window() returning app name, window title, bounds, and PID. Add get_all_windows() for future use. Test with different applications.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [1],
+      "tags": ["capture", "macos", "phase-2"]
+    },
+    {
+      "id": 7,
+      "title": "SQLite Storage Layer",
+      "description": "Design schema for frames, analyses, and settings tables. Create context/storage.py with SQLite operations, implement CRUD methods, add migration support for future schema changes. Write storage tests.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [1],
+      "tags": ["storage", "database", "phase-2"]
+    },
+    {
+      "id": 8,
+      "title": "Context Manager Implementation",
+      "description": "Create ContextManager class in context/manager.py. Implement frame history (memory + disk), entity extraction (errors, file names, line numbers), get_context_for_query() method. Test context relevance for queries.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [6, 7],
+      "tags": ["context", "phase-2"]
+    },
+    {
+      "id": 9,
+      "title": "Content-Type Detection and Specialized Prompts",
+      "description": "Add ContentType enum (code, terminal, browser, document, other). Implement detect_content_type() in VisionEngine. Create content-specific prompts in prompts.py optimized for each type. Test detection accuracy.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [3],
+      "tags": ["vision", "prompts", "phase-2"]
+    },
+    {
+      "id": 10,
+      "title": "Change Detection for Efficiency",
+      "description": "Implement perceptual hashing using imagehash library. Add has_changed() method to ScreenCapture. Skip processing unchanged frames to save resources. Add configurable sensitivity. Measure resource savings.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [2],
+      "tags": ["capture", "optimization", "phase-2"]
+    },
+    {
+      "id": 11,
+      "title": "Full CLI Implementation",
+      "description": "Add 'serve' command for daemon mode with background capture. Add 'status' command to show daemon state. Add 'history' command with filtering options. Add 'config' command for settings. Create CLI help documentation.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [5, 8],
+      "tags": ["cli", "phase-3"]
+    },
+    {
+      "id": 12,
+      "title": "Menu Bar Application",
+      "description": "Set up rumps for macOS menu bar integration. Create status icon (eye icon for watching/paused states). Add dropdown menu with quick actions. Implement query input dialog. Connect to backend capture/vision services.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [11],
+      "tags": ["ui", "menubar", "phase-3"]
+    },
+    {
+      "id": 13,
+      "title": "Reasoning Engine Integration",
+      "description": "Create ReasoningEngine class in reasoning/engine.py. Implement vision -> reasoning chain for complex queries. Detect when reasoning is needed (keywords: 'why', 'explain', 'debug'). Add streaming response support.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [3, 8],
+      "tags": ["reasoning", "ollama", "phase-3"]
+    },
+    {
+      "id": 14,
+      "title": "Settings and Configuration System",
+      "description": "Create TOML config file format. Implement settings loading/saving using pydantic-settings. Add capture interval, model selection, and history retention settings. Create settings UI in menu bar app.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [12],
+      "tags": ["config", "phase-3"]
+    },
+    {
+      "id": 15,
+      "title": "Privacy Controls",
+      "description": "Implement app blocklist to exclude sensitive apps (1Password, banking). Add pause/resume functionality with hotkey. Implement auto-delete history after configurable days. Add 'clear all data' option. Document privacy features.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [6, 14],
+      "tags": ["privacy", "security", "phase-3"]
+    },
+    {
+      "id": 16,
+      "title": "Test Coverage and Edge Cases",
+      "description": "Achieve 80%+ test coverage. Add edge case tests (no screen, Ollama unavailable, permissions denied). Create performance benchmarks. Add memory leak testing. Test across Python 3.11 and 3.12.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [11, 13],
+      "tags": ["testing", "phase-4"]
+    },
+    {
+      "id": 17,
+      "title": "Performance Optimization",
+      "description": "Profile and optimize hot paths (capture loop, image encoding). Reduce memory footprint by limiting frame cache. Optimize image processing pipeline. Add lazy loading where appropriate. Document performance characteristics.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [16],
+      "tags": ["performance", "optimization", "phase-4"]
+    },
+    {
+      "id": 18,
+      "title": "Error Handling and Logging",
+      "description": "Add structured logging with configurable levels. Implement graceful degradation when Ollama unavailable. Create helpful error messages for common issues. Add troubleshooting guide. Implement crash recovery with history preservation.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [11],
+      "tags": ["reliability", "logging", "phase-4"]
+    },
+    {
+      "id": 19,
+      "title": "Documentation",
+      "description": "Update README with installation, usage, and configuration docs. Add API documentation for developers. Create user guide with examples. Add developer guide for contributors. Create FAQ section.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [12, 14],
+      "tags": ["docs", "phase-4"]
+    },
+    {
+      "id": 20,
+      "title": "Release Preparation",
+      "description": "Create demo video showing key features. Write release notes for v0.1.0. Set up GitHub releases with assets. Create installation script for easy setup. Plan announcement strategy (HN, Twitter, Reddit).",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [16, 17, 18, 19],
+      "tags": ["release", "phase-4"]
+    }
+  ],
+  "metadata": {
+    "projectName": "StreamMind",
+    "version": "0.1.0",
+    "createdAt": "2026-01-11",
+    "totalTasks": 20,
+    "phases": {
+      "phase-1": "Foundation (Tasks 1-5)",
+      "phase-2": "Context & Intelligence (Tasks 6-10)",
+      "phase-3": "User Experience (Tasks 11-15)",
+      "phase-4": "Polish & Ship (Tasks 16-20)"
+    }
+  }
+}

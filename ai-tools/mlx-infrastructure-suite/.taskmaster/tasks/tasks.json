@@ -1,0 +1,516 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Project Setup and Repository Structure",
+      "description": "Initialize the MLX Infrastructure Suite monorepo with proper directory structure for all three tools (MLXDash, MLXCache, SwiftMLX), configure git, and set up shared configuration files.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [],
+      "details": "Create root directory structure:\n- mlxdash/ (Swift/Xcode project)\n- mlx-cache/ (Python package)\n- swiftmlx/ (Swift Package)\n- shared/ (common assets, docs)\n\nInitialize git repository, create .gitignore for Swift, Python, and Xcode artifacts. Set up GitHub repository with proper README.",
+      "testStrategy": "Verify all directories exist, git is initialized, and .gitignore covers all build artifacts."
+    },
+    {
+      "id": 2,
+      "title": "MLXDash: Create Xcode Project with MenuBarExtra",
+      "description": "Set up the MLXDash Xcode project as a macOS menu bar application using SwiftUI's MenuBarExtra API for native integration.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "details": "Create new Xcode project:\n- macOS App target\n- SwiftUI lifecycle\n- MenuBarExtra for menu bar presence\n- Basic app structure: App/, Views/, Services/, Models/\n- Minimum deployment: macOS 14.0 (Sonoma)\n\nImplement MLXDashApp.swift with @main entry point and MenuBarExtra configuration.",
+      "testStrategy": "App launches and shows icon in menu bar. Click expands placeholder dropdown."
+    },
+    {
+      "id": 3,
+      "title": "MLXDash: Implement OllamaService for API Polling",
+      "description": "Create the OllamaService class that polls Ollama's REST API to detect running models and gather performance metrics.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [2],
+      "details": "Implement OllamaService.swift:\n- Poll GET /api/ps every 1 second for running models\n- Parse response for model name, size, VRAM usage\n- Poll GET /api/tags for available models list\n- Handle connection errors gracefully (Ollama not running)\n- Use async/await with URLSession\n- Publish updates via Combine or @Observable\n\nModel data structure: ModelInfo with name, size, vramSize, digest, family, parameterSize.",
+      "testStrategy": "Unit tests with mocked responses. Integration test with live Ollama showing model detection."
+    },
+    {
+      "id": 4,
+      "title": "MLXDash: Build MenuBarView with Live Metrics Display",
+      "description": "Create the main MenuBarView that displays live tokens/second in the menu bar and expands to show full metrics dropdown.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [3],
+      "details": "Implement MenuBarView.swift:\n- Menu bar label shows: 'idle' or 'XX tok/s' (live)\n- Dropdown sections:\n  - Current Model: name, parameter size\n  - Performance: tok/s (when generating)\n  - Memory: VRAM used / total\n  - Quick Actions: Benchmark, History, Preferences\n- Update frequency: 500ms for tok/s, 2s for memory\n- Support light/dark mode with proper SF Symbols",
+      "testStrategy": "Visual verification in light/dark mode. Metrics update when model is generating."
+    },
+    {
+      "id": 5,
+      "title": "MLXDash: Implement SystemMetricsService with IOKit",
+      "description": "Create SystemMetricsService to gather GPU utilization, thermal state, and memory pressure using IOKit and system APIs.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [2],
+      "details": "Implement SystemMetricsService.swift:\n- GPU utilization via IOKit (Metal performance shaders activity)\n- Thermal state via ProcessInfo.processInfo.thermalState\n- Available memory via os_proc_available_memory()\n- Unified memory usage for M-series (shared CPU/GPU)\n- Update frequency: 2 seconds\n- Graceful fallback if IOKit access fails\n\nNote: Full GPU utilization may require private APIs or approximation.",
+      "testStrategy": "Metrics returned are reasonable values. No crashes on M1/M2/M3/M4 Macs."
+    },
+    {
+      "id": 6,
+      "title": "MLXDash: Build MetricsView Dropdown UI",
+      "description": "Create the detailed MetricsView that shows comprehensive system and model information when the menu bar is clicked.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [4, 5],
+      "details": "Implement MetricsView.swift:\n- Model section: name, family, parameter count, quantization\n- Performance section: current tok/s, session average, peak\n- Memory section: VRAM used, system RAM, unified memory bar\n- GPU section: utilization %, thermal state indicator\n- Temperature section: thermal state (nominal/fair/serious/critical)\n- Visual progress bars for memory and GPU\n- Refresh button for manual update",
+      "testStrategy": "All sections render correctly. Progress bars show accurate percentages."
+    },
+    {
+      "id": 7,
+      "title": "MLXDash: Create SQLite Database Layer",
+      "description": "Implement the data persistence layer using SQLite for storing benchmark results and session history.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [2],
+      "details": "Implement HistoryService.swift with SQLite:\n- Database location: ~/Library/Application Support/MLXDash/mlxdash.db\n- Tables: sessions, benchmarks (per PRD schema)\n- CRUD operations for sessions and benchmarks\n- Query: last 30 days of data\n- Query: per-model statistics\n- Use SQLite.swift or raw SQLite3 C API\n- Migrations for schema updates",
+      "testStrategy": "Unit tests for all CRUD operations. Data persists across app restarts."
+    },
+    {
+      "id": 8,
+      "title": "MLXDash: Implement BenchmarkService",
+      "description": "Create the benchmark runner that executes standardized prompts against loaded models and measures performance metrics.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [3, 7],
+      "details": "Implement BenchmarkService.swift:\n- Standard benchmark: 10 prompts of varying complexity\n- Prompts: short (10 tokens), medium (50 tokens), long (200 tokens)\n- Metrics collected: tokens/sec, time to first token, total time\n- Calculate: avg tok/s, p50 latency, p95 latency, peak memory\n- Store results in SQLite via HistoryService\n- Progress callback for UI updates\n- Cancellation support\n- POST to /api/generate with stream:true to measure token rate",
+      "testStrategy": "Benchmark completes in <60 seconds. Results stored and retrievable."
+    },
+    {
+      "id": 9,
+      "title": "MLXDash: Build BenchmarkView UI",
+      "description": "Create the BenchmarkView that allows users to run benchmarks and view results with comparison charts.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [8],
+      "details": "Implement BenchmarkView.swift:\n- 'Run Benchmark' button with model selector\n- Progress indicator during benchmark\n- Results display: avg tok/s, latencies, memory\n- Historical comparison: current vs previous runs\n- Simple bar chart comparing models\n- Export results to JSON\n- Cancel button during execution",
+      "testStrategy": "Benchmark runs to completion. Results display correctly. Export produces valid JSON."
+    },
+    {
+      "id": 10,
+      "title": "MLXDash: Build HistoryView with Charts",
+      "description": "Create the HistoryView that displays historical performance data with interactive charts.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [7],
+      "details": "Implement HistoryView.swift:\n- Time range selector: 24h, 7d, 30d\n- Line chart: tok/s over time (Swift Charts)\n- Bar chart: session duration by model\n- Statistics: total tokens generated, total time, avg performance\n- Filter by model\n- Clear history option with confirmation\n- Empty state for new users",
+      "testStrategy": "Charts render with mock data. Filters work correctly. Time ranges update view."
+    },
+    {
+      "id": 11,
+      "title": "MLXDash: Implement PreferencesView",
+      "description": "Create the settings/preferences panel for MLXDash configuration options.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [2],
+      "details": "Implement PreferencesView.swift:\n- Launch at login toggle (LSSharedFileList or SMAppService)\n- Polling interval slider (500ms - 5000ms)\n- Ollama URL configuration (default localhost:11434)\n- Show/hide menu bar metrics toggle\n- Benchmark prompt count (5, 10, 20)\n- Data retention period (7, 30, 90 days)\n- Reset to defaults button\n- Store in UserDefaults",
+      "testStrategy": "All settings persist across app restarts. Launch at login actually works."
+    },
+    {
+      "id": 12,
+      "title": "MLXDash: App Icon and Visual Assets",
+      "description": "Design and implement the app icon and menu bar icons for MLXDash.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [2],
+      "details": "Create visual assets:\n- App icon: 16x16 to 1024x1024 (all required sizes)\n- Menu bar icon: template image for light/dark mode\n- Design concept: speedometer or pulse representing performance\n- SF Symbols for UI elements where possible\n- Create Assets.xcassets with all variants\n- Consider hiring designer or using AI generation",
+      "testStrategy": "Icons display correctly at all sizes. Menu bar icon adapts to light/dark mode."
+    },
+    {
+      "id": 13,
+      "title": "MLXDash: Testing and Bug Fixes",
+      "description": "Comprehensive testing of MLXDash including unit tests, UI tests, and integration testing with Ollama.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [4, 6, 8, 9, 10, 11],
+      "details": "Testing tasks:\n- Unit tests for OllamaService, SystemMetricsService, HistoryService\n- Mock Ollama responses for reliable testing\n- UI tests for critical flows (benchmark, preferences)\n- Integration test: full workflow with live Ollama\n- Memory leak testing with Instruments\n- Test on macOS 14.0 minimum\n- Test with no Ollama running (graceful degradation)\n- Performance profiling",
+      "testStrategy": "80%+ code coverage. All tests pass. No memory leaks detected."
+    },
+    {
+      "id": 14,
+      "title": "MLXDash: DMG Packaging and Code Signing",
+      "description": "Package MLXDash as a signed and notarized DMG for distribution.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [13],
+      "details": "Packaging tasks:\n- Configure code signing with Developer ID\n- Set up notarization with Apple\n- Create DMG with create-dmg or similar\n- DMG background image with drag-to-Applications\n- Hardened runtime enabled\n- Test installation on clean Mac\n- Create GitHub Release workflow\n- Homebrew cask formula (optional)",
+      "testStrategy": "DMG installs without Gatekeeper warnings. App launches correctly after install."
+    },
+    {
+      "id": 15,
+      "title": "MLXDash: Documentation and README",
+      "description": "Write comprehensive documentation for MLXDash including README, screenshots, and usage guide.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [14],
+      "details": "Documentation:\n- README.md with features, screenshots, installation\n- Requirements section (macOS 14+, Ollama)\n- Quick start guide\n- Configuration options explained\n- Troubleshooting section\n- Contributing guidelines\n- License (MIT)\n- Screenshots of menu bar and all views\n- GIF demo of live monitoring",
+      "testStrategy": "README renders correctly on GitHub. All links work. Screenshots are current."
+    },
+    {
+      "id": 16,
+      "title": "MLXCache: Python Project Setup",
+      "description": "Initialize the MLXCache Python project with modern packaging (pyproject.toml) and project structure.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "details": "Project setup:\n- pyproject.toml with hatchling or setuptools\n- src/mlx_cache/ package structure\n- Dependencies: click, rich, huggingface_hub, pyyaml\n- Dev dependencies: pytest, pytest-cov, black, ruff\n- Entry point: mlx-cache CLI command\n- Python 3.11+ requirement\n- Type hints throughout\n- Pre-commit hooks for formatting",
+      "testStrategy": "pip install -e . works. mlx-cache --help shows commands."
+    },
+    {
+      "id": 17,
+      "title": "MLXCache: Implement Click CLI Scaffold",
+      "description": "Create the Click-based CLI interface with all command stubs for MLXCache.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [16],
+      "details": "Implement cli.py with Click:\n- Main group: mlx-cache\n- Commands: status, add, remove, link, unlink, clean, stats, config, sync\n- Rich console output with tables and progress bars\n- --verbose and --quiet flags\n- --help for all commands\n- Version command\n- Config file path option (--config)",
+      "testStrategy": "All commands accessible. --help works for each. No crashes on stub commands."
+    },
+    {
+      "id": 18,
+      "title": "MLXCache: Create SQLite Registry Layer",
+      "description": "Implement the SQLite registry for tracking models, apps, and their relationships.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [16],
+      "details": "Implement registry.py:\n- Database at ~/.mlx-cache/registry.db\n- Tables: models, apps, model_usage (per PRD schema)\n- CRUD for models: add, remove, get, list\n- CRUD for apps: register, unregister, get, list\n- Link/unlink model-app relationships\n- Query: models by app, apps by model\n- Query: orphaned models (no apps using)\n- Automatic schema creation on first run",
+      "testStrategy": "Unit tests for all operations. Data integrity maintained across operations."
+    },
+    {
+      "id": 19,
+      "title": "MLXCache: Implement HuggingFace Source",
+      "description": "Create the HuggingFace Hub integration for downloading and managing models from HF.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [18],
+      "details": "Implement sources/huggingface.py:\n- Parse hf:// URLs (hf://org/model)\n- Download via huggingface_hub.snapshot_download()\n- Progress callback for Rich progress bar\n- Cache to ~/.mlx-cache/models/hf--org--model/\n- Verify checksums after download\n- Store metadata: size, download date, checksum\n- Resume interrupted downloads\n- Handle authentication for gated models",
+      "testStrategy": "Download small test model successfully. Progress updates shown. Metadata stored."
+    },
+    {
+      "id": 20,
+      "title": "MLXCache: Implement Ollama Source with Symlinks",
+      "description": "Create the Ollama integration that symlinks existing Ollama models to avoid duplication.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [18],
+      "details": "Implement sources/ollama.py:\n- Detect Ollama model location (~/.ollama/models/)\n- Parse ollama:// URLs (ollama://model:tag)\n- Create symlinks from cache to Ollama blobs\n- Map Ollama manifest to cache metadata\n- Handle model not found in Ollama\n- Verify symlink integrity\n- Support both blobs and manifests structure\n- Register in cache registry with is_symlink=True",
+      "testStrategy": "Existing Ollama model appears in cache. Symlink is valid and readable."
+    },
+    {
+      "id": 21,
+      "title": "MLXCache: Build add and remove Commands",
+      "description": "Implement the core add and remove commands for managing cached models.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [19, 20],
+      "details": "Implement in cli.py:\n\nadd command:\n- Parse model URL (hf://, ollama://, file://)\n- Route to appropriate source handler\n- Show download progress with Rich\n- Register in database on completion\n- Handle already-cached models\n\nremove command:\n- Check if any apps using model\n- Warn if apps depend on it, require --force\n- Delete files or remove symlink\n- Update registry",
+      "testStrategy": "Add downloads/symlinks model. Remove cleans up files and registry entry."
+    },
+    {
+      "id": 22,
+      "title": "MLXCache: Build status Command with Rich Output",
+      "description": "Implement the status command that displays all cached models in a formatted table.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [21],
+      "details": "Implement status command:\n- Rich table with columns: Model, Size, Source, Used By\n- Show symlink indicator for Ollama models\n- Group by source (HF, Ollama, Local)\n- Total size at bottom\n- Empty state message for new users\n- --json flag for machine-readable output\n- Filter by source: --source ollama",
+      "testStrategy": "Table renders correctly with test data. JSON output is valid."
+    },
+    {
+      "id": 23,
+      "title": "MLXCache: Implement App Registration (link/unlink)",
+      "description": "Create the link and unlink commands for registering apps with the cache.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [18],
+      "details": "Implement link/unlink commands:\n\nlink command:\n- Accept app path or name\n- Auto-detect app type (Python env, macOS app, etc.)\n- Scan app for model references (optional)\n- Register in apps table\n- Create config file in app directory (optional)\n\nunlink command:\n- Remove app from registry\n- Update model_usage table\n- Warn about orphaned models",
+      "testStrategy": "Link registers app. Unlink removes app. Model usage updated correctly."
+    },
+    {
+      "id": 24,
+      "title": "MLXCache: Build Deduplication Scanner",
+      "description": "Create the deduplication logic that identifies duplicate models across Ollama and other sources.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [20],
+      "details": "Implement dedup.py:\n- Scan ~/.ollama/models/ for all models\n- Compare with HuggingFace cache if exists\n- Identify duplicates by checksum or name matching\n- Calculate potential savings\n- Suggest deduplication actions\n- dry-run mode for preview\n- Actual dedup: replace with symlinks",
+      "testStrategy": "Scanner finds known duplicates. Savings calculation is accurate."
+    },
+    {
+      "id": 25,
+      "title": "MLXCache: Implement clean Command",
+      "description": "Create the clean command that removes unused models from the cache.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [23, 24],
+      "details": "Implement clean command:\n- Query orphaned models (no apps using)\n- Show list of models to be removed\n- Calculate space to be freed\n- Require confirmation (unless --yes)\n- Remove files and registry entries\n- Skip symlinked models (just remove link)\n- --dry-run flag for preview\n- Report space freed after cleanup",
+      "testStrategy": "Clean removes orphaned models. Linked models are not deleted."
+    },
+    {
+      "id": 26,
+      "title": "MLXCache: Build stats Command",
+      "description": "Implement the stats command showing disk usage and savings report.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [24],
+      "details": "Implement stats command:\n- Total cache size\n- Size by source (HF, Ollama, Local)\n- Number of models, number of apps\n- Duplicates avoided (symlinks)\n- Disk space saved\n- Largest models list\n- Most used models\n- Rich formatted output with colors\n- --json for scripting",
+      "testStrategy": "Stats are accurate compared to du -sh. Savings calculation correct."
+    },
+    {
+      "id": 27,
+      "title": "MLXCache: Create config.yaml Handling",
+      "description": "Implement configuration file support for MLXCache user preferences.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [16],
+      "details": "Implement config handling:\n- Location: ~/.mlx-cache/config.yaml\n- Options: cache_dir, max_size_gb, auto_clean, ollama_sync\n- Create default config on first run\n- config command: view, set, reset\n- Validate configuration values\n- Environment variable overrides\n- XDG config directory support (optional)",
+      "testStrategy": "Config loads correctly. Changes persist. Invalid values rejected."
+    },
+    {
+      "id": 28,
+      "title": "MLXCache: MLXDash Integration",
+      "description": "Create the integration layer allowing MLXDash to display cache status.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [22, 14],
+      "details": "Integration tasks:\n- Swift helper: call mlx-cache status --json\n- Parse JSON response in MLXDash\n- Display cache size and model count in dropdown\n- Quick action to open terminal with mlx-cache\n- Notification when disk savings exceed threshold\n- Handle mlx-cache not installed gracefully",
+      "testStrategy": "MLXDash shows cache info. Works when mlx-cache is/isn't installed."
+    },
+    {
+      "id": 29,
+      "title": "MLXCache: Testing Suite",
+      "description": "Comprehensive testing for MLXCache including unit and integration tests.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [21, 22, 23, 25, 26],
+      "details": "Testing tasks:\n- Unit tests for registry, sources, dedup\n- Mock HuggingFace downloads\n- Integration tests with temp directories\n- Test symlink creation and validation\n- Test CLI commands end-to-end\n- Test with/without Ollama installed\n- Coverage report with pytest-cov\n- CI pipeline with GitHub Actions",
+      "testStrategy": "80%+ coverage. All tests pass. CI green."
+    },
+    {
+      "id": 30,
+      "title": "MLXCache: PyPI Packaging and Distribution",
+      "description": "Package MLXCache for distribution on PyPI.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [29],
+      "details": "Packaging tasks:\n- Finalize pyproject.toml metadata\n- Build with python -m build\n- Test with pip install dist/*.whl\n- Upload to TestPyPI first\n- Upload to PyPI\n- Verify pip install mlx-cache works\n- Create GitHub Release\n- Tag version (0.1.0)",
+      "testStrategy": "pip install mlx-cache works from PyPI. All commands functional."
+    },
+    {
+      "id": 31,
+      "title": "MLXCache: Documentation and Examples",
+      "description": "Write documentation for MLXCache including README, usage examples, and API reference.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [30],
+      "details": "Documentation:\n- README.md with installation, quick start\n- All commands documented with examples\n- Configuration options explained\n- Integration guide for app developers\n- Troubleshooting section\n- Screenshots of CLI output\n- Example scripts for common workflows\n- Contributing guidelines",
+      "testStrategy": "README renders correctly. Examples work as documented."
+    },
+    {
+      "id": 32,
+      "title": "SwiftMLX: Swift Package Setup",
+      "description": "Initialize the SwiftMLX Swift Package with proper targets and structure.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [1],
+      "details": "Package setup:\n- Package.swift with SwiftMLX and SwiftMLXUI targets\n- Minimum platform: macOS 14.0\n- Swift 5.9+ requirement\n- Directory structure per PRD\n- Dependencies: none external (use Foundation, SwiftUI)\n- Product: library (dynamic)\n- Test target: SwiftMLXTests",
+      "testStrategy": "swift build succeeds. swift test runs (empty tests OK)."
+    },
+    {
+      "id": 33,
+      "title": "SwiftMLX: Implement MLXModel and ModelLoader",
+      "description": "Create the core model abstraction and loading mechanism for SwiftMLX.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [32],
+      "details": "Implement Model/:\n- MLXModel class/struct representing a loaded model\n- ModelLoader: loads from Ollama or MLXCache\n- SwiftMLX.load(\"model:tag\") static method\n- Model properties: name, parameterCount, family, loaded state\n- Async loading with progress callback\n- Handle model not found errors\n- Model unloading/cleanup",
+      "testStrategy": "Load model from running Ollama. Model properties accessible."
+    },
+    {
+      "id": 34,
+      "title": "SwiftMLX: Implement Text Generation with Streaming",
+      "description": "Create the text generation API with support for streaming responses.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [33],
+      "details": "Implement Inference/:\n- model.generate(prompt:maxTokens:temperature:) -> String\n- model.stream(prompt:...) -> AsyncThrowingStream<String, Error>\n- POST to Ollama /api/generate\n- Parse streaming JSON responses\n- Token counting\n- Stop sequences support\n- System prompt support\n- Performance tracking (tok/s)",
+      "testStrategy": "Generate returns complete text. Stream yields tokens incrementally."
+    },
+    {
+      "id": 35,
+      "title": "SwiftMLX: Implement Vision Analysis",
+      "description": "Add vision model support for image analysis in SwiftMLX.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [33],
+      "details": "Implement VisionAnalysis.swift:\n- model.analyze(image:prompt:) -> String\n- Support NSImage, CGImage, Data (PNG/JPEG)\n- Base64 encode image for Ollama API\n- POST to /api/generate with images array\n- Handle vision-capable model detection\n- Error for non-vision models",
+      "testStrategy": "Analyze image with llama3.2-vision returns description."
+    },
+    {
+      "id": 36,
+      "title": "SwiftMLX: Build MLXCacheClient Integration",
+      "description": "Create the client for communicating with MLXCache from Swift.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [32, 30],
+      "details": "Implement Cache/MLXCacheClient.swift:\n- Call mlx-cache status --json via Process\n- Parse JSON to Swift types\n- List available models from cache\n- Check if model is cached\n- Get model path for direct loading\n- Handle mlx-cache not installed\n- Fallback to Ollama-only mode",
+      "testStrategy": "Client returns cached models list. Works without mlx-cache installed."
+    },
+    {
+      "id": 37,
+      "title": "SwiftMLX: Build ChatView Component",
+      "description": "Create the pre-built ChatView SwiftUI component for conversational AI interfaces.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [34],
+      "details": "Implement SwiftMLXUI/ChatView.swift:\n- Message list with user/assistant bubbles\n- Input field with send button\n- Streaming response display\n- Loading indicator during generation\n- Auto-scroll to bottom\n- Copy message action\n- Clear conversation action\n- Customizable colors/fonts\n- @Binding for conversation history",
+      "testStrategy": "ChatView renders messages. Send triggers generation. Streaming updates UI."
+    },
+    {
+      "id": 38,
+      "title": "SwiftMLX: Build ModelPicker Component",
+      "description": "Create the ModelPicker dropdown for selecting available models.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [33, 36],
+      "details": "Implement SwiftMLXUI/ModelPicker.swift:\n- Dropdown/Picker showing available models\n- Group by source (Ollama, Cache)\n- Show model size/parameter count\n- Loading indicator while fetching models\n- @Binding for selected model\n- onChange callback\n- Refresh button\n- Empty state for no models",
+      "testStrategy": "Picker shows installed models. Selection updates binding."
+    },
+    {
+      "id": 39,
+      "title": "SwiftMLX: Build PerformanceView Component",
+      "description": "Create the PerformanceView showing MLXDash-style metrics within apps.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [34],
+      "details": "Implement SwiftMLXUI/PerformanceView.swift:\n- Current tok/s display\n- Memory usage bar\n- Model info display\n- Compact and expanded modes\n- Real-time updates during generation\n- Styled consistently with MLXDash\n- Optional: GPU/thermal if available",
+      "testStrategy": "View updates during generation. Metrics are accurate."
+    },
+    {
+      "id": 40,
+      "title": "SwiftMLX: Create Chat App Xcode Template",
+      "description": "Create the MLX Chat App Xcode template for quick project creation.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [37, 38],
+      "details": "Create Templates/MLX Chat App.xctemplate/:\n- TemplateInfo.plist with configuration\n- ___PACKAGENAME___App.swift with @main\n- ContentView.swift with ChatView integration\n- Pre-configured SwiftMLX dependency\n- Default model selection\n- App icon placeholder\n- Minimum macOS 14.0\n- Test template installation in Xcode",
+      "testStrategy": "Template appears in Xcode New Project. Created app compiles and runs."
+    },
+    {
+      "id": 41,
+      "title": "SwiftMLX: Create Document Analyzer Template",
+      "description": "Create the MLX Document Analyzer Xcode template for file analysis apps.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [34],
+      "details": "Create Templates/MLX Document Analyzer.xctemplate/:\n- Drop zone for files (PDF, TXT, etc.)\n- Text extraction from documents\n- Send to model for analysis\n- Display results panel\n- Multiple document support\n- Analysis prompt customization\n- Export results",
+      "testStrategy": "Template creates working app. Can analyze dropped text file."
+    },
+    {
+      "id": 42,
+      "title": "SwiftMLX: Create Image Captioner Template",
+      "description": "Create the MLX Image Captioner Xcode template for vision model apps.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [35],
+      "details": "Create Templates/MLX Image Captioner.xctemplate/:\n- Image drop zone or file picker\n- Image preview\n- Caption generation with vision model\n- Multiple images support (gallery)\n- Custom prompt for analysis\n- Copy/export captions\n- Batch processing option",
+      "testStrategy": "Template creates working app. Can caption dropped image."
+    },
+    {
+      "id": 43,
+      "title": "SwiftMLX: Build Example Apps",
+      "description": "Create working example applications demonstrating SwiftMLX capabilities.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [40, 41, 42],
+      "details": "Create Examples/:\n- ChatDemo/: Full chat application\n- VisionDemo/: Image analysis app\n- Both as standalone Xcode projects\n- Well-commented code\n- README in each example\n- Screenshots for documentation",
+      "testStrategy": "Both examples compile and run. Demonstrate advertised features."
+    },
+    {
+      "id": 44,
+      "title": "SwiftMLX: Testing Suite",
+      "description": "Comprehensive testing for SwiftMLX package.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [34, 35, 36, 37, 38],
+      "details": "Testing tasks:\n- Unit tests for Model, Inference modules\n- Mock Ollama responses\n- UI tests with SwiftUI previews\n- Integration tests with live Ollama\n- Test async/await streaming\n- Test error handling\n- Test on macOS 14.0+",
+      "testStrategy": "swift test passes. 70%+ coverage on core modules."
+    },
+    {
+      "id": 45,
+      "title": "SwiftMLX: Template Installer Script",
+      "description": "Create an installer script for the Xcode templates.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [40, 41, 42],
+      "details": "Create install script:\n- Copy templates to ~/Library/Developer/Xcode/Templates/\n- Create MLX category folder\n- Verify Xcode version compatibility\n- Uninstall option\n- Homebrew formula (optional)\n- curl one-liner for easy install",
+      "testStrategy": "Script installs templates. Templates appear in Xcode after restart."
+    },
+    {
+      "id": 46,
+      "title": "SwiftMLX: Documentation and Tutorials",
+      "description": "Write comprehensive documentation for SwiftMLX including API reference and tutorials.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [43, 45],
+      "details": "Documentation:\n- README.md with quick start\n- Full API reference (DocC or manual)\n- Tutorial: Build your first AI app\n- Tutorial: Adding chat to existing app\n- Tutorial: Vision model integration\n- Template usage guide\n- Troubleshooting section\n- Video walkthrough (optional)",
+      "testStrategy": "All tutorials produce working results. API docs are complete."
+    },
+    {
+      "id": 47,
+      "title": "Integration: Cross-Tool Testing",
+      "description": "Test the integration between all three tools working together.",
+      "status": "pending",
+      "priority": "high",
+      "dependencies": [15, 28, 44],
+      "details": "Integration testing:\n- MLXDash shows MLXCache status\n- SwiftMLX loads models from MLXCache\n- Full workflow: cache model → use in SwiftMLX app → monitor in MLXDash\n- Test fresh install scenario\n- Test upgrade scenarios\n- Performance impact of monitoring",
+      "testStrategy": "Full workflow completes without errors. All tools communicate correctly."
+    },
+    {
+      "id": 48,
+      "title": "Integration: Shared Configuration",
+      "description": "Implement shared configuration across all three tools.",
+      "status": "pending",
+      "priority": "low",
+      "dependencies": [11, 27, 36],
+      "details": "Shared config:\n- ~/.mlx-infrastructure/config.yaml\n- Sections for each tool\n- Shared: ollama_url, log_level, cache_dir\n- Config reader in each tool\n- Config migration from tool-specific to shared\n- Document config options",
+      "testStrategy": "All tools read shared config. Tool-specific sections work."
+    },
+    {
+      "id": 49,
+      "title": "Release: GitHub Repository Setup",
+      "description": "Set up the GitHub repository with proper CI/CD, releases, and community files.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [1],
+      "details": "Repository setup:\n- Create github.com/[user]/mlx-infrastructure-suite\n- Branch protection for main\n- GitHub Actions: build, test, release\n- Issue templates\n- PR template\n- CONTRIBUTING.md\n- CODE_OF_CONDUCT.md\n- LICENSE (MIT)\n- Dependabot configuration",
+      "testStrategy": "CI passes. Templates work. Protection rules active."
+    },
+    {
+      "id": 50,
+      "title": "Release: Launch and Marketing",
+      "description": "Prepare and execute the launch plan for the MLX Infrastructure Suite.",
+      "status": "pending",
+      "priority": "medium",
+      "dependencies": [15, 31, 46, 47],
+      "details": "Launch tasks:\n- Write launch blog post\n- Create demo GIFs/videos\n- Twitter/X announcement thread\n- Reddit posts (r/LocalLLaMA, r/MachineLearning)\n- Hacker News submission\n- Apple Developer Forums post\n- ProductHunt launch (optional)\n- Collect initial feedback\n- Plan v0.2 based on feedback",
+      "testStrategy": "All launch materials ready. Links work. Downloads tracked."
+    }
+  ],
+  "metadata": {
+    "projectName": "MLX Infrastructure Suite",
+    "version": "1.0.0",
+    "createdAt": "2026-01-12T08:00:00Z",
+    "totalTasks": 50,
+    "phases": {
+      "phase1_mlxdash": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      "phase2_mlxcache": [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31],
+      "phase3_swiftmlx": [32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46],
+      "integration": [47, 48, 49, 50]
+    }
+  }
+}

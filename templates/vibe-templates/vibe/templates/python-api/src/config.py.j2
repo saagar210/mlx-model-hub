@@ -1,0 +1,17 @@
+"""Configuration settings."""
+
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Application settings."""
+
+    host: str = "127.0.0.1"
+    port: int = 8000
+    debug: bool = True
+
+    class Config:
+        env_prefix = "{{ project_slug | upper }}_"
+
+
+settings = Settings()

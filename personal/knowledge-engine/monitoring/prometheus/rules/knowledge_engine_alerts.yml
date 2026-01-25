@@ -1,0 +1,342 @@
+# Knowledge Engine Alerting Rules
+# Comprehensive alerts for production monitoring
+
+groups:
+  # ============================================================
+  # API Health Alerts
+  # ============================================================
+  - name: api_health
+    interval: 30s
+    rules:
+      - alert: KnowledgeEngineDown
+        expr: up{job="knowledge-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Knowledge Engine API is down"
+          description: "The Knowledge Engine API has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.example.com/runbooks/ke-api-down"
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="knowledge-engine", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="knowledge-engine"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+          runbook_url: "https://docs.example.com/runbooks/ke-high-error-rate"
+
+      - alert: CriticalErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="knowledge-engine", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="knowledge-engine"}[5m]))
+          ) > 0.10
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} - immediate action required."
+          runbook_url: "https://docs.example.com/runbooks/ke-critical-error-rate"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="knowledge-engine"}[5m])) by (le, endpoint)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile latency for {{ $labels.endpoint }} is {{ $value }}s."
+          runbook_url: "https://docs.example.com/runbooks/ke-high-latency"
+
+  # ============================================================
+  # Database Alerts
+  # ============================================================
+  - name: database_health
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.example.com/runbooks/postgres-down"
+
+      - alert: PostgresHighConnections
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "PostgreSQL connection pool near capacity"
+          description: "PostgreSQL is using {{ $value | humanizePercentage }} of max connections."
+          runbook_url: "https://docs.example.com/runbooks/postgres-connections"
+
+      - alert: PostgresSlowQueries
+        expr: |
+          rate(pg_stat_statements_seconds_total[5m])
+          / rate(pg_stat_statements_calls_total[5m]) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "PostgreSQL slow queries detected"
+          description: "Average query time is {{ $value }}s."
+          runbook_url: "https://docs.example.com/runbooks/postgres-slow-queries"
+
+      - alert: QdrantDown
+        expr: up{job="qdrant"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Qdrant vector database is down"
+          description: "Qdrant has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.example.com/runbooks/qdrant-down"
+
+      - alert: QdrantHighMemory
+        expr: |
+          qdrant_memory_usage_bytes / qdrant_memory_total_bytes > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Qdrant memory usage high"
+          description: "Qdrant is using {{ $value | humanizePercentage }} of available memory."
+          runbook_url: "https://docs.example.com/runbooks/qdrant-memory"
+
+  # ============================================================
+  # Business Metric Alerts
+  # ============================================================
+  - name: business_metrics
+    interval: 60s
+    rules:
+      - alert: IngestionFailureRate
+        expr: |
+          (
+            sum(rate(knowledge_engine_documents_ingested_total{status="error"}[15m]))
+            /
+            sum(rate(knowledge_engine_documents_ingested_total[15m]))
+          ) > 0.10
+        for: 15m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "High document ingestion failure rate"
+          description: "{{ $value | humanizePercentage }} of document ingestions are failing."
+          runbook_url: "https://docs.example.com/runbooks/ke-ingestion-failures"
+
+      - alert: EmbeddingServiceDegraded
+        expr: |
+          sum(rate(knowledge_engine_embedding_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Embedding service experiencing errors"
+          description: "Embedding generation errors detected at {{ $value }}/s."
+          runbook_url: "https://docs.example.com/runbooks/ke-embedding-errors"
+
+      - alert: SearchLatencyDegraded
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(knowledge_engine_search_duration_seconds_bucket{stage="total"}[5m])) by (le)
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Search latency degraded"
+          description: "95th percentile search latency is {{ $value }}s."
+          runbook_url: "https://docs.example.com/runbooks/ke-search-latency"
+
+      - alert: LowSearchResultConfidence
+        expr: |
+          avg(knowledge_engine_search_confidence_score) < 0.3
+        for: 30m
+        labels:
+          severity: info
+          team: ml
+        annotations:
+          summary: "Low average search confidence scores"
+          description: "Average search confidence is {{ $value }}, indicating potential data quality issues."
+          runbook_url: "https://docs.example.com/runbooks/ke-low-confidence"
+
+      - alert: IngestionQueueBacklog
+        expr: knowledge_engine_ingestion_queue_size > 100
+        for: 15m
+        labels:
+          severity: warning
+          team: data
+        annotations:
+          summary: "Ingestion queue backlog growing"
+          description: "{{ $value }} items waiting in ingestion queue."
+          runbook_url: "https://docs.example.com/runbooks/ke-queue-backlog"
+
+  # ============================================================
+  # Cache Alerts
+  # ============================================================
+  - name: cache_health
+    interval: 30s
+    rules:
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: warning  # Not critical since cache is optional
+          team: platform
+        annotations:
+          summary: "Redis cache is down"
+          description: "Redis has been unreachable for more than 1 minute."
+          runbook_url: "https://docs.example.com/runbooks/redis-down"
+
+      - alert: RedisCacheHitRateLow
+        expr: |
+          (
+            sum(rate(knowledge_engine_cache_hits_total[5m]))
+            /
+            (sum(rate(knowledge_engine_cache_hits_total[5m])) + sum(rate(knowledge_engine_cache_misses_total[5m])))
+          ) < 0.5
+        for: 15m
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "Cache hit rate is low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}."
+          runbook_url: "https://docs.example.com/runbooks/ke-cache-hit-rate"
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis is using {{ $value | humanizePercentage }} of max memory."
+          runbook_url: "https://docs.example.com/runbooks/redis-memory"
+
+  # ============================================================
+  # LLM Service Alerts
+  # ============================================================
+  - name: llm_health
+    interval: 60s
+    rules:
+      - alert: LLMHighErrorRate
+        expr: |
+          sum(rate(knowledge_engine_llm_errors_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "LLM service experiencing errors"
+          description: "LLM errors at {{ $value }}/s."
+          runbook_url: "https://docs.example.com/runbooks/ke-llm-errors"
+
+      - alert: LLMRateLimited
+        expr: |
+          sum(rate(knowledge_engine_llm_errors_total{error_type="rate_limit"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "LLM service is rate limited"
+          description: "Rate limiting detected on LLM requests."
+          runbook_url: "https://docs.example.com/runbooks/ke-llm-rate-limit"
+
+      - alert: OllamaDown
+        expr: |
+          probe_success{job="ollama"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Ollama service is down"
+          description: "Ollama has been unreachable for more than 2 minutes."
+          runbook_url: "https://docs.example.com/runbooks/ollama-down"
+
+  # ============================================================
+  # Resource Alerts (Host Level)
+  # ============================================================
+  - name: host_resources
+    interval: 30s
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is at {{ $value }}%."
+          runbook_url: "https://docs.example.com/runbooks/high-cpu"
+
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is at {{ $value }}%."
+          runbook_url: "https://docs.example.com/runbooks/high-memory"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Low disk space"
+          description: "Only {{ $value }}% disk space remaining."
+          runbook_url: "https://docs.example.com/runbooks/low-disk"
+
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 5
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Critical disk space"
+          description: "Only {{ $value }}% disk space remaining - immediate action required."
+          runbook_url: "https://docs.example.com/runbooks/critical-disk"

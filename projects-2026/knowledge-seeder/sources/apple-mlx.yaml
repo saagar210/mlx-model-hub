@@ -1,0 +1,154 @@
+# Apple MLX & Apple Silicon ML - Local inference and optimization
+# Priority: High - Leverage M4 Pro hardware
+
+namespace: apple-mlx
+refresh_interval: 14d
+priority: P1
+
+sources:
+  # --- MLX Core ---
+  - name: mlx-docs
+    url: https://ml-explore.github.io/mlx/
+    source_type: url
+    priority: P0
+    tags: [mlx, apple, framework, documentation]
+
+  - name: mlx-repo
+    url: https://github.com/ml-explore/mlx
+    source_type: github
+    priority: P0
+    tags: [mlx, apple, python, cpp]
+
+  - name: mlx-examples
+    url: https://github.com/ml-explore/mlx-examples
+    source_type: github
+    priority: P0
+    tags: [mlx, examples, models, inference]
+
+  # --- MLX-LM (Language Models) ---
+  - name: mlx-lm-repo
+    url: https://github.com/ml-explore/mlx-lm
+    source_type: github
+    priority: P0
+    tags: [mlx, llm, inference, quantization]
+
+  # --- MLX-VLM (Vision-Language Models) ---
+  - name: mlx-vlm-repo
+    url: https://github.com/Blaizzy/mlx-vlm
+    source_type: github
+    priority: P1
+    tags: [mlx, vision, multimodal, inference]
+
+  # --- Whisper MLX ---
+  - name: mlx-whisper
+    url: https://raw.githubusercontent.com/ml-explore/mlx-examples/main/whisper/README.md
+    source_type: github
+    priority: P1
+    tags: [mlx, whisper, speech, transcription]
+
+  # --- MLX Swift ---
+  - name: mlx-swift-repo
+    url: https://github.com/ml-explore/mlx-swift
+    source_type: github
+    priority: P2
+    tags: [mlx, swift, ios, macos]
+
+  - name: mlx-swift-examples
+    url: https://github.com/ml-explore/mlx-swift-examples
+    source_type: github
+    priority: P2
+    tags: [mlx, swift, examples, apps]
+
+  # --- Optimization Techniques ---
+  - name: mlx-quantization-guide
+    url: https://ml-explore.github.io/mlx/build/html/usage/quantized.html
+    source_type: url
+    priority: P1
+    tags: [mlx, quantization, optimization, 4bit]
+
+  # --- Ollama (Local LLMs) ---
+  - name: ollama-docs
+    url: https://raw.githubusercontent.com/ollama/ollama/main/docs/README.md
+    source_type: github
+    priority: P1
+    tags: [ollama, local-llm, inference]
+
+  - name: ollama-modelfile
+    url: https://raw.githubusercontent.com/ollama/ollama/main/docs/modelfile.md
+    source_type: github
+    priority: P1
+    tags: [ollama, customization, models]
+
+  # --- LM Studio ---
+  - name: lm-studio-docs
+    url: https://lmstudio.ai/docs
+    source_type: url
+    priority: P2
+    tags: [lm-studio, local-llm, gui, inference]
+
+  # --- llama.cpp ---
+  - name: llama-cpp-repo
+    url: https://github.com/ggerganov/llama.cpp
+    source_type: github
+    priority: P1
+    tags: [llama, inference, cpp, quantization]
+
+  - name: llama-cpp-metal
+    url: https://raw.githubusercontent.com/ggerganov/llama.cpp/master/docs/build.md
+    source_type: github
+    priority: P1
+    tags: [llama, metal, apple-silicon, build]
+
+  # --- Whisper.cpp ---
+  - name: whisper-cpp-repo
+    url: https://github.com/ggerganov/whisper.cpp
+    source_type: github
+    priority: P1
+    tags: [whisper, speech, cpp, apple-silicon]
+
+  # --- Core ML ---
+  - name: coreml-docs
+    url: https://developer.apple.com/documentation/coreml
+    source_type: url
+    priority: P2
+    tags: [coreml, apple, ios, macos]
+
+  - name: coreml-tools
+    url: https://github.com/apple/coremltools
+    source_type: github
+    priority: P2
+    tags: [coreml, conversion, python, onnx]
+
+  # --- Apple Neural Engine ---
+  - name: ane-transformers
+    url: https://github.com/apple/ml-ane-transformers
+    source_type: github
+    priority: P2
+    tags: [ane, transformers, optimization, apple]
+
+  # --- Research Papers ---
+  - name: arxiv-mlx-paper
+    url: https://arxiv.org/abs/2312.04889
+    source_type: arxiv
+    priority: P2
+    tags: [mlx, apple, framework, "2023"]
+
+  # --- Performance & Benchmarks ---
+  - name: mlx-benchmarks
+    url: https://raw.githubusercontent.com/ml-explore/mlx/main/benchmarks/README.md
+    source_type: github
+    priority: P2
+    tags: [mlx, benchmarks, performance]
+
+  # --- Tutorials ---
+  - name: mlx-getting-started
+    url: https://ml-explore.github.io/mlx/build/html/usage/quick_start.html
+    source_type: url
+    priority: P1
+    tags: [mlx, tutorial, quickstart]
+
+  - name: mlx-fine-tuning
+    url: https://raw.githubusercontent.com/ml-explore/mlx-examples/main/lora/README.md
+    source_type: github
+    priority: P1
+    tags: [mlx, lora, fine-tuning, training]

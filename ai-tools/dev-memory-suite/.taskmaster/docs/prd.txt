@@ -1,0 +1,492 @@
+# Developer Memory & Context Suite - Product Requirements Document
+
+## Executive Summary
+
+A suite of 3 interconnected tools that capture, organize, and surface development knowledge. Built on the existing Knowledge Activation System (KAS), creating a developer-specific memory layer.
+
+**Vision**: "How did I fix that Postgres timeout issue last month?" becomes instantly answerable.
+
+## Foundation: Knowledge Activation System
+
+The KAS already provides:
+- PostgreSQL + pgvector + pgvectorscale (hybrid search infrastructure)
+- BM25 + vector search with RRF fusion
+- Content/chunks tables with 768-dim embeddings
+- Working CLI for search
+- Nomic Embed Text v1.5 via Ollama
+
+This project extends KAS with developer-specific capture and retrieval.
+
+---
+
+## Phase 1: DevMemory (Personal Developer Knowledge Graph)
+
+### 1.1 Overview
+Automatically captures development activity and builds a searchable knowledge graph.
+
+### 1.2 Core Features
+
+**Capture Sources (Priority Order):**
+1. Git commits/diffs from monitored repositories
+2. Manual notes via CLI (`devmemory add "fixed timeout by increasing pool size"`)
+3. Claude Code conversation exports
+4. Terminal error patterns (zsh hook)
+5. Browser docs visits (extension - future)
+
+**Query Capabilities:**
+- "How did I fix the auth timeout?"
+- "What packages did I research for caching?"
+- "Show me all errors I've seen with Postgres"
+- "What did I learn about RAG last week?"
+
+### 1.3 Technical Architecture
+
+```
+DevMemory Service
+├── Ingestion Layer
+│   ├── GitWatcher (watchdog + gitpython)
+│   ├── ManualCapture (CLI commands)
+│   ├── ConversationImport (Claude export JSON)
+│   └── TerminalHook (zsh precmd_functions)
+├── Processing Layer
+│   ├── ChunkProcessor (semantic chunking)
+│   ├── EntityExtractor (Instructor + LLM)
+│   ├── EmbeddingGenerator (nomic-embed-text)
+│   └── RelationshipBuilder (entity linking)
+├── Storage Layer (extends KAS)
+│   └── New tables: dev_memories, dev_entities, dev_relationships
+└── Query Layer
+    ├── HybridSearch (reuse KAS search)
+    ├── TemporalFilter (last week, last month)
+    └── EntitySearch (by function/package/error)
+```
+
+### 1.4 Database Schema
+
+```sql
+-- Developer memories (extends KAS content model)
+CREATE TABLE dev_memories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_type VARCHAR(50) NOT NULL,  -- 'commit', 'error', 'doc', 'note', 'conversation'
+    content TEXT NOT NULL,
+    context JSONB DEFAULT '{}',         -- {repo, file, function, error_type, commit_sha}
+    embedding vector(768),
+    tags TEXT[] DEFAULT '{}',
+    source_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    captured_at TIMESTAMPTZ,            -- When the event occurred
+    fts_vector tsvector
+);
+
+-- Extracted entities
+CREATE TABLE dev_entities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type VARCHAR(50) NOT NULL,   -- 'function', 'package', 'error', 'concept', 'file'
+    name TEXT NOT NULL,
+    description TEXT,
+    first_seen TIMESTAMPTZ DEFAULT NOW(),
+    last_seen TIMESTAMPTZ DEFAULT NOW(),
+    mention_count INTEGER DEFAULT 1,
+    UNIQUE(entity_type, name)
+);
+
+-- Memory-Entity links
+CREATE TABLE dev_memory_entities (
+    memory_id UUID REFERENCES dev_memories(id) ON DELETE CASCADE,
+    entity_id UUID REFERENCES dev_entities(id) ON DELETE CASCADE,
+    role VARCHAR(50),                   -- 'subject', 'fixed', 'caused', 'used'
+    PRIMARY KEY (memory_id, entity_id)
+);
+
+-- Entity relationships
+CREATE TABLE dev_relationships (
+    from_entity_id UUID REFERENCES dev_entities(id) ON DELETE CASCADE,
+    to_entity_id UUID REFERENCES dev_entities(id) ON DELETE CASCADE,
+    relationship_type VARCHAR(50) NOT NULL,  -- 'uses', 'fixes', 'related_to', 'depends_on'
+    strength FLOAT DEFAULT 0.5,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (from_entity_id, to_entity_id, relationship_type)
+);
+```
+
+### 1.5 Implementation Tasks
+
+**Week 1: Core Infrastructure**
+- [ ] Create project structure with pyproject.toml
+- [ ] Set up database migrations (Alembic)
+- [ ] Implement dev_memories table + basic CRUD
+- [ ] Build GitWatcher service (watchdog + gitpython)
+- [ ] Create CLI skeleton with Typer
+- [ ] Implement `devmemory add` command
+- [ ] Implement basic search (reuse KAS hybrid search)
+
+**Week 2: Entity Extraction & Relationships**
+- [ ] Implement entity extraction (Instructor + LLM)
+- [ ] Create entity deduplication logic
+- [ ] Build relationship inference
+- [ ] Add temporal filters to search
+- [ ] Implement `devmemory search --since "last week"`
+- [ ] Add entity-based queries
+
+**Week 3: Integrations & Polish**
+- [ ] Claude conversation import
+- [ ] Terminal hook for error capture
+- [ ] MCP server wrapper for DevMemory
+- [ ] Performance optimization (<500ms search)
+- [ ] Add tests (80%+ coverage)
+
+### 1.6 Success Criteria
+- Git commits auto-captured with context
+- "How did I fix X?" returns relevant results
+- Search feels instant (<500ms)
+- CLI is intuitive and fast
+
+### 1.7 CLI Interface
+
+```bash
+# Capture
+devmemory add "fixed postgres timeout by increasing pool_size to 20"
+devmemory watch /path/to/repo       # Start watching a repo
+devmemory import claude export.json # Import Claude conversation
+
+# Search
+devmemory search "postgres timeout" --limit 5
+devmemory search "authentication" --since "last month"
+devmemory search --entity "FastAPI" --type function
+
+# Entities
+devmemory entities list             # List all entities
+devmemory entities related "psycopg2" # Find related entities
+
+# Server
+devmemory serve                     # Start API server
+```
+
+---
+
+## Phase 2: CodeMCP (MCP Server for Codebase Understanding)
+
+### 2.1 Overview
+MCP server that lets Claude Code semantically query any codebase. Not grep - understanding.
+
+### 2.2 Core Features
+
+**MCP Tools:**
+- `search_code(query)` - Semantic search across indexed repos
+- `explain_function(name)` - Function explanation + usage examples
+- `find_related(file)` - Conceptually related files
+- `get_architecture(repo)` - High-level structure summary
+- `search_memory(query)` - Query DevMemory for past context
+
+### 2.3 Technical Architecture
+
+```
+CodeMCP Server
+├── MCP Interface (mcp-python-sdk)
+│   ├── Tool Definitions
+│   └── Resource Handlers
+├── Code Understanding Engine
+│   ├── AST Parser (tree-sitter)
+│   ├── SemanticIndexer (function-level embeddings)
+│   ├── DependencyGraph (imports, calls)
+│   └── DocstringExtractor
+├── Storage
+│   ├── Code embeddings (pgvector - reuse KAS)
+│   ├── AST cache (SQLite)
+│   └── DevMemory integration
+└── Indexer
+    ├── FileWatcher (incremental updates)
+    └── BatchIndexer (full repo scan)
+```
+
+### 2.4 Database Schema
+
+```sql
+-- Indexed repositories
+CREATE TABLE code_repos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    path TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    last_indexed TIMESTAMPTZ,
+    index_status VARCHAR(20) DEFAULT 'pending'
+);
+
+-- Code symbols (functions, classes, etc.)
+CREATE TABLE code_symbols (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    repo_id UUID REFERENCES code_repos(id) ON DELETE CASCADE,
+    filepath TEXT NOT NULL,
+    symbol_type VARCHAR(50) NOT NULL,   -- 'function', 'class', 'method', 'variable'
+    name TEXT NOT NULL,
+    signature TEXT,
+    docstring TEXT,
+    start_line INTEGER,
+    end_line INTEGER,
+    embedding vector(768),
+    ast_hash TEXT,                      -- For change detection
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Import/dependency graph
+CREATE TABLE code_dependencies (
+    from_symbol_id UUID REFERENCES code_symbols(id) ON DELETE CASCADE,
+    to_symbol_id UUID REFERENCES code_symbols(id) ON DELETE CASCADE,
+    dependency_type VARCHAR(50),        -- 'imports', 'calls', 'inherits'
+    PRIMARY KEY (from_symbol_id, to_symbol_id)
+);
+```
+
+### 2.5 Implementation Tasks
+
+**Week 1: MCP Server + AST Parsing**
+- [ ] Create MCP server scaffold (stdio transport)
+- [ ] Implement tree-sitter parsing for Python/JS/TS
+- [ ] Build symbol extraction (functions, classes)
+- [ ] Create database schema + migrations
+- [ ] Implement batch indexer
+- [ ] Add to ~/.claude.json for testing
+
+**Week 2: Semantic Search + DevMemory Integration**
+- [ ] Generate embeddings for functions/docstrings
+- [ ] Implement `search_code` tool
+- [ ] Implement `explain_function` tool
+- [ ] Add dependency graph building
+- [ ] Integrate with DevMemory for historical context
+- [ ] Add incremental indexing (file watcher)
+
+### 2.6 MCP Configuration
+
+```json
+{
+  "mcpServers": {
+    "codemcp": {
+      "command": "python",
+      "args": ["-m", "codemcp.server"],
+      "env": {
+        "CODEMCP_REPOS": "/Users/d/claude-code",
+        "DATABASE_URL": "postgresql://..."
+      }
+    }
+  }
+}
+```
+
+### 2.7 Success Criteria
+- MCP server starts without errors
+- `search_code` returns relevant functions
+- Integrates with DevMemory for historical context
+- Works with Claude Code out of the box
+
+---
+
+## Phase 3: ContextLens (Smart Context Window Manager)
+
+### 3.1 Overview
+Intelligently manages Claude's context window. Ranks files by relevance, shows usage, suggests optimizations.
+
+### 3.2 Core Features
+
+**Context Dashboard:**
+- Real-time token usage visualization
+- File relevance ranking
+- Auto-include/exclude suggestions
+- Compression recommendations
+
+### 3.3 Technical Architecture
+
+```
+ContextLens
+├── RelevanceScorer
+│   ├── Query-file similarity (embeddings)
+│   ├── Recency weighting (recently edited)
+│   ├── Dependency proximity (imports)
+│   └── DevMemory signals (past relevance)
+├── TokenCounter
+│   ├── tiktoken for accurate counts
+│   └── Compression estimator
+├── ContextOptimizer
+│   ├── Auto-include high-relevance
+│   ├── Auto-exclude low-relevance
+│   └── Summarize large files
+└── Interface
+    ├── CLI dashboard (rich)
+    └── JSON API for integrations
+```
+
+### 3.4 Implementation Tasks
+
+**Week 1: Core Scoring + CLI**
+- [ ] Implement token counting (tiktoken)
+- [ ] Build relevance scorer
+- [ ] Create CLI dashboard with Rich
+- [ ] Add file ranking display
+- [ ] Implement optimization suggestions
+
+**Week 2: Integrations**
+- [ ] Integrate with CodeMCP for code understanding
+- [ ] Integrate with DevMemory for historical relevance
+- [ ] Add auto-optimization mode
+- [ ] Create JSON API
+- [ ] Add tests
+
+### 3.5 CLI Interface
+
+```bash
+# Analyze context
+contextlens analyze "implement user authentication"
+contextlens usage                    # Show current token usage
+
+# Optimize
+contextlens optimize --budget 100000 # Optimize for token budget
+contextlens suggest                  # Get optimization suggestions
+
+# Dashboard
+contextlens dashboard                # Interactive TUI
+```
+
+### 3.6 Success Criteria
+- Shows accurate context usage
+- Relevance ranking feels correct
+- 30%+ token savings on average
+- Integrates with CodeMCP + DevMemory
+
+---
+
+## Project Structure
+
+```
+dev-memory-suite/
+├── .taskmaster/
+│   └── docs/
+│       └── prd.txt          # This file
+├── devmemory/
+│   ├── __init__.py
+│   ├── cli.py               # Typer CLI
+│   ├── server.py            # FastAPI server
+│   ├── db/
+│   │   ├── models.py        # SQLAlchemy models
+│   │   └── migrations/      # Alembic migrations
+│   ├── capture/
+│   │   ├── git.py           # GitWatcher
+│   │   ├── terminal.py      # Terminal hook
+│   │   └── conversation.py  # Claude import
+│   ├── processing/
+│   │   ├── chunking.py
+│   │   ├── entities.py      # Entity extraction
+│   │   └── embeddings.py
+│   └── search/
+│       ├── hybrid.py
+│       └── temporal.py
+├── codemcp/
+│   ├── __init__.py
+│   ├── server.py            # MCP server
+│   ├── indexer/
+│   │   ├── parser.py        # tree-sitter
+│   │   └── batch.py
+│   ├── search.py
+│   └── tools/
+│       ├── search_code.py
+│       └── explain_function.py
+├── contextlens/
+│   ├── __init__.py
+│   ├── cli.py
+│   ├── scorer.py
+│   ├── counter.py
+│   └── optimizer.py
+├── shared/
+│   ├── config.py            # Shared settings
+│   ├── db.py                # Database connection
+│   └── embeddings.py        # Shared embedding utils
+├── tests/
+├── pyproject.toml
+├── CLAUDE.md
+├── STRATEGY.md
+└── README.md
+```
+
+---
+
+## Dependencies
+
+```toml
+[project]
+dependencies = [
+    # Core
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "typer>=0.14.0",
+    "rich>=13.9.0",
+
+    # Database
+    "sqlalchemy>=2.0.0",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "pgvector>=0.3.0",
+
+    # AI/ML
+    "ollama>=0.4.0",
+    "instructor>=1.7.0",
+    "tiktoken>=0.8.0",
+
+    # Git/Code
+    "gitpython>=3.1.0",
+    "watchdog>=6.0.0",
+    "tree-sitter>=0.23.0",
+    "tree-sitter-python>=0.23.0",
+    "tree-sitter-javascript>=0.23.0",
+    "tree-sitter-typescript>=0.23.0",
+
+    # MCP
+    "mcp>=1.0.0",
+
+    # Shared with KAS
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
+    "httpx>=0.28.0",
+]
+```
+
+---
+
+## Configuration
+
+```bash
+# .env
+DATABASE_URL=postgresql://user:pass@localhost:5432/devmemory
+OLLAMA_URL=http://localhost:11434
+EMBEDDING_MODEL=nomic-embed-text:v1.5
+ENTITY_EXTRACTION_MODEL=qwen2.5:7b
+WATCHED_REPOS=/Users/d/claude-code
+```
+
+---
+
+## Success Metrics (Overall)
+
+| Metric | Target |
+|--------|--------|
+| DevMemory: "How did I fix X?" | 90% relevant results |
+| CodeMCP: Semantic search accuracy | 85%+ |
+| ContextLens: Token savings | 30%+ average |
+| Search latency | <500ms p95 |
+| Test coverage | 80%+ |
+
+---
+
+## Open Questions (For Later Discussion)
+
+1. Should DevMemory share KAS's database or use a separate one?
+2. Browser extension priority - build now or defer?
+3. VS Code extension for ContextLens - scope for v1?
+4. Multi-user support - needed for v1?
+5. How to handle large repos (>10k files) in CodeMCP?
+
+---
+
+## Next Steps
+
+1. Initialize project with pyproject.toml
+2. Set up database migrations
+3. Build DevMemory core (Phase 1, Week 1)
+4. Iterate based on usage

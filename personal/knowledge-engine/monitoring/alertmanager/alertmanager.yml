@@ -1,0 +1,105 @@
+# Alertmanager Configuration
+# Routes alerts to appropriate channels based on severity and team
+
+global:
+  resolve_timeout: 5m
+  # Uncomment and configure for Slack
+  # slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+route:
+  # Default receiver for all alerts
+  receiver: 'default-receiver'
+  # Group alerts by alertname and severity to reduce noise
+  group_by: ['alertname', 'severity', 'team']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+  # Route specific alerts to specific receivers
+  routes:
+    # Critical alerts go to PagerDuty/urgent channel
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # Platform team alerts
+    - match:
+        team: platform
+      receiver: 'platform-team'
+
+    # ML team alerts
+    - match:
+        team: ml
+      receiver: 'ml-team'
+
+    # Data team alerts
+    - match:
+        team: data
+      receiver: 'data-team'
+
+receivers:
+  # Default receiver - logs alerts for development
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://localhost:9999/webhook'
+        send_resolved: true
+
+  # Critical alerts - high priority notification
+  - name: 'critical-receiver'
+    webhook_configs:
+      - url: 'http://localhost:9999/critical'
+        send_resolved: true
+    # Uncomment for Slack
+    # slack_configs:
+    #   - channel: '#alerts-critical'
+    #     send_resolved: true
+    #     title: '{{ .Status | toUpper }}: {{ .CommonAnnotations.summary }}'
+    #     text: '{{ .CommonAnnotations.description }}'
+
+  # Platform team receiver
+  - name: 'platform-team'
+    webhook_configs:
+      - url: 'http://localhost:9999/platform'
+        send_resolved: true
+    # Uncomment for Slack
+    # slack_configs:
+    #   - channel: '#platform-alerts'
+    #     send_resolved: true
+
+  # ML team receiver
+  - name: 'ml-team'
+    webhook_configs:
+      - url: 'http://localhost:9999/ml'
+        send_resolved: true
+    # Uncomment for Slack
+    # slack_configs:
+    #   - channel: '#ml-alerts'
+    #     send_resolved: true
+
+  # Data team receiver
+  - name: 'data-team'
+    webhook_configs:
+      - url: 'http://localhost:9999/data'
+        send_resolved: true
+    # Uncomment for Slack
+    # slack_configs:
+    #   - channel: '#data-alerts'
+    #     send_resolved: true
+
+# Inhibition rules to reduce alert noise
+inhibit_rules:
+  # If critical alert fires, suppress related warnings
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'team']
+
+  # If service is down, suppress other alerts for that service
+  - source_match:
+      alertname: 'KnowledgeEngineDown'
+    target_match_re:
+      alertname: '.+'
+    equal: ['job']

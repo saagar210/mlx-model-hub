@@ -1,0 +1,138 @@
+# Voice AI Assistant - Project-Specific Sources
+# Deep knowledge for building voice AI applications
+
+project: voice-ai-assistant
+namespace: projects/voice-ai
+refresh_interval: 14d
+priority: P1
+
+dependencies:
+  - frameworks  # Pipecat docs
+  - infrastructure  # Ollama, MLX
+
+sources:
+  # =============================================================================
+  # Pipecat Deep Dive
+  # =============================================================================
+  - name: pipecat-architecture
+    url: https://docs.pipecat.ai/architecture
+    tags: [pipecat, architecture, design]
+
+  - name: pipecat-frames
+    url: https://docs.pipecat.ai/concepts/frames
+    tags: [pipecat, frames, data]
+
+  - name: pipecat-pipelines
+    url: https://docs.pipecat.ai/concepts/pipelines
+    tags: [pipecat, pipelines, flow]
+
+  - name: pipecat-processors
+    url: https://docs.pipecat.ai/concepts/processors
+    tags: [pipecat, processors, transforms]
+
+  - name: pipecat-transport
+    url: https://docs.pipecat.ai/concepts/transport
+    tags: [pipecat, transport, realtime]
+
+  # =============================================================================
+  # Speech-to-Text
+  # =============================================================================
+  - name: whisper-paper
+    url: https://arxiv.org/abs/2212.04356
+    type: arxiv
+    tags: [whisper, stt, research]
+    metadata:
+      title: "Robust Speech Recognition via Large-Scale Weak Supervision"
+
+  - name: whisper-repo
+    url: https://raw.githubusercontent.com/openai/whisper/main/README.md
+    type: github
+    tags: [whisper, stt, openai]
+
+  - name: faster-whisper
+    url: https://raw.githubusercontent.com/SYSTRAN/faster-whisper/master/README.md
+    type: github
+    tags: [whisper, optimized, ctranslate2]
+
+  - name: whisper-mlx
+    url: https://raw.githubusercontent.com/ml-explore/mlx-examples/main/whisper/README.md
+    type: github
+    tags: [whisper, mlx, apple]
+
+  # =============================================================================
+  # Text-to-Speech
+  # =============================================================================
+  - name: coqui-tts
+    url: https://raw.githubusercontent.com/coqui-ai/TTS/dev/README.md
+    type: github
+    tags: [tts, coqui, synthesis]
+
+  - name: bark-repo
+    url: https://raw.githubusercontent.com/suno-ai/bark/main/README.md
+    type: github
+    tags: [tts, bark, generative]
+
+  - name: piper-tts
+    url: https://raw.githubusercontent.com/rhasspy/piper/master/README.md
+    type: github
+    tags: [tts, piper, fast]
+
+  # =============================================================================
+  # Voice Activity Detection
+  # =============================================================================
+  - name: silero-vad
+    url: https://raw.githubusercontent.com/snakers4/silero-vad/master/README.md
+    type: github
+    tags: [vad, silero, detection]
+
+  - name: silero-vad-usage
+    url: https://raw.githubusercontent.com/snakers4/silero-vad/master/utils_vad.py
+    type: github
+    tags: [vad, silero, code]
+
+  # =============================================================================
+  # Audio Processing
+  # =============================================================================
+  - name: sounddevice-docs
+    url: https://python-sounddevice.readthedocs.io/en/latest/
+    tags: [audio, capture, python]
+    crawl_depth: 2
+
+  - name: pyaudio-docs
+    url: https://people.csail.mit.edu/hubert/pyaudio/docs/
+    tags: [audio, pyaudio, python]
+
+  # =============================================================================
+  # WebRTC & Realtime
+  # =============================================================================
+  - name: webrtc-for-curious
+    url: https://webrtcforthecurious.com/
+    tags: [webrtc, realtime, protocol]
+    crawl_depth: 2
+
+  - name: daily-webrtc-docs
+    url: https://docs.daily.co/
+    tags: [daily, webrtc, service]
+    crawl_depth: 1
+
+  - name: livekit-docs
+    url: https://docs.livekit.io/
+    tags: [livekit, webrtc, realtime]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Voice AI Research
+  # =============================================================================
+  - name: speech-llm-survey
+    url: https://arxiv.org/abs/2402.01763
+    type: arxiv
+    tags: [speech, llm, survey]
+    metadata:
+      title: "Speech Language Models: A Survey"
+
+  - name: voicebox-paper
+    url: https://arxiv.org/abs/2306.15687
+    type: arxiv
+    tags: [voice, synthesis, research]
+    metadata:
+      title: "Voicebox: Text-Guided Multilingual Universal Speech Generation"

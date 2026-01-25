@@ -1,0 +1,143 @@
+# Best Practices & Patterns
+# Priority P2 - Monthly refresh
+
+namespace: best-practices
+refresh_interval: 30d
+priority: P2
+
+sources:
+  # =============================================================================
+  # Prompt Engineering
+  # =============================================================================
+  - name: anthropic-prompt-engineering
+    url: https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview
+    tags: [prompting, anthropic, guide]
+
+  - name: anthropic-prompt-techniques
+    url: https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/techniques
+    tags: [prompting, techniques, anthropic]
+
+  - name: anthropic-chain-of-thought
+    url: https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/chain-of-thought
+    tags: [prompting, cot, reasoning]
+
+  # NOTE: platform.openai.com returns 403 - using cookbook alternative
+  - name: openai-prompt-engineering
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/articles/techniques_to_improve_reliability.md
+    tags: [prompting, openai, guide]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  - name: promptingguide-techniques
+    url: https://www.promptingguide.ai/techniques
+    tags: [prompting, comprehensive, techniques]
+    crawl_depth: 2
+
+  - name: promptingguide-applications
+    url: https://www.promptingguide.ai/applications
+    tags: [prompting, applications, examples]
+    crawl_depth: 2
+
+  # =============================================================================
+  # RAG Best Practices
+  # =============================================================================
+  - name: llamaindex-production-rag
+    url: https://developers.llamaindex.ai/python/framework/optimizing/production_rag/
+    tags: [rag, production, llamaindex]
+
+  - name: llamaindex-advanced-rag
+    url: https://developers.llamaindex.ai/python/framework/optimizing/advanced_rag/
+    tags: [rag, advanced, llamaindex]
+
+  - name: qdrant-rag-evaluation
+    url: https://qdrant.tech/articles/rag-evaluation/
+    tags: [rag, evaluation, qdrant]
+
+  - name: qdrant-hybrid-search
+    url: https://qdrant.tech/articles/hybrid-search/
+    tags: [rag, hybrid, search]
+
+  - name: langchain-rag-tutorial
+    url: https://python.langchain.com/docs/tutorials/rag/
+    tags: [rag, tutorial, langchain]
+
+  # =============================================================================
+  # Agent Architecture
+  # =============================================================================
+  - name: langchain-agents-concepts
+    url: https://python.langchain.com/docs/concepts/agents/
+    tags: [agents, concepts, langchain]
+
+  - name: langgraph-agent-architectures
+    url: https://langchain-ai.github.io/langgraph/concepts/agentic_concepts/
+    tags: [agents, architecture, langgraph]
+    note: "Redirects to docs.langchain.com/langgraph"
+
+  - name: anthropic-tool-use
+    url: https://docs.anthropic.com/en/docs/build-with-claude/tool-use
+    tags: [tools, agents, anthropic]
+
+  # NOTE: platform.openai.com returns 403 - using cookbook alternative
+  - name: openai-function-calling
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/How_to_call_functions_with_chat_models.ipynb
+    tags: [tools, functions, openai]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  # =============================================================================
+  # Security & Safety
+  # =============================================================================
+  - name: owasp-llm-top10
+    url: https://owasp.org/www-project-top-10-for-large-language-model-applications/
+    tags: [security, owasp, llm]
+
+  - name: owasp-llm-top10-list
+    url: https://genai.owasp.org/llm-top-10/
+    tags: [security, vulnerabilities, llm]
+
+  - name: anthropic-safety-docs
+    url: https://docs.anthropic.com/en/docs/build-with-claude/develop-tests
+    tags: [safety, testing, anthropic]
+
+  - name: prompt-injection-intro
+    url: https://simonwillison.net/2022/Sep/12/prompt-injection/
+    tags: [security, injection, prompts]
+    metadata:
+      author: "Simon Willison"
+
+  - name: prompt-injection-defenses
+    url: https://simonwillison.net/2023/Apr/14/worst-that-can-happen/
+    tags: [security, defenses, injection]
+    metadata:
+      author: "Simon Willison"
+
+  # =============================================================================
+  # Production Patterns
+  # =============================================================================
+  - name: langchain-production-guide
+    url: https://python.langchain.com/docs/how_to/#use-cases
+    tags: [production, patterns, langchain]
+
+  # NOTE: platform.openai.com returns 403 - using cookbook alternative
+  - name: openai-production-practices
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/articles/related_resources.md
+    tags: [production, best-practices, openai]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  - name: anthropic-production-guide
+    url: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+    tags: [production, caching, anthropic]
+
+  # =============================================================================
+  # Evaluation Best Practices
+  # =============================================================================
+  - name: langchain-evaluation-concepts
+    url: https://python.langchain.com/docs/concepts/evaluation/
+    tags: [evaluation, concepts, langchain]
+
+  - name: langchain-evaluation-how-to
+    url: https://python.langchain.com/docs/how_to/#evaluation
+    tags: [evaluation, guides, langchain]
+
+  - name: llamaindex-evaluation
+    url: https://developers.llamaindex.ai/python/framework/module_guides/evaluating/
+    tags: [evaluation, llamaindex, metrics]
+    crawl_depth: 2

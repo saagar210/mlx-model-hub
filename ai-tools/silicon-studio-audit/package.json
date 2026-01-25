@@ -1,0 +1,71 @@
+{
+    "name": "silicon-studio",
+    "productName": "Silicon Studio",
+    "version": "0.1.0",
+    "description": "Local-first LLM fine-tuning on Apple Silicon",
+    "main": "dist/main/main.js",
+    "author": "Silicon Studio",
+    "license": "MIT",
+    "scripts": {
+        "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+        "dev:renderer": "cd src/renderer && npm run dev",
+        "dev:electron": "wait-on tcp:5173 && tsc -p src/main/tsconfig.json && electron .",
+        "build": "npm run build:renderer && npm run build:main",
+        "build:renderer": "cd src/renderer && npm run build",
+        "build:main": "tsc -p src/main/tsconfig.json",
+        "start": "electron .",
+        "package": "npm run build && npm run build:backend && electron-builder build --mac",
+        "build:backend": "cd backend && /opt/anaconda3/bin/python3 -m PyInstaller spec/silicon_server.spec --clean --noconfirm"
+    },
+    "build": {
+        "appId": "com.siliconstudio.app",
+        "productName": "Silicon Studio",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "package.json"
+        ],
+        "extraResources": [
+            "backend/dist/silicon_server"
+        ],
+        "mac": {
+            "icon": "resources/icon.icns",
+            "target": [
+                "dmg",
+                "zip"
+            ],
+            "hardenedRuntime": true,
+            "gatekeeperAssess": false,
+            "entitlements": "resources/entitlements.mac.plist",
+            "entitlementsInherit": "resources/entitlements.mac.plist",
+            "extendInfo": {
+                "NSCameraUsageDescription": "Application requires access to camera for vision features",
+                "NSMicrophoneUsageDescription": "Application requires access to microphone for voice features"
+            }
+        },
+        "dmg": {
+            "contents": [
+                {
+                    "x": 130,
+                    "y": 220
+                },
+                {
+                    "x": 410,
+                    "y": 220,
+                    "type": "link",
+                    "path": "/Applications"
+                }
+            ]
+        }
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "electron": "^29.1.0",
+        "electron-builder": "^24.13.3",
+        "electron-updater": "^6.6.2",
+        "typescript": "^5.3.3",
+        "wait-on": "^7.2.0"
+    }
+}

@@ -1,0 +1,33 @@
+"""{{ project_name }} - FastAPI application."""
+
+from fastapi import FastAPI
+
+from .config import settings
+
+app = FastAPI(
+    title="{{ project_name }}",
+    version="0.1.0",
+)
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return {"status": "healthy"}
+
+
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {"message": "Welcome to {{ project_name }}"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(
+        "{{ project_slug }}.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=True,
+    )

@@ -1,0 +1,151 @@
+# Tools & Development Resources
+# Priority P1 - Bi-weekly refresh
+
+namespace: tools
+refresh_interval: 14d
+priority: P1
+
+sources:
+  # =============================================================================
+  # MCP (Model Context Protocol)
+  # =============================================================================
+  - name: mcp-specification
+    url: https://spec.modelcontextprotocol.io/
+    tags: [mcp, protocol, spec]
+    crawl_depth: 2
+
+  - name: mcp-introduction
+    url: https://modelcontextprotocol.io/introduction
+    tags: [mcp, overview, concepts]
+
+  - name: mcp-quickstart
+    url: https://modelcontextprotocol.io/quickstart
+    tags: [mcp, quickstart, tutorial]
+
+  - name: mcp-servers-repo
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/README.md
+    type: github
+    tags: [mcp, servers, examples]
+
+  - name: mcp-python-sdk
+    url: https://raw.githubusercontent.com/modelcontextprotocol/python-sdk/main/README.md
+    type: github
+    tags: [mcp, python, sdk]
+
+  - name: mcp-typescript-sdk
+    url: https://raw.githubusercontent.com/modelcontextprotocol/typescript-sdk/main/README.md
+    type: github
+    tags: [mcp, typescript, sdk]
+
+  - name: awesome-mcp-servers
+    url: https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md
+    type: github
+    tags: [mcp, curated, community]
+
+  # =============================================================================
+  # Playwright - Browser Automation
+  # =============================================================================
+  - name: playwright-intro
+    url: https://playwright.dev/docs/intro
+    tags: [playwright, testing, automation]
+
+  - name: playwright-writing-tests
+    url: https://playwright.dev/docs/writing-tests
+    tags: [playwright, testing, basics]
+
+  - name: playwright-locators
+    url: https://playwright.dev/docs/locators
+    tags: [playwright, selectors, locators]
+
+  - name: playwright-actions
+    url: https://playwright.dev/docs/input
+    tags: [playwright, actions, interactions]
+
+  - name: playwright-assertions
+    url: https://playwright.dev/docs/test-assertions
+    tags: [playwright, assertions, testing]
+
+  - name: playwright-api-testing
+    url: https://playwright.dev/docs/api-testing
+    tags: [playwright, api, testing]
+
+  - name: playwright-best-practices
+    url: https://playwright.dev/docs/best-practices
+    tags: [playwright, patterns, best-practices]
+
+  - name: playwright-python
+    url: https://playwright.dev/python/docs/intro
+    tags: [playwright, python, automation]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Testing Frameworks
+  # =============================================================================
+  - name: pytest-getting-started
+    url: https://docs.pytest.org/en/stable/getting-started.html
+    tags: [pytest, testing, python]
+
+  - name: pytest-how-to
+    url: https://docs.pytest.org/en/stable/how-to/index.html
+    tags: [pytest, guides, patterns]
+    crawl_depth: 2
+
+  - name: pytest-reference
+    url: https://docs.pytest.org/en/stable/reference/index.html
+    tags: [pytest, api, reference]
+
+  # =============================================================================
+  # RAG Evaluation Tools
+  # =============================================================================
+  - name: ragas-getting-started
+    url: https://docs.ragas.io/en/latest/getstarted/
+    tags: [ragas, evaluation, quickstart]
+
+  - name: ragas-concepts
+    url: https://docs.ragas.io/en/latest/concepts/
+    tags: [ragas, concepts, metrics]
+    crawl_depth: 2
+
+  - name: ragas-howto
+    url: https://docs.ragas.io/en/latest/howtos/
+    tags: [ragas, guides, patterns]
+    crawl_depth: 2
+
+  - name: deepeval-introduction
+    url: https://docs.confident-ai.com/docs/getting-started
+    tags: [deepeval, evaluation, quickstart]
+
+  - name: deepeval-metrics-intro
+    url: https://docs.confident-ai.com/docs/metrics-introduction
+    tags: [deepeval, metrics, overview]
+
+  - name: deepeval-rag-metrics
+    url: https://docs.confident-ai.com/docs/metrics-rag
+    tags: [deepeval, rag, evaluation]
+
+  - name: deepeval-llm-metrics
+    url: https://docs.confident-ai.com/docs/metrics-llm-evals
+    tags: [deepeval, llm, evaluation]
+
+  # =============================================================================
+  # Development Utilities
+  # =============================================================================
+  - name: httpx-docs
+    url: https://www.python-httpx.org/
+    tags: [httpx, http, python]
+    crawl_depth: 2
+
+  - name: pydantic-docs
+    url: https://docs.pydantic.dev/latest/
+    tags: [pydantic, validation, python]
+    crawl_depth: 2
+
+  - name: typer-docs
+    url: https://typer.tiangolo.com/
+    tags: [typer, cli, python]
+    crawl_depth: 2
+
+  - name: rich-docs
+    url: https://rich.readthedocs.io/en/stable/
+    tags: [rich, terminal, python]
+    crawl_depth: 2

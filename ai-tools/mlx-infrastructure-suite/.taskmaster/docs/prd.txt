@@ -1,0 +1,582 @@
+# MLX Infrastructure Suite - Product Requirements Document
+
+## 1. Executive Summary
+
+### Project Vision
+Build the definitive infrastructure toolkit for MLX developers on Apple Silicon. Three interconnected tools that solve the core pain points of local ML development: monitoring, caching, and rapid app development.
+
+### Business Case
+- **Market Gap**: Zero competition in Mac-specific ML infrastructure tooling
+- **Target Users**: ~5M M-series Mac users running local ML workloads
+- **Timing**: Post-WWDC 2025 MLX momentum, growing Ollama adoption
+- **Differentiation**: Native Mac experience, deep Apple Silicon optimization
+
+### Success Metrics
+- MLXDash: 1,000+ downloads in first month
+- MLXCache: 50%+ average disk savings for users
+- SwiftMLX: Featured in Apple developer community
+
+---
+
+## 2. Technical Environment
+
+### Hardware Context
+- Primary Development: MacBook Pro M4 Pro (48GB RAM)
+- Target Platforms: Any M-series Mac (M1/M2/M3/M4)
+- Minimum RAM: 16GB (for meaningful local ML work)
+
+### Existing Infrastructure
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Ollama | Installed | deepseek-r1:14b, qwen2.5-coder:7b, llama3.2-vision:11b |
+| MLX Python | Not installed | Needs `pip install mlx` |
+| Xcode | Installed | Required for Swift development |
+| Related Projects | Exist | mlx-model-hub, silicon-studio-audit |
+
+### Integration Points
+- **Ollama API**: http://localhost:11434 (primary monitoring target)
+- **HuggingFace Hub**: Model downloads for MLXCache
+- **MLX-LM**: Python inference library
+- **IOKit**: macOS system metrics (GPU, thermal)
+
+---
+
+## 3. Phase 1: MLXDash (Menu Bar Monitor)
+
+### 3.1 Product Description
+A native macOS menu bar application that provides real-time monitoring of ML workloads, specifically targeting Ollama and MLX inference sessions.
+
+### 3.2 User Stories
+
+**US-1.1**: As an ML developer, I want to see live tokens/second in my menu bar so I can monitor inference performance at a glance.
+
+**US-1.2**: As an ML developer, I want to see which model is currently loaded and its memory usage so I can manage my system resources.
+
+**US-1.3**: As an ML developer, I want to run quick benchmarks on my models so I can compare performance across different models.
+
+**US-1.4**: As an ML developer, I want to view historical performance data so I can track model performance over time.
+
+### 3.3 Functional Requirements
+
+#### FR-1.1: Menu Bar Display
+- Show live tok/sec when model is running (updates every 500ms)
+- Show idle indicator when no model active
+- Click to expand full metrics dropdown
+- Support both light and dark mode
+
+#### FR-1.2: Metrics Collection
+| Metric | Source | Update Frequency |
+|--------|--------|------------------|
+| Active Model | Ollama /api/ps | 1 second |
+| Tokens/Second | Calculated from stream | Real-time |
+| Memory Usage | Ollama /api/ps + System | 2 seconds |
+| GPU Utilization | IOKit GPU metrics | 2 seconds |
+| Temperature | IOKit thermal | 5 seconds |
+
+#### FR-1.3: Benchmark System
+- Standard benchmark: 10 prompts, varying complexity
+- Measures: avg tok/s, p50/p95 latency, memory peak
+- Results stored in SQLite for comparison
+- Export to JSON/CSV
+
+#### FR-1.4: History & Analytics
+- Store last 30 days of session data
+- Chart views: tok/s over time, memory trends
+- Per-model statistics
+- Session duration tracking
+
+### 3.4 Technical Architecture
+
+```
+MLXDash.app/
+├── MLXDash/
+│   ├── App/
+│   │   ├── MLXDashApp.swift          # @main entry, MenuBarExtra
+│   │   ├── AppDelegate.swift          # Lifecycle, permissions
+│   │   └── Constants.swift            # API URLs, defaults
+│   ├── Views/
+│   │   ├── MenuBarView.swift          # Main dropdown UI
+│   │   ├── MetricsView.swift          # Real-time metrics display
+│   │   ├── BenchmarkView.swift        # Benchmark runner UI
+│   │   ├── HistoryView.swift          # Historical charts
+│   │   └── PreferencesView.swift      # Settings panel
+│   ├── Services/
+│   │   ├── OllamaService.swift        # API client for Ollama
+│   │   ├── SystemMetricsService.swift # IOKit GPU/thermal
+│   │   ├── BenchmarkService.swift     # Benchmark orchestration
+│   │   └── HistoryService.swift       # SQLite data access
+│   ├── Models/
+│   │   ├── ModelInfo.swift            # Active model data
+│   │   ├── SystemMetrics.swift        # GPU/memory/temp
+│   │   ├── BenchmarkResult.swift      # Benchmark data
+│   │   └── Session.swift              # Historical session
+│   └── Resources/
+│       ├── Assets.xcassets            # App icon, menu bar icons
+│       └── mlxdash.db                  # SQLite schema
+├── MLXDashTests/
+└── Package.swift
+```
+
+### 3.5 API Contracts
+
+#### Ollama /api/ps Response
+```json
+{
+  "models": [{
+    "name": "deepseek-r1:14b",
+    "model": "deepseek-r1:14b",
+    "size": 9012345678,
+    "digest": "abc123...",
+    "details": { "family": "deepseek", "parameter_size": "14B" },
+    "expires_at": "2025-01-12T00:00:00Z",
+    "size_vram": 8000000000
+  }]
+}
+```
+
+#### SQLite Schema
+```sql
+CREATE TABLE sessions (
+    id INTEGER PRIMARY KEY,
+    model_name TEXT NOT NULL,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME,
+    avg_tokens_per_sec REAL,
+    total_tokens INTEGER,
+    peak_memory_gb REAL
+);
+
+CREATE TABLE benchmarks (
+    id INTEGER PRIMARY KEY,
+    model_name TEXT NOT NULL,
+    ran_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    avg_tokens_per_sec REAL,
+    p50_latency_ms REAL,
+    p95_latency_ms REAL,
+    peak_memory_gb REAL,
+    prompt_count INTEGER
+);
+```
+
+### 3.6 Implementation Tasks
+
+| Task ID | Task | Est. Hours | Dependencies |
+|---------|------|------------|--------------|
+| MLX-1.1 | Create Xcode project with MenuBarExtra scaffold | 2 | None |
+| MLX-1.2 | Implement OllamaService with /api/ps polling | 3 | MLX-1.1 |
+| MLX-1.3 | Build MenuBarView with live tok/s display | 4 | MLX-1.2 |
+| MLX-1.4 | Implement SystemMetricsService (IOKit) | 4 | MLX-1.1 |
+| MLX-1.5 | Build MetricsView dropdown UI | 3 | MLX-1.3, MLX-1.4 |
+| MLX-1.6 | Create SQLite database layer | 3 | MLX-1.1 |
+| MLX-1.7 | Implement BenchmarkService | 4 | MLX-1.2 |
+| MLX-1.8 | Build BenchmarkView UI | 3 | MLX-1.7 |
+| MLX-1.9 | Build HistoryView with charts | 4 | MLX-1.6 |
+| MLX-1.10 | Implement PreferencesView | 2 | MLX-1.1 |
+| MLX-1.11 | App icon design and assets | 2 | None |
+| MLX-1.12 | Testing and bug fixes | 4 | All above |
+| MLX-1.13 | DMG packaging and signing | 2 | MLX-1.12 |
+| MLX-1.14 | README and documentation | 2 | MLX-1.13 |
+
+### 3.7 Acceptance Criteria
+- [ ] Menu bar shows live tok/s when Ollama model is running
+- [ ] Dropdown shows model name, memory, GPU %, temperature
+- [ ] Benchmark completes 10 prompts in <60 seconds
+- [ ] History shows last 30 days of data
+- [ ] App launches at login (optional preference)
+- [ ] Works on macOS 14.0+ (Sonoma and later)
+- [ ] Signed and notarized DMG for distribution
+
+---
+
+## 4. Phase 2: MLXCache (Shared Model Cache)
+
+### 4.1 Product Description
+A command-line tool and background service that provides centralized model weight storage, eliminating duplicate downloads across Ollama, MLX apps, and HuggingFace-based tools.
+
+### 4.2 User Stories
+
+**US-2.1**: As an ML developer, I want a single command to download a model once and use it everywhere so I don't waste disk space on duplicates.
+
+**US-2.2**: As an ML developer, I want to see how much disk space I'm saving by using the shared cache.
+
+**US-2.3**: As an ML developer, I want to register my apps with the cache so it knows which apps use which models.
+
+**US-2.4**: As an ML developer, I want to clean up unused models automatically.
+
+### 4.3 Functional Requirements
+
+#### FR-2.1: CLI Commands
+```bash
+mlx-cache status              # Show all cached models and apps
+mlx-cache add <model>         # Download and cache model
+mlx-cache remove <model>      # Remove model (if no apps using)
+mlx-cache link <app-path>     # Register app to use cache
+mlx-cache unlink <app-path>   # Unregister app
+mlx-cache clean               # Remove orphaned models
+mlx-cache stats               # Disk usage and savings report
+mlx-cache config              # View/edit configuration
+mlx-cache sync                # Sync with Ollama cache (symlinks)
+```
+
+#### FR-2.2: Model Sources
+| Source | Pattern | Example |
+|--------|---------|---------|
+| HuggingFace | `hf://org/model` | `hf://deepseek-ai/deepseek-r1-14b` |
+| Ollama | `ollama://model:tag` | `ollama://deepseek-r1:14b` |
+| Local | `file:///path` | `file:///Users/d/models/custom` |
+
+#### FR-2.3: Deduplication Strategy
+1. Detect existing Ollama models in `~/.ollama/models/`
+2. Create symlinks from MLXCache to Ollama (no duplication)
+3. For HF models, download to cache and create symlinks
+4. Track which apps reference which models in registry.db
+
+#### FR-2.4: Integration with MLXDash
+- MLXDash shows cache status in dropdown
+- Quick link to run `mlx-cache status`
+- Alert when disk space savings exceed threshold
+
+### 4.4 Technical Architecture
+
+```
+~/.mlx-cache/
+├── models/
+│   ├── hf--deepseek-ai--deepseek-r1-14b/
+│   │   ├── model.safetensors
+│   │   ├── config.json
+│   │   ├── tokenizer.json
+│   │   └── .metadata.json          # Download info, checksums
+│   └── ollama--deepseek-r1--14b/  → ~/.ollama/models/... (symlink)
+├── registry.db                      # SQLite: models ↔ apps
+├── config.yaml                      # User preferences
+└── logs/
+    └── mlx-cache.log
+
+mlx-cache/
+├── pyproject.toml
+├── src/
+│   └── mlx_cache/
+│       ├── __init__.py
+│       ├── cli.py                   # Click CLI commands
+│       ├── cache.py                 # Core cache logic
+│       ├── registry.py              # SQLite registry
+│       ├── sources/
+│       │   ├── huggingface.py       # HF Hub downloads
+│       │   ├── ollama.py            # Ollama integration
+│       │   └── local.py             # Local file handling
+│       ├── dedup.py                 # Deduplication logic
+│       └── stats.py                 # Disk usage calculations
+└── tests/
+```
+
+### 4.5 Registry Schema
+```sql
+CREATE TABLE models (
+    id INTEGER PRIMARY KEY,
+    source TEXT NOT NULL,              -- 'huggingface', 'ollama', 'local'
+    identifier TEXT NOT NULL UNIQUE,   -- 'deepseek-ai/deepseek-r1-14b'
+    local_path TEXT NOT NULL,          -- Full path in cache
+    size_bytes INTEGER,
+    downloaded_at DATETIME,
+    checksum TEXT,
+    is_symlink BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE apps (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    path TEXT NOT NULL UNIQUE,         -- '/Applications/MLXApp.app'
+    registered_at DATETIME
+);
+
+CREATE TABLE model_usage (
+    model_id INTEGER REFERENCES models(id),
+    app_id INTEGER REFERENCES apps(id),
+    last_used DATETIME,
+    PRIMARY KEY (model_id, app_id)
+);
+```
+
+### 4.6 Implementation Tasks
+
+| Task ID | Task | Est. Hours | Dependencies |
+|---------|------|------------|--------------|
+| MLC-2.1 | Python project setup (pyproject.toml, structure) | 2 | None |
+| MLC-2.2 | Implement Click CLI scaffold | 2 | MLC-2.1 |
+| MLC-2.3 | Create SQLite registry layer | 3 | MLC-2.1 |
+| MLC-2.4 | Implement HuggingFace source (downloads) | 4 | MLC-2.3 |
+| MLC-2.5 | Implement Ollama source (symlinks) | 4 | MLC-2.3 |
+| MLC-2.6 | Build `add` and `remove` commands | 3 | MLC-2.4, MLC-2.5 |
+| MLC-2.7 | Build `status` command with rich output | 2 | MLC-2.6 |
+| MLC-2.8 | Implement app registration (link/unlink) | 3 | MLC-2.3 |
+| MLC-2.9 | Build deduplication scanner | 4 | MLC-2.5 |
+| MLC-2.10 | Implement `clean` command | 2 | MLC-2.8 |
+| MLC-2.11 | Build `stats` command with savings report | 2 | MLC-2.9 |
+| MLC-2.12 | Create config.yaml handling | 2 | MLC-2.1 |
+| MLC-2.13 | MLXDash integration (Swift helper) | 4 | MLC-2.7 |
+| MLC-2.14 | Testing suite | 4 | All above |
+| MLC-2.15 | PyPI packaging and distribution | 2 | MLC-2.14 |
+| MLC-2.16 | Documentation and examples | 2 | MLC-2.15 |
+
+### 4.7 Acceptance Criteria
+- [ ] `mlx-cache add hf://deepseek-ai/deepseek-r1-14b` downloads model
+- [ ] `mlx-cache sync` creates symlinks to existing Ollama models
+- [ ] `mlx-cache stats` shows accurate disk savings
+- [ ] No duplicate model weights exist after full sync
+- [ ] `pip install mlx-cache` works from PyPI
+- [ ] MLXDash can display cache status
+
+---
+
+## 5. Phase 3: SwiftMLX (Xcode Templates)
+
+### 5.1 Product Description
+A Swift Package providing high-level MLX inference APIs plus Xcode project templates that let any Mac developer add AI features in minutes.
+
+### 5.2 User Stories
+
+**US-3.1**: As a Swift developer, I want to add MLX inference to my app with a single package import.
+
+**US-3.2**: As a Swift developer, I want pre-built UI components for chat and model selection.
+
+**US-3.3**: As a Swift developer, I want Xcode templates so I can start AI-powered apps from scratch quickly.
+
+**US-3.4**: As a Swift developer, I want automatic integration with MLXCache for model loading.
+
+### 5.3 Functional Requirements
+
+#### FR-3.1: Swift Package APIs
+```swift
+// Model Loading
+let model = try await SwiftMLX.load("deepseek-r1:14b")
+let model = try await SwiftMLX.load(from: cacheIdentifier)
+
+// Text Generation
+let response = try await model.generate(prompt: "...", maxTokens: 500)
+
+// Streaming
+for try await token in model.stream(prompt: "...") {
+    print(token, terminator: "")
+}
+
+// Vision
+let caption = try await model.analyze(image: nsImage, prompt: "Describe this")
+```
+
+#### FR-3.2: UI Components
+| Component | Description |
+|-----------|-------------|
+| MLXChatView | Full chat interface with message history |
+| MLXModelPicker | Dropdown to select installed models |
+| MLXPerformanceView | MLXDash-style metrics in-app |
+| MLXPromptField | Text input with send button |
+
+#### FR-3.3: Xcode Templates
+1. **MLX Chat App**: ChatGPT-style conversational AI
+2. **MLX Document Analyzer**: Drop files, get AI insights
+3. **MLX Image Captioner**: Vision model integration
+
+### 5.4 Technical Architecture
+
+```
+SwiftMLX/
+├── Package.swift
+├── Sources/
+│   ├── SwiftMLX/
+│   │   ├── SwiftMLX.swift           # Public API facade
+│   │   ├── Model/
+│   │   │   ├── MLXModel.swift       # Model wrapper
+│   │   │   ├── ModelLoader.swift    # Loading from cache
+│   │   │   └── ModelRegistry.swift  # Available models
+│   │   ├── Inference/
+│   │   │   ├── TextGeneration.swift # Text completion
+│   │   │   ├── Streaming.swift      # AsyncSequence streaming
+│   │   │   └── VisionAnalysis.swift # Image analysis
+│   │   ├── Cache/
+│   │   │   └── MLXCacheClient.swift # Communicates with mlx-cache
+│   │   └── Utilities/
+│   │       ├── TokenCounter.swift
+│   │       └── PerformanceTracker.swift
+│   └── SwiftMLXUI/
+│       ├── ChatView.swift
+│       ├── ModelPicker.swift
+│       ├── PerformanceView.swift
+│       ├── PromptField.swift
+│       └── MessageBubble.swift
+├── Templates/
+│   ├── MLX Chat App.xctemplate/
+│   │   ├── TemplateInfo.plist
+│   │   ├── ContentView.swift
+│   │   └── ___PACKAGENAME___App.swift
+│   ├── MLX Document Analyzer.xctemplate/
+│   └── MLX Image Captioner.xctemplate/
+├── Examples/
+│   ├── ChatDemo/
+│   └── VisionDemo/
+└── Tests/
+```
+
+### 5.5 Dependencies
+- Ollama API (primary inference backend)
+- MLXCache (model resolution)
+- Swift Async/Await (streaming)
+- SwiftUI (UI components)
+
+### 5.6 Implementation Tasks
+
+| Task ID | Task | Est. Hours | Dependencies |
+|---------|------|------------|--------------|
+| SML-3.1 | Swift Package setup with targets | 2 | None |
+| SML-3.2 | Implement MLXModel and ModelLoader | 4 | SML-3.1 |
+| SML-3.3 | Implement TextGeneration with streaming | 4 | SML-3.2 |
+| SML-3.4 | Implement VisionAnalysis | 4 | SML-3.2 |
+| SML-3.5 | Build MLXCacheClient integration | 3 | Phase 2 complete |
+| SML-3.6 | Build ChatView component | 4 | SML-3.3 |
+| SML-3.7 | Build ModelPicker component | 2 | SML-3.2 |
+| SML-3.8 | Build PerformanceView component | 2 | SML-3.2 |
+| SML-3.9 | Build PromptField component | 2 | SML-3.1 |
+| SML-3.10 | Create Chat App template | 4 | SML-3.6 |
+| SML-3.11 | Create Document Analyzer template | 4 | SML-3.3 |
+| SML-3.12 | Create Image Captioner template | 4 | SML-3.4 |
+| SML-3.13 | Build example apps | 4 | SML-3.10-12 |
+| SML-3.14 | Testing suite | 4 | All above |
+| SML-3.15 | Template installer script | 2 | SML-3.10-12 |
+| SML-3.16 | Documentation and tutorials | 4 | SML-3.15 |
+
+### 5.7 Acceptance Criteria
+- [ ] `swift package add SwiftMLX` works
+- [ ] `model.generate()` returns text response
+- [ ] Streaming works with AsyncSequence
+- [ ] Vision analysis works with llama3.2-vision
+- [ ] Templates install to Xcode and appear in New Project
+- [ ] Example apps compile and run
+- [ ] Full API documentation generated
+
+---
+
+## 6. Cross-Cutting Concerns
+
+### 6.1 Error Handling Strategy
+| Error Type | Handling |
+|------------|----------|
+| Ollama not running | Clear error message, link to install |
+| Model not found | Suggest `mlx-cache add` |
+| Network timeout | Retry with backoff, user notification |
+| Out of memory | Alert before crash, suggest smaller model |
+
+### 6.2 Logging & Diagnostics
+- All tools write to `~/.mlx-infrastructure/logs/`
+- Log levels: DEBUG, INFO, WARN, ERROR
+- Include in bug reports: `mlx-diag export`
+
+### 6.3 Configuration
+```yaml
+# ~/.mlx-infrastructure/config.yaml
+mlxdash:
+  polling_interval: 1000  # ms
+  benchmark_prompts: 10
+  launch_at_login: false
+
+mlxcache:
+  cache_dir: ~/.mlx-cache
+  max_cache_size_gb: 100
+  auto_clean: true
+  ollama_sync: true
+
+swiftmlx:
+  default_backend: ollama
+  timeout_seconds: 30
+```
+
+### 6.4 Testing Strategy
+| Component | Test Types |
+|-----------|------------|
+| MLXDash | Unit (services), UI (SwiftUI previews), Integration (Ollama mock) |
+| MLXCache | Unit (all modules), Integration (real downloads), E2E (full workflow) |
+| SwiftMLX | Unit (inference), UI (preview), Integration (Ollama) |
+
+---
+
+## 7. Release Plan
+
+### Phase 1: MLXDash (Week 1)
+- **Day 1-2**: Project setup, basic menu bar, Ollama polling
+- **Day 3-4**: System metrics, UI refinement
+- **Day 5-6**: Benchmarking, history
+- **Day 7**: Polish, packaging, ship
+
+### Phase 2: MLXCache (Weeks 2-3)
+- **Week 2**: Core CLI, downloads, registry
+- **Week 3**: Deduplication, MLXDash integration, ship
+
+### Phase 3: SwiftMLX (Weeks 4-6)
+- **Week 4**: Swift Package, core inference
+- **Week 5**: UI components, templates
+- **Week 6**: Examples, documentation, ship
+
+### Distribution Channels
+1. **GitHub Releases**: DMG (MLXDash), pip/PyPI (MLXCache), SPM (SwiftMLX)
+2. **Social**: Twitter/X, Reddit r/LocalLLaMA, Hacker News
+3. **Community**: Apple Developer Forums, MLX Discord
+
+---
+
+## 8. Open Questions
+
+### Technical
+1. Should MLXDash support mlx-lm directly, or only Ollama?
+2. MLXCache: Use hardlinks or symlinks for deduplication?
+3. SwiftMLX: Call Ollama HTTP or bundle mlx-lm Python?
+
+### Product
+1. Free vs Pro feature split - where exactly?
+2. Priority order if time-constrained?
+3. macOS minimum version (14.0 Sonoma vs 13.0 Ventura)?
+
+---
+
+## 9. Dependencies & Prerequisites
+
+### Must Have Before Starting
+- [x] Ollama installed with models
+- [ ] MLX Python package installed
+- [x] Xcode 15+ installed
+- [x] Apple Developer account (for signing)
+
+### External Dependencies
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| Ollama | Latest | Primary inference backend |
+| MLX | 0.30+ | Python ML framework |
+| Swift | 5.9+ | SwiftMLX development |
+| Python | 3.11+ | MLXCache development |
+| Click | 8.0+ | CLI framework |
+| Rich | Latest | CLI output formatting |
+| huggingface_hub | Latest | Model downloads |
+
+---
+
+## 10. Appendix
+
+### A. Ollama API Reference
+- GET `/api/tags` - List models
+- GET `/api/ps` - Running models
+- POST `/api/generate` - Generate text
+- POST `/api/chat` - Chat completion
+
+### B. IOKit GPU Metrics
+```swift
+// Key metrics available via IOKit
+let gpuUtilization = IOServiceGetMatchingService(...)  // Percent
+let thermalState = ProcessInfo.processInfo.thermalState
+let memoryUsage = os_proc_available_memory()
+```
+
+### C. HuggingFace Hub API
+```python
+from huggingface_hub import snapshot_download
+path = snapshot_download(
+    repo_id="deepseek-ai/deepseek-r1-14b",
+    cache_dir="~/.mlx-cache/models"
+)
+```

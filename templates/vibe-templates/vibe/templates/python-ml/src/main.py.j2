@@ -1,0 +1,36 @@
+"""{{ project_name }} - Gradio UI for MLX inference."""
+
+import gradio as gr
+
+
+def create_ui():
+    """Create the Gradio interface."""
+    with gr.Blocks(title="{{ project_name }}") as demo:
+        gr.Markdown("# {{ project_name }}")
+        gr.Markdown("MLX-powered AI application")
+
+        with gr.Tab("Chat"):
+            chatbot = gr.Chatbot(height=400)
+            msg = gr.Textbox(placeholder="Type a message...", label="")
+            clear = gr.Button("Clear")
+
+            def respond(message, history):
+                # TODO: Implement MLX inference
+                response = f"Echo: {message}"
+                history.append((message, response))
+                return "", history
+
+            msg.submit(respond, [msg, chatbot], [msg, chatbot])
+            clear.click(lambda: [], None, chatbot)
+
+    return demo
+
+
+def main():
+    """Run the application."""
+    demo = create_ui()
+    demo.launch(server_name="127.0.0.1", server_port=7860)
+
+
+if __name__ == "__main__":
+    main()

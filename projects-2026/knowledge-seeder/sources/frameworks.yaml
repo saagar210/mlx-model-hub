@@ -1,0 +1,158 @@
+# Framework Documentation Sources
+# Priority P0 - Auto-refresh weekly
+
+namespace: frameworks
+refresh_interval: 7d
+priority: P0
+
+sources:
+  # =============================================================================
+  # LangGraph - Agent Orchestration Framework
+  # URL updated 2026-01-13: docs moved from langchain-ai.github.io to docs.langchain.com
+  # =============================================================================
+  - name: langgraph-quickstart
+    url: https://docs.langchain.com/oss/python/langgraph/quickstart
+    tags: [langgraph, agents, quickstart]
+
+  - name: langgraph-thinking-guide
+    url: https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph
+    tags: [langgraph, concepts, guide]
+
+  - name: langgraph-tutorials
+    url: https://docs.langchain.com/oss/python/langgraph/tutorials
+    tags: [langgraph, tutorials, examples]
+
+  - name: langgraph-how-to-guides
+    url: https://docs.langchain.com/oss/python/langgraph/how-to-guides
+    tags: [langgraph, guides, patterns]
+
+  - name: langgraph-reference
+    url: https://docs.langchain.com/oss/python/langgraph/reference
+    tags: [langgraph, api, reference]
+
+  # =============================================================================
+  # LlamaIndex - Data Framework for LLM Applications
+  # NOTE: developers.llamaindex.ai is a SPA (client-rendered) - using GitHub docs
+  # =============================================================================
+  - name: llamaindex-readme
+    url: https://raw.githubusercontent.com/run-llama/llama_index/main/README.md
+    tags: [llamaindex, overview, quickstart]
+
+  - name: llamaindex-contributing
+    url: https://raw.githubusercontent.com/run-llama/llama_index/main/CONTRIBUTING.md
+    tags: [llamaindex, contributing, development]
+
+  - name: llamaindex-examples-readme
+    url: https://raw.githubusercontent.com/run-llama/llama_index/main/llama-index-legacy/examples/README.md
+    tags: [llamaindex, examples, applications]
+
+  - name: llamaindex-starter-tutorial
+    url: https://raw.githubusercontent.com/run-llama/llama_index/main/docs/docs/getting_started/starter_example.md
+    tags: [llamaindex, tutorial, basics]
+
+  - name: llamaindex-concepts
+    url: https://raw.githubusercontent.com/run-llama/llama_index/main/docs/docs/understanding/index.md
+    tags: [llamaindex, concepts, architecture]
+
+  # =============================================================================
+  # Pipecat - Voice AI Framework
+  # =============================================================================
+  - name: pipecat-introduction
+    url: https://docs.pipecat.ai/
+    tags: [pipecat, voice, realtime]
+
+  - name: pipecat-quickstart
+    url: https://docs.pipecat.ai/quickstart
+    tags: [pipecat, quickstart, setup]
+
+  - name: pipecat-guides
+    url: https://docs.pipecat.ai/guides/
+    tags: [pipecat, guides, patterns]
+    crawl_depth: 2
+
+  - name: pipecat-api-reference
+    url: https://docs.pipecat.ai/api-reference/
+    tags: [pipecat, api, reference]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Vercel AI SDK
+  # =============================================================================
+  - name: vercel-ai-introduction
+    url: https://sdk.vercel.ai/docs/introduction
+    tags: [vercel, ai-sdk, overview]
+
+  - name: vercel-ai-foundations
+    url: https://sdk.vercel.ai/docs/foundations
+    tags: [vercel, ai-sdk, concepts]
+
+  - name: vercel-ai-guides
+    url: https://sdk.vercel.ai/docs/guides
+    tags: [vercel, ai-sdk, guides]
+    crawl_depth: 2
+
+  - name: vercel-ai-reference
+    url: https://sdk.vercel.ai/docs/reference
+    tags: [vercel, ai-sdk, api]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Anthropic Claude
+  # =============================================================================
+  - name: anthropic-docs-overview
+    url: https://docs.anthropic.com/en/docs/welcome
+    tags: [anthropic, claude, overview]
+
+  - name: anthropic-api-reference
+    url: https://docs.anthropic.com/en/api/
+    tags: [anthropic, claude, api]
+    crawl_depth: 2
+
+  - name: anthropic-prompt-library
+    url: https://docs.anthropic.com/en/prompt-library
+    tags: [anthropic, prompts, examples]
+
+  - name: anthropic-claude-code
+    url: https://docs.anthropic.com/en/docs/claude-code
+    tags: [anthropic, claude-code, cli]
+
+  # =============================================================================
+  # OpenAI
+  # NOTE: platform.openai.com returns 403 for automated extraction
+  # Using OpenAI Cookbook and Python SDK docs as alternatives
+  # =============================================================================
+  - name: openai-cookbook-readme
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/README.md
+    tags: [openai, cookbook, overview]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  - name: openai-python-sdk
+    url: https://raw.githubusercontent.com/openai/openai-python/main/README.md
+    tags: [openai, python, sdk]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  - name: openai-api-examples
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/api_request_parallel_processor.py
+    tags: [openai, api, examples]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  # =============================================================================
+  # LangChain (Core)
+  # =============================================================================
+  - name: langchain-introduction
+    url: https://python.langchain.com/docs/introduction/
+    tags: [langchain, overview, concepts]
+
+  - name: langchain-tutorials
+    url: https://python.langchain.com/docs/tutorials/
+    tags: [langchain, tutorials, examples]
+    crawl_depth: 2
+
+  - name: langchain-how-to
+    url: https://python.langchain.com/docs/how_to/
+    tags: [langchain, guides, patterns]
+    crawl_depth: 2
+
+  - name: langchain-concepts
+    url: https://python.langchain.com/docs/concepts/
+    tags: [langchain, concepts, architecture]

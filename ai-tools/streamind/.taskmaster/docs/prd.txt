@@ -1,0 +1,552 @@
+# StreamMind - Product Requirements Document
+# Real-time Screen Analysis with Local AI
+
+## 1. Overview
+
+### 1.1 Product Summary
+StreamMind is a macOS application that provides real-time screen analysis using local AI models. It captures your screen, analyzes content using vision models, and answers natural language questions about what's visible. All processing happens locally - no data leaves your Mac.
+
+### 1.2 Problem Statement
+Developers and knowledge workers frequently need to understand, debug, or explain what's on their screen. Current solutions require:
+- Manual screenshot capture and upload to ChatGPT/Claude
+- Copy-pasting error messages
+- Describing visual content in text
+
+StreamMind eliminates this friction by providing instant, context-aware AI assistance that can "see" your screen.
+
+### 1.3 Target Users
+- **Primary**: Developers debugging code errors
+- **Secondary**: IT support engineers analyzing logs
+- **Tertiary**: Students learning from visual content
+
+### 1.4 Success Metrics
+- Response time: <3 seconds for screen analysis
+- Accuracy: 90% correct error identification
+- Resource usage: <500MB RAM, <5% CPU when idle
+- Works 100% offline
+
+---
+
+## 2. Technical Architecture
+
+### 2.1 System Overview
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        StreamMind                                │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌───────────┐    ┌───────────┐    ┌───────────┐               │
+│  │  Screen   │───>│  Vision   │───>│ Reasoning │               │
+│  │  Capture  │    │  Engine   │    │  Engine   │               │
+│  │  (mss)    │    │ (Ollama)  │    │ (Ollama)  │               │
+│  └───────────┘    └───────────┘    └───────────┘               │
+│       │                │                │                        │
+│       └────────────────┼────────────────┘                        │
+│                        ▼                                         │
+│               ┌───────────────┐                                  │
+│               │   Context     │                                  │
+│               │   Manager     │                                  │
+│               │  (SQLite)     │                                  │
+│               └───────────────┘                                  │
+│                        │                                         │
+│       ┌────────────────┼────────────────┐                        │
+│       ▼                ▼                ▼                        │
+│  ┌─────────┐    ┌───────────┐    ┌───────────┐                  │
+│  │   CLI   │    │  Menu Bar │    │   HTTP    │                  │
+│  │Interface│    │    App    │    │    API    │                  │
+│  └─────────┘    └───────────┘    └───────────┘                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Technology Stack
+| Component | Technology | Rationale |
+|-----------|------------|-----------|
+| Language | Python 3.11+ | Fast development, good ML ecosystem |
+| Screen Capture | mss library | Cross-platform, efficient |
+| Vision Model | llama3.2-vision:11b via Ollama | Already installed, local, capable |
+| Reasoning Model | deepseek-r1:14b via Ollama | Already installed, strong reasoning |
+| Database | SQLite | Simple, no server needed |
+| UI (CLI) | Click/Typer | Standard CLI framework |
+| UI (Menu Bar) | rumps | Native macOS menu bar |
+| API | FastAPI | Async support, fast |
+| Window Detection | PyObjC | Native macOS APIs |
+
+### 2.3 Directory Structure
+```
+streamind/
+├── pyproject.toml           # Project metadata, dependencies
+├── README.md                # User documentation
+├── CLAUDE.md                # AI assistant context
+├── .taskmaster/             # Task management
+│   └── docs/prd.txt
+├── src/
+│   └── streamind/
+│       ├── __init__.py
+│       ├── __main__.py      # Entry point
+│       ├── cli.py           # CLI commands
+│       ├── capture/
+│       │   ├── __init__.py
+│       │   ├── screen.py    # Screen capture logic
+│       │   └── window.py    # Active window detection
+│       ├── vision/
+│       │   ├── __init__.py
+│       │   ├── engine.py    # Vision model interface
+│       │   └── prompts.py   # Content-specific prompts
+│       ├── reasoning/
+│       │   ├── __init__.py
+│       │   └── engine.py    # Reasoning model interface
+│       ├── context/
+│       │   ├── __init__.py
+│       │   ├── manager.py   # Context/history management
+│       │   └── storage.py   # SQLite persistence
+│       ├── api/
+│       │   ├── __init__.py
+│       │   └── server.py    # FastAPI server
+│       └── ui/
+│           ├── __init__.py
+│           └── menubar.py   # macOS menu bar app
+├── tests/
+│   ├── conftest.py
+│   ├── test_capture.py
+│   ├── test_vision.py
+│   └── test_integration.py
+└── scripts/
+    └── demo.py              # Demo script for recording
+```
+
+---
+
+## 3. Feature Requirements
+
+### 3.1 Core Features (MVP)
+
+#### F1: Screen Capture Engine
+**Description**: Capture screen content efficiently with change detection
+**Requirements**:
+- Capture full screen or active window
+- Detect screen changes via perceptual hash comparison
+- Skip processing when screen unchanged (save resources)
+- Support configurable capture interval (default 1 second)
+- Handle multi-monitor setups (capture primary or specified monitor)
+
+**Implementation Notes**:
+```python
+# Key methods needed:
+class ScreenCapture:
+    def capture_screen(self, monitor: int = 0) -> Image
+    def capture_active_window(self) -> Image
+    def has_changed(self, new_frame: Image) -> bool
+    def start_continuous(self, callback: Callable, interval: float)
+    def stop()
+```
+
+#### F2: Active Window Detection
+**Description**: Detect which application/window is currently focused
+**Requirements**:
+- Get active application name (e.g., "Visual Studio Code")
+- Get window title (e.g., "main.py - myproject")
+- Get window bounds for targeted capture
+- Use PyObjC for native macOS API access
+
+**Implementation Notes**:
+```python
+class WindowInfo:
+    app_name: str      # "Visual Studio Code"
+    window_title: str  # "main.py - myproject"
+    bounds: Rect       # x, y, width, height
+    pid: int           # Process ID
+```
+
+#### F3: Vision Analysis Engine
+**Description**: Analyze screenshots using llama3.2-vision:11b
+**Requirements**:
+- Send image + query to Ollama vision endpoint
+- Include context about active window in prompt
+- Support content-type specific prompts (code, terminal, browser)
+- Handle model timeouts gracefully
+- Return structured analysis results
+
+**Implementation Notes**:
+```python
+class VisionEngine:
+    async def analyze(self, image: Image, query: str, context: Context) -> Analysis
+    async def detect_content_type(self, image: Image) -> ContentType
+    async def extract_text(self, image: Image) -> str  # OCR-like
+```
+
+#### F4: Context Manager
+**Description**: Store and manage analysis history and context
+**Requirements**:
+- Store recent screen frames (last 10) in memory
+- Persist analysis history to SQLite
+- Extract entities (error messages, file names, line numbers)
+- Provide relevant context for queries
+- Support time-based queries ("what was on screen 5 minutes ago")
+
+**Implementation Notes**:
+```python
+class ContextManager:
+    def add_frame(self, frame: ScreenFrame)
+    def get_recent_frames(self, n: int = 5) -> List[ScreenFrame]
+    def get_context_for_query(self, query: str) -> Context
+    def search_history(self, query: str) -> List[Analysis]
+```
+
+#### F5: CLI Interface
+**Description**: Command-line interface for interacting with StreamMind
+**Requirements**:
+- `streamind serve` - Start capture daemon
+- `streamind ask "query"` - Ask about current screen
+- `streamind history` - Show recent analyses
+- `streamind status` - Show daemon status
+- `streamind config` - Manage settings
+
+**Implementation Notes**:
+```bash
+# Example usage:
+streamind serve --interval 1.0
+streamind ask "What's that error?"
+streamind ask "Explain this code"
+streamind history --limit 10
+```
+
+### 3.2 Enhanced Features (v1.0)
+
+#### F6: Menu Bar Application
+**Description**: Native macOS menu bar interface
+**Requirements**:
+- Menu bar icon indicating status (watching/paused)
+- Dropdown with quick actions
+- Text input for queries
+- Recent analyses list
+- Settings access
+- Use rumps library for implementation
+
+#### F7: Content-Type Aware Prompts
+**Description**: Specialized prompts based on screen content
+**Requirements**:
+- Detect content type: code, terminal, browser, document, other
+- Apply optimized prompts per type
+- Code: focus on syntax, errors, logic
+- Terminal: focus on commands, output, errors
+- Browser: focus on content, structure, elements
+
+#### F8: Reasoning Engine Integration
+**Description**: Use deepseek-r1:14b for complex analysis
+**Requirements**:
+- Chain vision analysis with reasoning model
+- Use reasoning for complex queries requiring multi-step logic
+- Detect when reasoning is needed vs simple vision analysis
+- Stream responses for better UX
+
+### 3.3 Future Features (v1.5+)
+
+#### F9: Knowledge System Integration
+- Index screenshots in Knowledge Activation System
+- Searchable visual history
+- Link analyses to related documents
+
+#### F10: Hotkey Activation
+- Global hotkey (Cmd+Shift+S) to ask question
+- Overlay input for quick queries
+
+#### F11: Session Recording
+- Record screen + analyses for demos
+- Export as shareable format
+
+---
+
+## 4. Non-Functional Requirements
+
+### 4.1 Performance
+- Screen capture: <50ms per frame
+- Vision analysis: <3 seconds
+- Memory: <500MB during active use
+- CPU: <5% when idle, <50% during analysis
+- Works fully offline
+
+### 4.2 Privacy
+- All processing local - no network calls
+- App blocklist to exclude sensitive apps
+- Auto-delete history option
+- No keystroke/clipboard capture
+- Clear data model of what is/isn't stored
+
+### 4.3 Reliability
+- Graceful degradation if Ollama unavailable
+- Auto-reconnect to Ollama
+- Crash recovery with history preservation
+- Logging for debugging
+
+### 4.4 Usability
+- Zero-config startup
+- Clear status indicators
+- Helpful error messages
+- Sub-3-second response feels instant
+
+---
+
+## 5. Implementation Phases
+
+### Phase 1: Foundation (Tasks 1-5)
+**Goal**: Basic screen capture and vision analysis working
+**Deliverables**:
+- Project scaffolding with pyproject.toml
+- Screen capture module with mss
+- Basic Ollama vision integration
+- Simple CLI with "ask" command
+- End-to-end "what's on screen" working
+
+### Phase 2: Context & Intelligence (Tasks 6-10)
+**Goal**: Smart context management and enhanced analysis
+**Deliverables**:
+- Active window detection via PyObjC
+- SQLite storage for history
+- Context manager with entity extraction
+- Content-type detection and specialized prompts
+- Change detection to skip unchanged frames
+
+### Phase 3: User Experience (Tasks 11-15)
+**Goal**: Polished interfaces and advanced features
+**Deliverables**:
+- Full CLI with all commands
+- Menu bar application
+- Reasoning engine integration
+- Settings and configuration
+- Privacy controls (app blocklist)
+
+### Phase 4: Polish & Ship (Tasks 16-20)
+**Goal**: Production-ready release
+**Deliverables**:
+- Comprehensive testing
+- Performance optimization
+- Documentation
+- Demo video/recording
+- GitHub release
+
+---
+
+## 6. Task Breakdown
+
+### Phase 1: Foundation
+
+**Task 1: Project Setup**
+- Create pyproject.toml with dependencies
+- Set up src/streamind package structure
+- Configure development environment (ruff, pytest, mypy)
+- Create __main__.py entry point
+- Verify Ollama models accessible
+
+**Task 2: Screen Capture Module**
+- Implement ScreenCapture class in capture/screen.py
+- Add capture_screen() for full screen capture
+- Add capture_monitor() for specific monitor
+- Add basic frame caching
+- Write tests for capture functionality
+
+**Task 3: Ollama Vision Integration**
+- Create VisionEngine class in vision/engine.py
+- Implement async analyze() method
+- Add image encoding (base64) helper
+- Handle Ollama connection and timeouts
+- Test with static screenshot
+
+**Task 4: Basic CLI Implementation**
+- Create cli.py with Click/Typer
+- Implement `streamind ask "query"` command
+- Connect CLI to capture + vision modules
+- Add basic error handling
+- Test end-to-end flow
+
+**Task 5: Integration Testing**
+- Test capture -> vision -> response pipeline
+- Measure response time (target <3s)
+- Test with various screen content
+- Add integration test suite
+- Document any issues found
+
+### Phase 2: Context & Intelligence
+
+**Task 6: Active Window Detection**
+- Implement WindowInfo dataclass
+- Create capture/window.py with PyObjC
+- Add get_active_window() function
+- Add get_all_windows() for future use
+- Test with different applications
+
+**Task 7: SQLite Storage**
+- Design schema (frames, analyses, settings)
+- Create context/storage.py with SQLite
+- Implement CRUD operations
+- Add migration support
+- Write storage tests
+
+**Task 8: Context Manager**
+- Create ContextManager class
+- Implement frame history (memory + disk)
+- Add entity extraction (errors, files, lines)
+- Implement get_context_for_query()
+- Test context relevance
+
+**Task 9: Content-Type Detection**
+- Add ContentType enum (code, terminal, browser, etc.)
+- Implement detect_content_type() in VisionEngine
+- Create content-specific prompts in prompts.py
+- Test detection accuracy
+- Optimize prompts for each type
+
+**Task 10: Change Detection**
+- Implement perceptual hashing for frames
+- Add has_changed() to ScreenCapture
+- Skip processing unchanged frames
+- Add configurable sensitivity
+- Measure resource savings
+
+### Phase 3: User Experience
+
+**Task 11: Full CLI Implementation**
+- Add `serve` command (daemon mode)
+- Add `status` command
+- Add `history` command with filtering
+- Add `config` command for settings
+- Create CLI help documentation
+
+**Task 12: Menu Bar Application**
+- Set up rumps for menu bar
+- Create status icon (watching/paused)
+- Add dropdown menu structure
+- Implement query input dialog
+- Connect to backend services
+
+**Task 13: Reasoning Engine**
+- Create ReasoningEngine class
+- Chain vision -> reasoning pipeline
+- Detect when reasoning needed
+- Implement streaming responses
+- Test complex queries
+
+**Task 14: Settings & Configuration**
+- Create config file format (TOML)
+- Implement settings loading/saving
+- Add capture interval setting
+- Add model selection setting
+- Create settings UI in menu bar
+
+**Task 15: Privacy Controls**
+- Implement app blocklist
+- Add pause/resume functionality
+- Implement auto-delete history
+- Add clear all data option
+- Document privacy features
+
+### Phase 4: Polish & Ship
+
+**Task 16: Testing & Coverage**
+- Achieve 80%+ test coverage
+- Add edge case tests
+- Performance benchmarks
+- Memory leak testing
+- Cross-version Python testing
+
+**Task 17: Performance Optimization**
+- Profile and optimize hot paths
+- Reduce memory footprint
+- Optimize image processing
+- Add lazy loading where appropriate
+- Document performance characteristics
+
+**Task 18: Error Handling & Logging**
+- Add structured logging
+- Implement graceful degradation
+- Add helpful error messages
+- Create troubleshooting guide
+- Add crash recovery
+
+**Task 19: Documentation**
+- Update README with full docs
+- Add API documentation
+- Create user guide
+- Add developer guide
+- Create FAQ
+
+**Task 20: Release Preparation**
+- Create demo video
+- Write release notes
+- Set up GitHub releases
+- Create installation script
+- Plan announcement strategy
+
+---
+
+## 7. Dependencies
+
+### Python Packages
+```toml
+[project]
+dependencies = [
+    "mss>=9.0",              # Screen capture
+    "pillow>=10.0",          # Image processing
+    "httpx>=0.25",           # Async HTTP for Ollama
+    "click>=8.0",            # CLI framework
+    "rich>=13.0",            # CLI formatting
+    "typer>=0.9",            # CLI enhancement
+    "rumps>=0.4",            # macOS menu bar
+    "pyobjc-framework-Quartz>=9.0",  # Window detection
+    "sqlite-utils>=3.0",     # SQLite helpers
+    "imagehash>=4.3",        # Perceptual hashing
+    "pydantic>=2.0",         # Data validation
+    "fastapi>=0.100",        # HTTP API
+    "uvicorn>=0.23",         # ASGI server
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+```
+
+### External Dependencies
+- Ollama (running locally with models)
+- macOS 13+ (for ScreenCaptureKit APIs)
+- Python 3.11+
+
+---
+
+## 8. Risks & Mitigations
+
+| Risk | Probability | Impact | Mitigation |
+|------|-------------|--------|------------|
+| Vision model too slow | Medium | High | Use smaller model, add caching |
+| PyObjC complexity | Medium | Medium | Fallback to simpler window detection |
+| Menu bar app issues | Low | Medium | CLI-first, menu bar optional |
+| Ollama API changes | Low | Low | Pin version, abstract client |
+| macOS permission issues | High | Medium | Clear permission request flow |
+
+---
+
+## 9. Open Questions
+
+1. **Capture strategy**: Continuous capture vs on-demand only?
+   - Decision: Start with on-demand, add continuous as option
+
+2. **Multi-monitor**: Support all monitors or just primary?
+   - Decision: Primary default, option for specific monitor
+
+3. **Menu bar framework**: rumps vs PyObjC native vs Electron?
+   - Decision: rumps for simplicity, migrate if needed
+
+4. **Reasoning threshold**: When to invoke deepseek-r1 vs vision-only?
+   - Decision: Keywords like "why", "explain", "debug" trigger reasoning
+
+---
+
+## 10. Glossary
+
+- **Frame**: A single screenshot capture
+- **Analysis**: Result of vision model processing a frame
+- **Context**: Historical information relevant to current query
+- **Entity**: Extracted information (error message, file name, etc.)
+- **Content Type**: Classification of screen content (code, terminal, etc.)

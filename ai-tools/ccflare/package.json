@@ -1,0 +1,37 @@
+{
+	"private": true,
+	"name": "ccflare",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
+	"scripts": {
+		"ccflare": "bun run build && bun run tui",
+		"tui": "bun run apps/tui/src/main.ts",
+		"dev": "bun run tui",
+		"start": "bun run apps/server/src/server.ts",
+		"server": "bun run apps/server/src/server.ts",
+		"dev:server": "bun run --hot apps/server/src/server.ts",
+		"dev:dashboard": "bun --hot packages/dashboard-web/src/index.tsx",
+		"typecheck": "bunx tsc --noEmit",
+		"build": "bun run build:dashboard && bun run build:tui",
+		"build:dashboard": "bun run --cwd packages/dashboard-web build",
+		"build:tui": "bun run --cwd apps/tui build",
+		"build:lander": "bun run --cwd apps/lander build",
+		"format": "bunx biome format --write .",
+		"lint": "bunx --bun biome check --write --unsafe ."
+	},
+	"engines": {
+		"bun": ">=1.2.8"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.1.2",
+		"bun-types": "latest",
+		"@types/bun": "latest",
+		"typescript": "^5.0.0"
+	},
+	"overrides": {
+		"react": "^19.0.0",
+		"@types/react": "^19.0.0"
+	}
+}

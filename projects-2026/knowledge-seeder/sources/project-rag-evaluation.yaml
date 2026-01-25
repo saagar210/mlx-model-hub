@@ -1,0 +1,167 @@
+# RAG Evaluation Suite - Project-Specific Sources
+# Deep knowledge for building RAG evaluation tools
+
+project: rag-evaluation
+namespace: projects/rag-evaluation
+refresh_interval: 14d
+priority: P1
+
+dependencies:
+  - tools  # RAGAS, DeepEval
+  - ai-research  # Evaluation papers
+  - best-practices  # Evaluation guides
+
+sources:
+  # =============================================================================
+  # RAGAS Deep Dive
+  # =============================================================================
+  - name: ragas-metrics-faithfulness
+    url: https://docs.ragas.io/en/latest/concepts/metrics/faithfulness/
+    tags: [ragas, faithfulness, metrics]
+
+  - name: ragas-metrics-relevance
+    url: https://docs.ragas.io/en/latest/concepts/metrics/context_relevancy/
+    tags: [ragas, relevance, metrics]
+
+  - name: ragas-metrics-precision
+    url: https://docs.ragas.io/en/latest/concepts/metrics/context_precision/
+    tags: [ragas, precision, metrics]
+
+  - name: ragas-metrics-recall
+    url: https://docs.ragas.io/en/latest/concepts/metrics/context_recall/
+    tags: [ragas, recall, metrics]
+
+  - name: ragas-metrics-answer
+    url: https://docs.ragas.io/en/latest/concepts/metrics/answer_relevance/
+    tags: [ragas, answer, metrics]
+
+  - name: ragas-testset-generation
+    url: https://docs.ragas.io/en/latest/concepts/testset_generation/
+    tags: [ragas, testset, synthetic]
+
+  - name: ragas-customization
+    url: https://docs.ragas.io/en/latest/howtos/customizations/
+    tags: [ragas, custom, advanced]
+    crawl_depth: 2
+
+  # =============================================================================
+  # DeepEval Deep Dive
+  # =============================================================================
+  - name: deepeval-hallucination
+    url: https://docs.confident-ai.com/docs/metrics-hallucination
+    tags: [deepeval, hallucination, metrics]
+
+  - name: deepeval-answer-relevancy
+    url: https://docs.confident-ai.com/docs/metrics-answer-relevancy
+    tags: [deepeval, relevancy, metrics]
+
+  - name: deepeval-faithfulness
+    url: https://docs.confident-ai.com/docs/metrics-faithfulness
+    tags: [deepeval, faithfulness, metrics]
+
+  - name: deepeval-contextual-precision
+    url: https://docs.confident-ai.com/docs/metrics-contextual-precision
+    tags: [deepeval, precision, metrics]
+
+  - name: deepeval-contextual-recall
+    url: https://docs.confident-ai.com/docs/metrics-contextual-recall
+    tags: [deepeval, recall, metrics]
+
+  - name: deepeval-bias
+    url: https://docs.confident-ai.com/docs/metrics-bias
+    tags: [deepeval, bias, safety]
+
+  - name: deepeval-toxicity
+    url: https://docs.confident-ai.com/docs/metrics-toxicity
+    tags: [deepeval, toxicity, safety]
+
+  - name: deepeval-datasets
+    url: https://docs.confident-ai.com/docs/evaluation-datasets
+    tags: [deepeval, datasets, testing]
+
+  # =============================================================================
+  # Evaluation Research Papers
+  # =============================================================================
+  - name: rgb-benchmark-paper
+    url: https://arxiv.org/abs/2309.01431
+    type: arxiv
+    tags: [benchmark, rag, evaluation]
+    metadata:
+      title: "Benchmarking Large Language Models in RAG"
+
+  - name: llm-eval-survey
+    url: https://arxiv.org/abs/2307.03109
+    type: arxiv
+    tags: [evaluation, llm, survey]
+    metadata:
+      title: "A Survey on Evaluation of Large Language Models"
+
+  - name: factual-consistency-paper
+    url: https://arxiv.org/abs/2104.14839
+    type: arxiv
+    tags: [factuality, evaluation, metrics]
+    metadata:
+      title: "Evaluating Factual Consistency in Knowledge-Grounded Dialogues"
+
+  - name: groundedness-paper
+    url: https://arxiv.org/abs/2305.14251
+    type: arxiv
+    tags: [groundedness, evaluation, rag]
+    metadata:
+      title: "Measuring and Modifying Factual Knowledge in LLMs"
+
+  # =============================================================================
+  # Testing & QA Frameworks
+  # =============================================================================
+  - name: trulens-docs
+    url: https://www.trulens.org/trulens/getting_started/
+    tags: [trulens, evaluation, observability]
+    crawl_depth: 2
+
+  - name: langsmith-evaluation
+    url: https://docs.smith.langchain.com/evaluation
+    tags: [langsmith, evaluation, langchain]
+    crawl_depth: 2
+
+  - name: phoenix-arize-docs
+    url: https://docs.arize.com/phoenix
+    tags: [phoenix, observability, evaluation]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Synthetic Data Generation
+  # =============================================================================
+  - name: evol-instruct-paper
+    url: https://arxiv.org/abs/2304.12244
+    type: arxiv
+    tags: [synthetic, data, evolution]
+    metadata:
+      title: "WizardLM: Empowering LLMs to Follow Complex Instructions"
+
+  - name: self-instruct-paper
+    url: https://arxiv.org/abs/2212.10560
+    type: arxiv
+    tags: [synthetic, data, self-instruct]
+    metadata:
+      title: "Self-Instruct: Aligning Language Models with Self-Generated Instructions"
+
+  # =============================================================================
+  # Retrieval Evaluation
+  # =============================================================================
+  - name: beir-benchmark
+    url: https://raw.githubusercontent.com/beir-cellar/beir/main/README.md
+    type: github
+    tags: [benchmark, retrieval, evaluation]
+
+  - name: mteb-benchmark
+    url: https://raw.githubusercontent.com/embeddings-benchmark/mteb/main/README.md
+    type: github
+    tags: [benchmark, embeddings, evaluation]
+
+  - name: ndcg-explanation
+    url: https://towardsdatascience.com/demystifying-ndcg-bee3be58cfe0
+    tags: [metrics, ndcg, retrieval]
+
+  - name: mrr-map-explanation
+    url: https://en.wikipedia.org/wiki/Mean_reciprocal_rank
+    tags: [metrics, mrr, retrieval]

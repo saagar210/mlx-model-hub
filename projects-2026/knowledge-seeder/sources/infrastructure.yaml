@@ -1,0 +1,147 @@
+# Infrastructure Documentation Sources
+# Priority P0 - Auto-refresh bi-weekly
+
+namespace: infrastructure
+refresh_interval: 14d
+priority: P0
+
+sources:
+  # =============================================================================
+  # Qdrant - Vector Database
+  # =============================================================================
+  - name: qdrant-overview
+    url: https://qdrant.tech/documentation/overview/
+    tags: [qdrant, vectors, overview]
+
+  - name: qdrant-concepts
+    url: https://qdrant.tech/documentation/concepts/
+    tags: [qdrant, concepts, architecture]
+    crawl_depth: 2
+
+  - name: qdrant-guides
+    url: https://qdrant.tech/documentation/guides/
+    tags: [qdrant, guides, patterns]
+    crawl_depth: 2
+
+  - name: qdrant-tutorials
+    url: https://qdrant.tech/documentation/tutorials/
+    tags: [qdrant, tutorials, examples]
+    crawl_depth: 2
+
+  - name: qdrant-cloud
+    url: https://qdrant.tech/documentation/cloud/
+    tags: [qdrant, cloud, deployment]
+
+  - name: qdrant-fastembed
+    url: https://qdrant.tech/documentation/fastembed/
+    tags: [qdrant, fastembed, embeddings]
+
+  # =============================================================================
+  # Ollama - Local LLM Inference
+  # URL format: raw.githubusercontent.com for direct content extraction
+  # =============================================================================
+  - name: ollama-readme
+    url: https://raw.githubusercontent.com/ollama/ollama/main/README.md
+    type: github
+    tags: [ollama, local, llm]
+
+  - name: ollama-api
+    url: https://raw.githubusercontent.com/ollama/ollama/main/docs/api.md
+    type: github
+    tags: [ollama, api, reference]
+
+  - name: ollama-modelfile
+    url: https://raw.githubusercontent.com/ollama/ollama/main/docs/modelfile.md
+    type: github
+    tags: [ollama, modelfile, customization]
+
+  - name: ollama-faq
+    url: https://raw.githubusercontent.com/ollama/ollama/main/docs/faq.md
+    type: github
+    tags: [ollama, faq, troubleshooting]
+
+  - name: ollama-python
+    url: https://raw.githubusercontent.com/ollama/ollama-python/main/README.md
+    type: github
+    tags: [ollama, python, sdk]
+
+  # =============================================================================
+  # MLX - Apple Silicon ML Framework
+  # =============================================================================
+  - name: mlx-documentation
+    url: https://ml-explore.github.io/mlx/build/html/
+    tags: [mlx, apple, ml]
+    crawl_depth: 2
+
+  - name: mlx-readme
+    url: https://raw.githubusercontent.com/ml-explore/mlx/main/README.md
+    type: github
+    tags: [mlx, overview]
+
+  - name: mlx-examples-readme
+    url: https://raw.githubusercontent.com/ml-explore/mlx-examples/main/README.md
+    type: github
+    tags: [mlx, examples, code]
+
+  - name: mlx-lm-readme
+    url: https://raw.githubusercontent.com/ml-explore/mlx-lm/main/README.md
+    type: github
+    tags: [mlx, llm, inference]
+
+  - name: mlx-whisper
+    url: https://raw.githubusercontent.com/ml-explore/mlx-examples/main/whisper/README.md
+    type: github
+    tags: [mlx, whisper, speech]
+
+  # =============================================================================
+  # PostgreSQL
+  # =============================================================================
+  - name: postgres-tutorial
+    url: https://www.postgresql.org/docs/current/tutorial.html
+    tags: [postgres, sql, basics]
+
+  - name: postgres-sql-commands
+    url: https://www.postgresql.org/docs/current/sql-commands.html
+    tags: [postgres, sql, reference]
+
+  - name: postgres-admin
+    url: https://www.postgresql.org/docs/current/admin.html
+    tags: [postgres, admin, operations]
+
+  # =============================================================================
+  # FastAPI
+  # =============================================================================
+  - name: fastapi-tutorial
+    url: https://fastapi.tiangolo.com/tutorial/
+    tags: [fastapi, python, api]
+    crawl_depth: 2
+
+  - name: fastapi-advanced
+    url: https://fastapi.tiangolo.com/advanced/
+    tags: [fastapi, advanced, patterns]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Docker
+  # =============================================================================
+  - name: docker-get-started
+    url: https://docs.docker.com/get-started/
+    tags: [docker, containers, basics]
+    crawl_depth: 2
+
+  - name: docker-compose
+    url: https://docs.docker.com/compose/
+    tags: [docker, compose, orchestration]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Redis
+  # =============================================================================
+  - name: redis-documentation
+    url: https://redis.io/docs/
+    tags: [redis, cache, database]
+    crawl_depth: 2
+
+  - name: redis-python
+    url: https://redis-py.readthedocs.io/en/stable/
+    tags: [redis, python, sdk]

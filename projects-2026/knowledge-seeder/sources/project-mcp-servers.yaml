@@ -1,0 +1,152 @@
+# MCP Server Suite - Project-Specific Sources
+# Deep knowledge for building MCP servers
+
+project: mcp-server-suite
+namespace: projects/mcp-servers
+refresh_interval: 14d
+priority: P1
+
+dependencies:
+  - tools  # MCP docs
+  - frameworks  # Anthropic Claude
+
+sources:
+  # =============================================================================
+  # MCP Protocol Deep Dive
+  # =============================================================================
+  - name: mcp-architecture
+    url: https://spec.modelcontextprotocol.io/specification/architecture/
+    tags: [mcp, architecture, spec]
+
+  - name: mcp-base-protocol
+    url: https://spec.modelcontextprotocol.io/specification/basic/
+    tags: [mcp, protocol, basics]
+
+  - name: mcp-server-features
+    url: https://spec.modelcontextprotocol.io/specification/server/
+    tags: [mcp, server, features]
+    crawl_depth: 2
+
+  - name: mcp-client-features
+    url: https://spec.modelcontextprotocol.io/specification/client/
+    tags: [mcp, client, features]
+
+  - name: mcp-transports
+    url: https://spec.modelcontextprotocol.io/specification/basic/transports/
+    tags: [mcp, transport, stdio]
+
+  # =============================================================================
+  # MCP Implementation Guides
+  # =============================================================================
+  - name: mcp-python-sdk-guide
+    url: https://modelcontextprotocol.io/quickstart/server
+    tags: [mcp, python, quickstart]
+
+  - name: mcp-typescript-sdk-guide
+    url: https://modelcontextprotocol.io/quickstart/client
+    tags: [mcp, typescript, quickstart]
+
+  - name: mcp-debugging
+    url: https://modelcontextprotocol.io/docs/tools/debugging
+    tags: [mcp, debugging, development]
+
+  - name: mcp-inspector
+    url: https://modelcontextprotocol.io/docs/tools/inspector
+    tags: [mcp, inspector, testing]
+
+  # =============================================================================
+  # Official MCP Server Examples
+  # URL format: raw.githubusercontent.com for direct content extraction
+  # =============================================================================
+  - name: mcp-server-filesystem
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/filesystem/README.md
+    type: github
+    tags: [mcp, filesystem, example]
+
+  - name: mcp-server-memory
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/memory/README.md
+    type: github
+    tags: [mcp, memory, example]
+
+  - name: mcp-server-postgres
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/postgres/README.md
+    type: github
+    tags: [mcp, postgres, example]
+
+  - name: mcp-server-sqlite
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/sqlite/README.md
+    type: github
+    tags: [mcp, sqlite, example]
+
+  - name: mcp-server-fetch
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/fetch/README.md
+    type: github
+    tags: [mcp, fetch, http]
+
+  - name: mcp-server-github
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/github/README.md
+    type: github
+    tags: [mcp, github, api]
+
+  - name: mcp-server-slack
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/slack/README.md
+    type: github
+    tags: [mcp, slack, messaging]
+
+  - name: mcp-server-puppeteer
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/puppeteer/README.md
+    type: github
+    tags: [mcp, puppeteer, browser]
+
+  # =============================================================================
+  # Community MCP Servers
+  # =============================================================================
+  - name: mcp-server-qdrant
+    url: https://raw.githubusercontent.com/qdrant/mcp-server-qdrant/main/README.md
+    type: github
+    tags: [mcp, qdrant, vectors]
+
+  - name: mcp-server-brave-search
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/brave-search/README.md
+    type: github
+    tags: [mcp, search, brave]
+
+  - name: mcp-server-everything
+    url: https://raw.githubusercontent.com/modelcontextprotocol/servers/main/src/everything/README.md
+    type: github
+    tags: [mcp, search, files]
+
+  # =============================================================================
+  # JSON-RPC & Protocol Design
+  # =============================================================================
+  - name: jsonrpc-spec
+    url: https://www.jsonrpc.org/specification
+    tags: [jsonrpc, protocol, spec]
+
+  - name: stdio-transports
+    url: https://en.wikipedia.org/wiki/Standard_streams
+    tags: [stdio, transport, unix]
+
+  # =============================================================================
+  # Claude Desktop Integration
+  # =============================================================================
+  - name: claude-desktop-config
+    url: https://modelcontextprotocol.io/quickstart
+    tags: [claude, desktop, config]
+
+  - name: claude-code-mcp
+    url: https://docs.anthropic.com/en/docs/claude-code/mcp
+    tags: [claude-code, mcp, integration]
+
+  # =============================================================================
+  # Tool Design Patterns
+  # =============================================================================
+  - name: anthropic-tool-best-practices
+    url: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/best-practices
+    tags: [tools, design, anthropic]
+
+  # NOTE: platform.openai.com returns 403 - using cookbook alternative
+  - name: openai-function-best-practices
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/How_to_call_functions_with_chat_models.ipynb
+    tags: [tools, design, openai]
+    note: "Alternative to blocked platform.openai.com docs"

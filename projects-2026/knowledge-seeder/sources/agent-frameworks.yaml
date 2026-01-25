@@ -1,0 +1,168 @@
+# Agent Frameworks - Multi-agent orchestration, autonomous agents, and tool use
+# Priority: High - Foundation for AI automation projects
+
+namespace: agent-frameworks
+refresh_interval: 14d
+priority: P1
+
+sources:
+  # --- CrewAI ---
+  - name: crewai-docs
+    url: https://docs.crewai.com
+    source_type: url
+    priority: P0
+    tags: [agents, orchestration, multi-agent, crew]
+
+  - name: crewai-repo
+    url: https://github.com/crewAIInc/crewAI
+    source_type: github
+    priority: P1
+    tags: [agents, python, framework]
+
+  - name: crewai-examples
+    url: https://github.com/crewAIInc/crewAI-examples
+    source_type: github
+    priority: P1
+    tags: [examples, patterns, use-cases]
+
+  # --- LangGraph ---
+  - name: langgraph-docs
+    url: https://langchain-ai.github.io/langgraph/
+    source_type: url
+    priority: P0
+    tags: [agents, state-machine, langchain, graph]
+    note: "Redirects to docs.langchain.com/langgraph"
+
+  - name: langgraph-repo
+    url: https://github.com/langchain-ai/langgraph
+    source_type: github
+    priority: P1
+    tags: [agents, python, state-management]
+
+  - name: langgraph-quickstart
+    url: https://langchain-ai.github.io/langgraph/tutorials/introduction/
+    source_type: url
+    priority: P1
+    tags: [tutorials, quickstart, getting-started]
+    note: "Redirects to docs.langchain.com"
+
+  # --- Microsoft AutoGen ---
+  - name: autogen-docs
+    url: https://microsoft.github.io/autogen/
+    source_type: url
+    priority: P1
+    tags: [agents, microsoft, multi-agent, conversation]
+
+  - name: autogen-repo
+    url: https://github.com/microsoft/autogen
+    source_type: github
+    priority: P1
+    tags: [agents, python, enterprise]
+
+  # --- Semantic Kernel ---
+  - name: semantic-kernel-docs
+    url: https://learn.microsoft.com/en-us/semantic-kernel/
+    source_type: url
+    priority: P1
+    tags: [agents, microsoft, enterprise, dotnet]
+
+  - name: semantic-kernel-repo
+    url: https://github.com/microsoft/semantic-kernel
+    source_type: github
+    priority: P1
+    tags: [agents, csharp, python, enterprise]
+
+  # --- Claude Tool Use & Agents ---
+  - name: claude-tool-use
+    url: https://docs.anthropic.com/en/docs/build-with-claude/tool-use
+    source_type: url
+    priority: P0
+    tags: [claude, tools, function-calling, anthropic]
+
+  - name: claude-computer-use
+    url: https://docs.anthropic.com/en/docs/agents-and-tools/computer-use
+    source_type: url
+    priority: P0
+    tags: [claude, computer-use, automation, anthropic]
+
+  # --- OpenAI Function Calling ---
+  # NOTE: platform.openai.com returns 403 for automated extraction
+  # Using OpenAI Cookbook alternatives from GitHub
+  - name: openai-function-calling
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/How_to_call_functions_with_chat_models.ipynb
+    source_type: github
+    priority: P1
+    tags: [openai, tools, function-calling]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  - name: openai-assistants-api
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/Assistants_API_overview_python.ipynb
+    source_type: github
+    priority: P1
+    tags: [openai, assistants, agents]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  # --- Phidata ---
+  - name: phidata-docs
+    url: https://docs.phidata.com
+    source_type: url
+    priority: P2
+    tags: [agents, python, framework, tools]
+
+  - name: phidata-repo
+    url: https://github.com/phidatahq/phidata
+    source_type: github
+    priority: P2
+    tags: [agents, python, framework]
+
+  # --- Autogen Studio ---
+  - name: autogen-studio
+    url: https://microsoft.github.io/autogen/docs/autogen-studio/getting-started
+    source_type: url
+    priority: P2
+    tags: [agents, ui, low-code, microsoft]
+
+  # --- Research Papers ---
+  - name: arxiv-agents-survey-2024
+    url: https://arxiv.org/abs/2401.03428
+    source_type: arxiv
+    priority: P2
+    tags: [survey, agents, llm, "2024"]
+
+  - name: arxiv-toolformer
+    url: https://arxiv.org/abs/2302.04761
+    source_type: arxiv
+    priority: P2
+    tags: [tools, learning, foundation]
+
+  - name: arxiv-react-agents
+    url: https://arxiv.org/abs/2210.03629
+    source_type: arxiv
+    priority: P2
+    tags: [react, reasoning, acting, agents]
+
+  - name: arxiv-reflexion
+    url: https://arxiv.org/abs/2303.11366
+    source_type: arxiv
+    priority: P2
+    tags: [reflection, self-improvement, agents]
+
+  # --- Swarm (OpenAI) ---
+  - name: swarm-openai
+    url: https://github.com/openai/swarm
+    source_type: github
+    priority: P1
+    tags: [agents, multi-agent, openai, experimental]
+
+  # --- DSPy ---
+  - name: dspy-docs
+    url: https://dspy-docs.vercel.app
+    source_type: url
+    priority: P1
+    tags: [prompting, optimization, agents, stanford]
+
+  - name: dspy-repo
+    url: https://github.com/stanfordnlp/dspy
+    source_type: github
+    priority: P1
+    tags: [prompting, python, research]

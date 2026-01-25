@@ -1,0 +1,98 @@
+# Knowledge Engine - Cost-Optimized Docker Compose
+# Default: FREE tier (Qdrant + PostgreSQL only)
+# To add Neo4j: docker compose --profile graph up -d
+# To add Redis: docker compose --profile cache up -d
+
+services:
+  # ============================================================
+  # CORE SERVICES (FREE - always running)
+  # ============================================================
+
+  # Qdrant Vector Database (FREE, self-hosted)
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    container_name: knowledge-engine-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__GRPC_PORT=6334
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:6333/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # PostgreSQL Metadata Store (FREE, self-hosted)
+  postgres:
+    image: postgres:16-alpine
+    container_name: knowledge-engine-postgres
+    environment:
+      - POSTGRES_USER=knowledge_engine
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-localdev}
+      - POSTGRES_DB=knowledge_engine
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knowledge_engine"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # OPTIONAL SERVICES (use profiles to enable)
+  # ============================================================
+
+  # Neo4j Graph Database (FREE Community Edition)
+  # Enable with: docker compose --profile graph up -d
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: knowledge-engine-neo4j
+    profiles:
+      - graph
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD:-localdev}
+      - NEO4J_PLUGINS=["apoc"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Cache (FREE, self-hosted)
+  # Enable with: docker compose --profile cache up -d
+  redis:
+    image: redis:7-alpine
+    container_name: knowledge-engine-redis
+    profiles:
+      - cache
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  postgres_data:
+  neo4j_data:
+  redis_data:

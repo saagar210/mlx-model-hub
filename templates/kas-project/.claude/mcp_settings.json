@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "kas": {
+      "command": "node",
+      "args": ["/Users/d/claude-code/personal/knowledge-activation-system/mcp-server/dist/index.js"],
+      "env": {
+        "KAS_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}

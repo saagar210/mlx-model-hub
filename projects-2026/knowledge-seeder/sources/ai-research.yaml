@@ -1,0 +1,198 @@
+# AI Research & Techniques Sources
+# Priority P1-P4 - Monthly refresh for blogs, evergreen for papers
+
+namespace: ai-research
+refresh_interval: 30d
+priority: P1
+
+sources:
+  # =============================================================================
+  # RAG Research Papers
+  # =============================================================================
+  - name: rag-survey-2024
+    url: https://arxiv.org/abs/2312.10997
+    type: arxiv
+    tags: [rag, survey, comprehensive]
+    metadata:
+      title: "Retrieval-Augmented Generation for Large Language Models: A Survey"
+      year: 2024
+
+  - name: self-rag
+    url: https://arxiv.org/abs/2310.11511
+    type: arxiv
+    tags: [rag, self-rag, retrieval]
+    metadata:
+      title: "Self-RAG: Learning to Retrieve, Generate and Critique"
+      year: 2023
+
+  - name: corrective-rag
+    url: https://arxiv.org/abs/2401.15884
+    type: arxiv
+    tags: [rag, corrective, refinement]
+    metadata:
+      title: "Corrective Retrieval Augmented Generation"
+      year: 2024
+
+  - name: adaptive-rag
+    url: https://arxiv.org/abs/2403.14403
+    type: arxiv
+    tags: [rag, adaptive, routing]
+    metadata:
+      title: "Adaptive-RAG: Learning to Adapt Retrieval-Augmented LLMs"
+      year: 2024
+
+  - name: rag-fusion
+    url: https://arxiv.org/abs/2402.03367
+    type: arxiv
+    tags: [rag, fusion, hybrid]
+    metadata:
+      title: "RAG-Fusion: A New Take on Retrieval"
+      year: 2024
+
+  # =============================================================================
+  # Agent Research Papers
+  # =============================================================================
+  - name: react-paper
+    url: https://arxiv.org/abs/2210.03629
+    type: arxiv
+    tags: [agents, react, reasoning]
+    metadata:
+      title: "ReAct: Synergizing Reasoning and Acting in Language Models"
+      year: 2022
+
+  - name: reflexion-paper
+    url: https://arxiv.org/abs/2303.11366
+    type: arxiv
+    tags: [agents, reflexion, learning]
+    metadata:
+      title: "Reflexion: Language Agents with Verbal Reinforcement Learning"
+      year: 2023
+
+  - name: toolformer-paper
+    url: https://arxiv.org/abs/2302.04761
+    type: arxiv
+    tags: [agents, tools, learning]
+    metadata:
+      title: "Toolformer: Language Models Can Teach Themselves to Use Tools"
+      year: 2023
+
+  - name: agent-survey-2024
+    url: https://arxiv.org/abs/2308.11432
+    type: arxiv
+    tags: [agents, survey, comprehensive]
+    metadata:
+      title: "A Survey on Large Language Model based Autonomous Agents"
+      year: 2023
+
+  - name: cognitive-architectures
+    url: https://arxiv.org/abs/2309.02427
+    type: arxiv
+    tags: [agents, cognitive, architecture]
+    metadata:
+      title: "Cognitive Architectures for Language Agents"
+      year: 2023
+
+  # =============================================================================
+  # Evaluation Research
+  # =============================================================================
+  - name: ragas-paper
+    url: https://arxiv.org/abs/2309.15217
+    type: arxiv
+    tags: [evaluation, ragas, metrics]
+    metadata:
+      title: "RAGAS: Automated Evaluation of Retrieval Augmented Generation"
+      year: 2023
+
+  - name: ares-paper
+    url: https://arxiv.org/abs/2311.09476
+    type: arxiv
+    tags: [evaluation, automated, rag]
+    metadata:
+      title: "ARES: An Automated Evaluation Framework for RAG Systems"
+      year: 2023
+
+  - name: llm-as-judge
+    url: https://arxiv.org/abs/2306.05685
+    type: arxiv
+    tags: [evaluation, llm-judge, metrics]
+    metadata:
+      title: "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena"
+      year: 2023
+
+  # =============================================================================
+  # Embedding & Retrieval Research
+  # =============================================================================
+  - name: text-embeddings-comprehensive
+    url: https://arxiv.org/abs/2310.07554
+    type: arxiv
+    tags: [embeddings, retrieval, comprehensive]
+    metadata:
+      title: "Text Embeddings by Weakly-Supervised Contrastive Pre-training"
+      year: 2023
+
+  - name: colbert-v2
+    url: https://arxiv.org/abs/2112.01488
+    type: arxiv
+    tags: [retrieval, colbert, late-interaction]
+    metadata:
+      title: "ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction"
+      year: 2021
+
+  - name: bm25-still-matters
+    url: https://arxiv.org/abs/2104.08663
+    type: arxiv
+    tags: [retrieval, bm25, hybrid]
+    metadata:
+      title: "BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of IR Models"
+      year: 2021
+
+  # =============================================================================
+  # Expert Technical Blogs
+  # =============================================================================
+  - name: lilian-weng-llm-agents
+    url: https://lilianweng.github.io/posts/2023-06-23-agent/
+    tags: [agents, llm, deep-dive]
+    metadata:
+      author: "Lilian Weng"
+
+  - name: lilian-weng-rag
+    url: https://lilianweng.github.io/posts/2023-10-25-rag/
+    tags: [rag, retrieval, deep-dive]
+    metadata:
+      author: "Lilian Weng"
+
+  - name: lilian-weng-prompting
+    url: https://lilianweng.github.io/posts/2023-03-15-prompt-engineering/
+    tags: [prompting, techniques, deep-dive]
+    metadata:
+      author: "Lilian Weng"
+
+  - name: simon-willison-embeddings
+    url: https://simonwillison.net/2023/Oct/23/embeddings/
+    tags: [embeddings, practical, tutorial]
+    metadata:
+      author: "Simon Willison"
+
+  - name: simon-willison-rag
+    url: https://simonwillison.net/tags/rag/
+    tags: [rag, practical, tools]
+    metadata:
+      author: "Simon Willison"
+
+  - name: eugene-yan-rag-patterns
+    url: https://eugeneyan.com/writing/rag/
+    tags: [rag, patterns, production]
+    metadata:
+      author: "Eugene Yan"
+
+  - name: eugene-yan-llm-patterns
+    url: https://eugeneyan.com/writing/llm-patterns/
+    tags: [llm, patterns, production]
+    metadata:
+      author: "Eugene Yan"
+
+  - name: chip-huyen-mlops
+    url: https://huyenchip.com/2023/04/11/llm-engineering.html
+    tags: [llm, engineering, production]
+    metadata:
+      author: "Chip Huyen"

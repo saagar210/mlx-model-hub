@@ -1,0 +1,175 @@
+# YouTube Tutorial Sources
+# Priority P3 - Monthly refresh
+
+namespace: tutorials
+refresh_interval: 30d
+priority: P3
+
+sources:
+  # =============================================================================
+  # Andrej Karpathy - Deep Learning Fundamentals
+  # =============================================================================
+  - name: karpathy-llm-intro
+    url: https://www.youtube.com/watch?v=zjkBMFhNj_g
+    type: youtube
+    tags: [llm, architecture, fundamentals, karpathy]
+    metadata:
+      title: "Intro to Large Language Models"
+      channel: "Andrej Karpathy"
+
+  - name: karpathy-tokenization
+    url: https://www.youtube.com/watch?v=zduSFxRajkE
+    type: youtube
+    tags: [tokenization, fundamentals, karpathy]
+    metadata:
+      title: "Let's build the GPT Tokenizer"
+      channel: "Andrej Karpathy"
+
+  - name: karpathy-gpt-build
+    url: https://www.youtube.com/watch?v=kCc8FmEb1nY
+    type: youtube
+    tags: [gpt, training, transformer, karpathy]
+    metadata:
+      title: "Let's build GPT: from scratch, in code"
+      channel: "Andrej Karpathy"
+
+  - name: karpathy-makemore
+    url: https://www.youtube.com/watch?v=PaCmpygFfXo
+    type: youtube
+    tags: [language-models, bigram, karpathy]
+    metadata:
+      title: "makemore: the spelled-out intro to language modeling"
+      channel: "Andrej Karpathy"
+
+  # =============================================================================
+  # AI Engineer - Production AI Systems
+  # =============================================================================
+  - name: aieng-rag-from-scratch
+    url: https://www.youtube.com/watch?v=T-D1OfcDW1M
+    type: youtube
+    tags: [rag, basics, production]
+    metadata:
+      title: "RAG From Scratch"
+      channel: "AI Engineer"
+
+  - name: aieng-agents-production
+    url: https://www.youtube.com/watch?v=sal78ACtGTc
+    type: youtube
+    tags: [agents, production, patterns]
+    metadata:
+      title: "Building Production-Ready Agents"
+      channel: "AI Engineer"
+
+  # =============================================================================
+  # James Briggs - LangChain/LangGraph
+  # =============================================================================
+  - name: briggs-langgraph-intro
+    url: https://www.youtube.com/watch?v=v9fkbTxPzs0
+    type: youtube
+    tags: [langgraph, agents, tutorial]
+    metadata:
+      title: "LangGraph Agents Tutorial"
+      channel: "James Briggs"
+
+  - name: briggs-rag-agents
+    url: https://www.youtube.com/watch?v=DWUdGhRrv2c
+    type: youtube
+    tags: [rag, agents, langgraph]
+    metadata:
+      title: "Building RAG Agents with LangGraph"
+      channel: "James Briggs"
+
+  - name: briggs-semantic-chunking
+    url: https://www.youtube.com/watch?v=8OJC21T2SL4
+    type: youtube
+    tags: [rag, chunking, semantic]
+    metadata:
+      title: "Semantic Chunking for RAG"
+      channel: "James Briggs"
+
+  # =============================================================================
+  # Dave Ebbelaar - RAG Deep Dives
+  # =============================================================================
+  - name: ebbelaar-advanced-rag
+    url: https://www.youtube.com/watch?v=sVcwVQRHIc8
+    type: youtube
+    tags: [rag, advanced, chunking]
+    metadata:
+      title: "Advanced RAG Techniques"
+      channel: "Dave Ebbelaar"
+
+  - name: ebbelaar-rag-evaluation
+    url: https://www.youtube.com/watch?v=E2shqsYwxck
+    type: youtube
+    tags: [rag, evaluation, metrics]
+    metadata:
+      title: "RAG Evaluation Deep Dive"
+      channel: "Dave Ebbelaar"
+
+  # =============================================================================
+  # Matt Williams - Ollama
+  # =============================================================================
+  - name: williams-ollama-intro
+    url: https://www.youtube.com/watch?v=rIRkxZSn-A8
+    type: youtube
+    tags: [ollama, local, llm]
+    metadata:
+      title: "Getting Started with Ollama"
+      channel: "Matt Williams"
+
+  - name: williams-ollama-rag
+    url: https://www.youtube.com/watch?v=jENqvjpkwmw
+    type: youtube
+    tags: [ollama, rag, local]
+    metadata:
+      title: "Build RAG with Ollama"
+      channel: "Matt Williams"
+
+  # =============================================================================
+  # Sam Witteveen - AI Development
+  # =============================================================================
+  - name: witteveen-mcp-intro
+    url: https://www.youtube.com/watch?v=pR5KHXCGSKE
+    type: youtube
+    tags: [mcp, anthropic, tutorial]
+    metadata:
+      title: "MCP (Model Context Protocol) Introduction"
+      channel: "Sam Witteveen"
+
+  - name: witteveen-claude-tools
+    url: https://www.youtube.com/watch?v=kM89pVxqMkE
+    type: youtube
+    tags: [claude, tools, agents]
+    metadata:
+      title: "Building with Claude Tools"
+      channel: "Sam Witteveen"
+
+  # =============================================================================
+  # Anthropic Official
+  # =============================================================================
+  - name: anthropic-prompt-engineering
+    url: https://www.youtube.com/watch?v=T9aRN5JkmL8
+    type: youtube
+    tags: [prompting, anthropic, official]
+    metadata:
+      title: "Prompt Engineering for Claude"
+      channel: "Anthropic"
+
+  # =============================================================================
+  # Qdrant
+  # =============================================================================
+  - name: qdrant-vector-search
+    url: https://www.youtube.com/watch?v=K1R7oK2piUM
+    type: youtube
+    tags: [qdrant, vectors, search]
+    metadata:
+      title: "Vector Search Fundamentals"
+      channel: "Qdrant"
+
+  - name: qdrant-hybrid-search
+    url: https://www.youtube.com/watch?v=M7OPfWqaL0Y
+    type: youtube
+    tags: [qdrant, hybrid, bm25]
+    metadata:
+      title: "Hybrid Search with Qdrant"
+      channel: "Qdrant"

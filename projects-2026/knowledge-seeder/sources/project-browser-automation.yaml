@@ -1,0 +1,155 @@
+# Browser Automation Platform - Project-Specific Sources
+# Deep knowledge for building browser automation with AI
+
+project: browser-automation
+namespace: projects/browser-automation
+refresh_interval: 14d
+priority: P1
+
+dependencies:
+  - tools  # Playwright docs
+  - frameworks  # LangGraph
+  - ai-research  # Agent papers
+
+sources:
+  # =============================================================================
+  # Playwright Advanced Topics
+  # =============================================================================
+  - name: playwright-auto-waiting
+    url: https://playwright.dev/docs/actionability
+    tags: [playwright, waiting, reliability]
+
+  - name: playwright-network
+    url: https://playwright.dev/docs/network
+    tags: [playwright, network, interception]
+
+  - name: playwright-frames
+    url: https://playwright.dev/docs/frames
+    tags: [playwright, frames, iframes]
+
+  - name: playwright-browser-contexts
+    url: https://playwright.dev/docs/browser-contexts
+    tags: [playwright, contexts, isolation]
+
+  - name: playwright-trace-viewer
+    url: https://playwright.dev/docs/trace-viewer
+    tags: [playwright, debugging, traces]
+
+  - name: playwright-auth
+    url: https://playwright.dev/docs/auth
+    tags: [playwright, auth, cookies]
+
+  - name: playwright-downloads
+    url: https://playwright.dev/docs/downloads
+    tags: [playwright, downloads, files]
+
+  # =============================================================================
+  # Browser Agent Research
+  # =============================================================================
+  - name: webagent-paper
+    url: https://arxiv.org/abs/2307.12856
+    type: arxiv
+    tags: [browser, agents, research]
+    metadata:
+      title: "A Real-World WebAgent with Planning, Long Context, and Program Synthesis"
+
+  - name: mind2web-paper
+    url: https://arxiv.org/abs/2306.06070
+    type: arxiv
+    tags: [browser, benchmark, agents]
+    metadata:
+      title: "Mind2Web: Towards a Generalist Agent for the Web"
+
+  - name: webvoyager-paper
+    url: https://arxiv.org/abs/2401.13649
+    type: arxiv
+    tags: [browser, vision, agents]
+    metadata:
+      title: "WebVoyager: Building an End-to-End Web Agent with LMMs"
+
+  - name: seeact-paper
+    url: https://arxiv.org/abs/2401.01614
+    type: arxiv
+    tags: [browser, grounding, vision]
+    metadata:
+      title: "SeeAct: GPT-4V(ision) is a Generalist Web Agent"
+
+  # =============================================================================
+  # Browser Automation Tools
+  # =============================================================================
+  - name: browser-use-repo
+    url: https://raw.githubusercontent.com/browser-use/browser-use/main/README.md
+    type: github
+    tags: [browser, automation, ai]
+
+  - name: lavague-repo
+    url: https://raw.githubusercontent.com/lavague-ai/LaVague/main/README.md
+    type: github
+    tags: [browser, automation, agents]
+
+  - name: skyvern-repo
+    url: https://raw.githubusercontent.com/Skyvern-AI/skyvern/main/README.md
+    type: github
+    tags: [browser, automation, vision]
+
+  # =============================================================================
+  # Web Scraping & Extraction
+  # =============================================================================
+  - name: trafilatura-docs
+    url: https://trafilatura.readthedocs.io/en/latest/
+    tags: [scraping, extraction, content]
+    crawl_depth: 2
+
+  - name: beautifulsoup-docs
+    url: https://www.crummy.com/software/BeautifulSoup/bs4/doc/
+    tags: [scraping, parsing, html]
+
+  - name: selectolax-docs
+    url: https://raw.githubusercontent.com/rushter/selectolax/master/README.md
+    type: github
+    tags: [scraping, parsing, fast]
+
+  # =============================================================================
+  # Vision Models for Web
+  # =============================================================================
+  # NOTE: platform.openai.com returns 403 - using cookbook alternative
+  - name: gpt4v-capabilities
+    url: https://raw.githubusercontent.com/openai/openai-cookbook/main/examples/GPT4o_Multimodal_Comparison.ipynb
+    tags: [vision, gpt4v, openai]
+    note: "Alternative to blocked platform.openai.com docs"
+
+  - name: anthropic-vision
+    url: https://docs.anthropic.com/en/docs/build-with-claude/vision
+    tags: [vision, claude, anthropic]
+
+  - name: paligemma-paper
+    url: https://arxiv.org/abs/2407.07726
+    type: arxiv
+    tags: [vision, paligemma, multimodal]
+    metadata:
+      title: "PaliGemma: A versatile 3B VLM for transfer"
+
+  # =============================================================================
+  # DOM Understanding
+  # =============================================================================
+  - name: accessibility-tree-spec
+    url: https://www.w3.org/TR/accname-1.2/
+    tags: [accessibility, tree, spec]
+
+  - name: aria-practices
+    url: https://www.w3.org/WAI/ARIA/apg/
+    tags: [aria, accessibility, patterns]
+    crawl_depth: 2
+
+  # =============================================================================
+  # Anti-Detection & Stealth
+  # =============================================================================
+  - name: playwright-stealth
+    url: https://github.com/nicosantangelo/puppeteer-extra-plugin-stealth-playwright
+    type: github
+    tags: [playwright, stealth, detection]
+
+  - name: undetected-chromedriver
+    url: https://raw.githubusercontent.com/ultrafunkamsterdam/undetected-chromedriver/master/README.md
+    type: github
+    tags: [selenium, stealth, detection]
