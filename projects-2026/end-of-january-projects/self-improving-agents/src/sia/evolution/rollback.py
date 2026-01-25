@@ -8,11 +8,22 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
+
+logger = logging.getLogger(__name__)
+
+
+class IntegrityError(Exception):
+    """Raised when snapshot integrity verification fails."""
+
+    def __init__(self, message: str, snapshot_id: str | None = None):
+        super().__init__(message)
+        self.snapshot_id = snapshot_id
 
 
 @dataclass
@@ -277,15 +288,28 @@ class RollbackManager:
         )
 
     def _rollback_to_index(self, target_index: int) -> RollbackResult:
-        """Internal rollback to a specific index."""
+        """Internal rollback to a specific index with integrity verification."""
         previous_version = self.current.version if self.current else ""
         changes_lost = self.current_index - target_index
+
+        target = self.snapshots[target_index]
+
+        # CRITICAL: Verify integrity before restoring
+        if not self._verify_snapshot_integrity(target):
+            return RollbackResult(
+                success=False,
+                previous_version=previous_version,
+                rolled_back_to="",
+                snapshot_id=target.id,
+                message=f"Integrity check failed for version {target.version}. "
+                        "Snapshot may have been tampered with.",
+                changes_lost=0,
+            )
 
         # Update current flags
         if self.current:
             self.current.is_current = False
 
-        target = self.snapshots[target_index]
         target.is_current = True
         self.current_index = target_index
 
@@ -301,6 +325,43 @@ class RollbackManager:
             message=f"Rolled back from {previous_version} to {target.version}",
             changes_lost=changes_lost,
         )
+
+    def _verify_snapshot_integrity(self, snapshot: CodeSnapshot) -> bool:
+        """Verify a single snapshot's integrity."""
+        computed_hash = hashlib.sha256(snapshot.code.encode()).hexdigest()[:16]
+        return snapshot.code_hash == computed_hash
+
+    def verify_integrity(self) -> dict[str, Any]:
+        """
+        Verify integrity of all snapshots.
+
+        Returns:
+            Dict with verification results:
+            - valid: bool - True if all snapshots pass
+            - total: int - Total snapshots checked
+            - failed: list[str] - IDs of failed snapshots
+            - errors: list[str] - Error messages
+        """
+        result = {
+            "valid": True,
+            "total": len(self.snapshots),
+            "failed": [],
+            "errors": [],
+        }
+
+        for snapshot in self.snapshots:
+            computed_hash = hashlib.sha256(snapshot.code.encode()).hexdigest()[:16]
+
+            if snapshot.code_hash != computed_hash:
+                result["valid"] = False
+                result["failed"].append(str(snapshot.id))
+                result["errors"].append(
+                    f"Snapshot {snapshot.id} ({snapshot.version}): "
+                    f"stored hash '{snapshot.code_hash}' != "
+                    f"computed hash '{computed_hash}'"
+                )
+
+        return result
 
     def redo(self, steps: int = 1) -> RollbackResult:
         """
@@ -525,7 +586,12 @@ class RollbackManager:
             json.dump(data, f, indent=2)
 
     def _load_snapshots(self) -> None:
-        """Load snapshots from storage."""
+        """
+        Load snapshots from storage with integrity verification.
+
+        Raises:
+            IntegrityError: If any snapshot fails hash verification
+        """
         if not self.storage_path:
             return
 
@@ -542,10 +608,22 @@ class RollbackManager:
 
         self.snapshots = []
         for s in data.get("snapshots", []):
+            # CRITICAL: Verify integrity by recomputing hash
+            stored_hash = s["code_hash"]
+            computed_hash = hashlib.sha256(s["code"].encode()).hexdigest()[:16]
+
+            if stored_hash != computed_hash:
+                raise IntegrityError(
+                    f"Snapshot {s['id']} (version {s['version']}) failed integrity check: "
+                    f"stored hash '{stored_hash}' does not match computed hash '{computed_hash}'. "
+                    "The snapshot file may have been tampered with.",
+                    snapshot_id=s["id"],
+                )
+
             snapshot = CodeSnapshot(
                 id=UUID(s["id"]),
                 code=s["code"],
-                code_hash=s["code_hash"],
+                code_hash=computed_hash,  # Use verified hash
                 version=s["version"],
                 created_at=datetime.fromisoformat(s["created_at"]),
                 description=s["description"],
@@ -559,6 +637,8 @@ class RollbackManager:
                 strategy_used=s.get("strategy_used", ""),
             )
             self.snapshots.append(snapshot)
+
+        logger.debug(f"Loaded {len(self.snapshots)} snapshots with verified integrity")
 
     def clear(self) -> None:
         """Clear all snapshots (use with caution)."""

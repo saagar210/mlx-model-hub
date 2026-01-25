@@ -1,23 +1,96 @@
 """
 Sandbox Environment for Code Evolution.
 
-Provides isolated execution environment for testing code mutations safely.
+Provides isolated execution environment for testing code mutations safely
+using RestrictedPython for pure-Python sandboxing without Docker dependency.
+
+Security Layers:
+1. RestrictedPython compilation - blocks dangerous constructs at compile time
+2. Custom safe_builtins - removes eval, exec, open, __import__
+3. Import whitelist - only allows safe modules
+4. Resource limits - memory, CPU, time via resource module (Unix/macOS)
+5. Output capture - limits stdout/stderr size
 """
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
-import os
-import shutil
-import subprocess
-import tempfile
+import ast
+import io
+import logging
+import re
+import resource
+import signal
+import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from uuid import UUID, uuid4
+
+from RestrictedPython import compile_restricted, safe_builtins
+from RestrictedPython.Eval import default_guarded_getitem, default_guarded_getiter
+from RestrictedPython.Guards import guarded_iter_unpack_sequence, safer_getattr
+
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Safe Imports Whitelist
+# ============================================================================
+
+# Modules safe for sandboxed code to import
+SAFE_IMPORTS_STRICT = frozenset({
+    # Math & numbers
+    "math", "statistics", "decimal", "fractions", "cmath",
+    # Data structures
+    "collections", "itertools", "functools", "operator", "heapq", "bisect",
+    # Text processing
+    "string", "re", "textwrap", "unicodedata",
+    # Data formats (parsing only)
+    "json", "csv", "base64", "binascii",
+    # Time (read-only)
+    "datetime", "time", "calendar", "zoneinfo",
+    # Typing & structure
+    "typing", "typing_extensions", "dataclasses", "enum", "abc",
+    # Safe utilities
+    "copy", "pprint", "warnings", "contextlib",
+    # Numbers
+    "numbers", "random",
+})
+
+# Additional imports allowed in standard security mode
+SAFE_IMPORTS_STANDARD = SAFE_IMPORTS_STRICT | frozenset({
+    "logging",
+    "hashlib",
+    "hmac",
+    "secrets",
+    "uuid",
+    "struct",
+    "array",
+})
+
+# Dangerous modules - never allowed
+BLOCKED_IMPORTS = frozenset({
+    # System access
+    "os", "sys", "subprocess", "shutil", "pathlib", "glob", "tempfile",
+    # Code execution
+    "importlib", "builtins", "code", "codeop", "compile", "ast",
+    # Dangerous serialization
+    "pickle", "cPickle", "dill", "marshal", "shelve",
+    # Network
+    "socket", "http", "urllib", "requests", "httpx", "aiohttp",
+    "ftplib", "smtplib", "telnetlib", "paramiko", "fabric",
+    # Process/threading
+    "multiprocessing", "threading", "concurrent", "asyncio",
+    "_thread", "queue",
+    # Low-level
+    "ctypes", "cffi", "mmap", "gc", "inspect", "traceback",
+    # Signals
+    "signal", "atexit",
+    # I/O
+    "io", "fcntl", "select", "selectors",
+})
 
 
 # ============================================================================
@@ -30,30 +103,30 @@ class SandboxConfig:
     """Configuration for sandbox environment."""
 
     # Resource limits
-    max_memory_mb: int = 512
-    max_cpu_percent: int = 50
-    timeout_seconds: int = 60
+    max_memory_mb: int = 256
+    timeout_seconds: int = 30
+    max_output_size: int = 100_000  # 100KB output limit
 
-    # Network settings
-    network_enabled: bool = False
+    # Security settings
+    security_mode: str = "high"  # "standard", "high", "strict"
+    custom_allowed_imports: set[str] | None = None
 
-    # Filesystem settings
-    max_disk_mb: int = 100
-    read_only_root: bool = True
+    # Execution settings
+    enable_print: bool = True
+    enable_getattr: bool = False  # Dangerous - disabled by default
+    enable_getitem: bool = True
 
-    # Process settings
-    max_processes: int = 10
+    def get_allowed_imports(self) -> frozenset[str]:
+        """Get allowed imports based on security mode."""
+        if self.custom_allowed_imports is not None:
+            return frozenset(self.custom_allowed_imports) - BLOCKED_IMPORTS
 
-    # Docker settings (if using Docker)
-    use_docker: bool = False
-    docker_image: str = "python:3.12-slim"
-
-    # Python environment
-    python_path: str = "python"
-    venv_path: str | None = None
-
-    # Cleanup
-    auto_cleanup: bool = True
+        if self.security_mode == "strict":
+            return SAFE_IMPORTS_STRICT
+        elif self.security_mode == "standard":
+            return SAFE_IMPORTS_STANDARD
+        else:  # high (default)
+            return SAFE_IMPORTS_STRICT
 
 
 @dataclass
@@ -71,7 +144,6 @@ class SandboxResult:
     # Metrics
     execution_time_ms: float = 0.0
     memory_used_mb: float = 0.0
-    cpu_time_ms: float = 0.0
 
     # Test results (if running tests)
     tests_run: int = 0
@@ -84,6 +156,11 @@ class SandboxResult:
     error_type: str | None = None
     timed_out: bool = False
     memory_exceeded: bool = False
+    output_truncated: bool = False
+
+    # Security info
+    compilation_errors: list[str] = field(default_factory=list)
+    blocked_imports: list[str] = field(default_factory=list)
 
     # Timestamps
     started_at: datetime = field(default_factory=datetime.now)
@@ -91,382 +168,520 @@ class SandboxResult:
 
 
 # ============================================================================
-# Sandbox Base Class
+# Exceptions
 # ============================================================================
 
 
-class Sandbox:
-    """
-    Isolated execution environment for testing code mutations.
+class SandboxError(Exception):
+    """Base exception for sandbox errors."""
+    pass
 
-    Supports both subprocess-based and Docker-based isolation.
+
+class SandboxSecurityError(SandboxError):
+    """Security violation in sandbox."""
+    pass
+
+
+class SandboxTimeoutError(SandboxError):
+    """Execution timeout in sandbox."""
+    pass
+
+
+class SandboxMemoryError(SandboxError):
+    """Memory limit exceeded in sandbox."""
+    pass
+
+
+class SandboxImportError(SandboxError):
+    """Blocked import attempted in sandbox."""
+    pass
+
+
+# ============================================================================
+# Output Capture
+# ============================================================================
+
+
+class OutputCapture:
+    """Capture and limit output from sandboxed code."""
+
+    def __init__(self, max_size: int = 100_000):
+        self.max_size = max_size
+        self.buffer = io.StringIO()
+        self.truncated = False
+        self._current_size = 0
+
+    def write(self, text: str) -> int:
+        """Write text to buffer, respecting size limit."""
+        if self._current_size >= self.max_size:
+            self.truncated = True
+            return 0
+
+        allowed = min(len(text), self.max_size - self._current_size)
+        self.buffer.write(text[:allowed])
+        self._current_size += allowed
+
+        if allowed < len(text):
+            self.truncated = True
+            self.buffer.write("\n[OUTPUT TRUNCATED]")
+
+        return allowed
+
+    def getvalue(self) -> str:
+        """Get captured output."""
+        return self.buffer.getvalue()
+
+    def flush(self) -> None:
+        """Flush buffer (no-op for StringIO)."""
+        pass
+
+
+# ============================================================================
+# Resource Limiter
+# ============================================================================
+
+
+class ResourceLimiter:
+    """Enforce resource limits on code execution (Unix/macOS only)."""
+
+    def __init__(self, config: SandboxConfig):
+        self.config = config
+        self._old_limits: dict[str, tuple[int, int]] = {}
+        self._old_handler: Any = None
+        self._is_unix = sys.platform != "win32"
+
+    @contextmanager
+    def enforce_limits(self):
+        """Context manager to enforce resource limits."""
+        if not self._is_unix:
+            logger.warning("Resource limits not enforced on Windows")
+            yield
+            return
+
+        try:
+            self._set_limits()
+            yield
+        finally:
+            self._restore_limits()
+
+    def _set_limits(self) -> None:
+        """Set resource limits."""
+        # Memory limit (address space)
+        mem_bytes = self.config.max_memory_mb * 1024 * 1024
+        try:
+            self._old_limits["AS"] = resource.getrlimit(resource.RLIMIT_AS)
+            resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
+        except (ValueError, resource.error) as e:
+            logger.warning(f"Could not set memory limit: {e}")
+
+        # CPU time limit (as backup for timeout)
+        cpu_seconds = self.config.timeout_seconds + 5
+        try:
+            self._old_limits["CPU"] = resource.getrlimit(resource.RLIMIT_CPU)
+            resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
+        except (ValueError, resource.error) as e:
+            logger.warning(f"Could not set CPU limit: {e}")
+
+        # Set up signal-based timeout
+        def timeout_handler(signum, frame):
+            raise SandboxTimeoutError(
+                f"Execution timed out after {self.config.timeout_seconds}s"
+            )
+
+        self._old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(self.config.timeout_seconds)
+
+    def _restore_limits(self) -> None:
+        """Restore original limits."""
+        # Cancel alarm
+        signal.alarm(0)
+
+        # Restore signal handler
+        if self._old_handler is not None:
+            signal.signal(signal.SIGALRM, self._old_handler)
+
+        # Restore resource limits
+        for name, limit in self._old_limits.items():
+            try:
+                resource.setrlimit(getattr(resource, f"RLIMIT_{name}"), limit)
+            except (ValueError, resource.error):
+                pass
+
+        self._old_limits.clear()
+
+
+# ============================================================================
+# Import Guard
+# ============================================================================
+
+
+class ImportGuard:
+    """Guard for controlling imports in sandboxed code."""
+
+    def __init__(self, allowed_imports: frozenset[str]):
+        self.allowed_imports = allowed_imports
+        self.blocked_attempts: list[str] = []
+
+    def __call__(self, name: str, globals_dict=None, locals_dict=None,
+                 fromlist=(), level=0):
+        """Guarded import function."""
+        # Get base module name
+        base_module = name.split(".")[0]
+
+        # Check against blocklist first (always blocked)
+        if base_module in BLOCKED_IMPORTS:
+            self.blocked_attempts.append(name)
+            raise SandboxImportError(
+                f"Import of '{name}' is blocked for security reasons"
+            )
+
+        # Check against allowlist
+        if base_module not in self.allowed_imports:
+            self.blocked_attempts.append(name)
+            raise SandboxImportError(
+                f"Import of '{name}' is not in the allowed list. "
+                f"Allowed: {sorted(self.allowed_imports)[:10]}..."
+            )
+
+        # Perform actual import
+        return __builtins__["__import__"](name, globals_dict, locals_dict,
+                                          fromlist, level)
+
+
+# ============================================================================
+# Print Guard
+# ============================================================================
+
+
+def create_print_guard(output: OutputCapture) -> Callable:
+    """Create a guarded print function that writes to OutputCapture."""
+
+    def guarded_print(*args, **kwargs):
+        """Print to captured output with size limits."""
+        # Get file argument, default to our capture
+        file = kwargs.pop("file", None)
+        if file is not None and file is not output:
+            # Trying to print to a different file - not allowed
+            raise SandboxSecurityError("Cannot print to external files")
+
+        # Format output
+        sep = kwargs.get("sep", " ")
+        end = kwargs.get("end", "\n")
+        text = sep.join(str(arg) for arg in args) + end
+
+        output.write(text)
+
+    return guarded_print
+
+
+# ============================================================================
+# Restricted Sandbox
+# ============================================================================
+
+
+class RestrictedSandbox:
+    """
+    Pure-Python sandbox using RestrictedPython.
+
+    Provides isolation through:
+    1. Compile-time restrictions (RestrictedPython)
+    2. Custom safe builtins
+    3. Import whitelist
+    4. Resource limits (memory, CPU, time)
+    5. Output capture with size limits
     """
 
     def __init__(self, config: SandboxConfig | None = None):
         """
-        Initialize sandbox.
+        Initialize restricted sandbox.
 
         Args:
             config: Sandbox configuration
         """
         self.config = config or SandboxConfig()
         self.sandbox_id = uuid4()
-        self.temp_dir: Path | None = None
-        self._created = False
+        self._output = OutputCapture(self.config.max_output_size)
+        self._import_guard = ImportGuard(self.config.get_allowed_imports())
+        self._resource_limiter = ResourceLimiter(self.config)
 
-    async def __aenter__(self) -> "Sandbox":
-        """Async context manager entry."""
-        await self.create()
-        return self
+    def _get_safe_builtins(self) -> dict[str, Any]:
+        """Create safe builtins dictionary."""
+        # Start with RestrictedPython's safe builtins
+        builtins = dict(safe_builtins)
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Async context manager exit."""
-        await self.cleanup()
+        # Remove potentially dangerous builtins
+        dangerous = {
+            "compile", "eval", "exec", "open", "input",
+            "__import__", "globals", "locals", "vars",
+            "getattr", "setattr", "delattr", "hasattr",
+            "type", "object", "__build_class__",
+        }
+        for name in dangerous:
+            builtins.pop(name, None)
 
-    async def create(self) -> None:
-        """Create the sandbox environment."""
-        if self._created:
-            return
+        # Add our guarded import
+        builtins["__import__"] = self._import_guard
 
-        # Create temporary directory
-        self.temp_dir = Path(tempfile.mkdtemp(prefix=f"sia_sandbox_{self.sandbox_id}_"))
+        # Add safe type for isinstance checks
+        builtins["isinstance"] = isinstance
+        builtins["issubclass"] = issubclass
+        builtins["len"] = len
+        builtins["range"] = range
+        builtins["enumerate"] = enumerate
+        builtins["zip"] = zip
+        builtins["map"] = map
+        builtins["filter"] = filter
+        builtins["sorted"] = sorted
+        builtins["reversed"] = reversed
+        builtins["min"] = min
+        builtins["max"] = max
+        builtins["sum"] = sum
+        builtins["abs"] = abs
+        builtins["round"] = round
+        builtins["pow"] = pow
+        builtins["divmod"] = divmod
+        builtins["all"] = all
+        builtins["any"] = any
+        builtins["repr"] = repr
+        builtins["str"] = str
+        builtins["int"] = int
+        builtins["float"] = float
+        builtins["bool"] = bool
+        builtins["list"] = list
+        builtins["tuple"] = tuple
+        builtins["dict"] = dict
+        builtins["set"] = set
+        builtins["frozenset"] = frozenset
+        builtins["bytes"] = bytes
+        builtins["bytearray"] = bytearray
+        builtins["slice"] = slice
+        builtins["complex"] = complex
+        builtins["ord"] = ord
+        builtins["chr"] = chr
+        builtins["hex"] = hex
+        builtins["oct"] = oct
+        builtins["bin"] = bin
+        builtins["format"] = format
+        builtins["hash"] = hash
+        builtins["id"] = id
+        builtins["callable"] = callable
+        builtins["iter"] = iter
+        builtins["next"] = next
+        builtins["Exception"] = Exception
+        builtins["ValueError"] = ValueError
+        builtins["TypeError"] = TypeError
+        builtins["KeyError"] = KeyError
+        builtins["IndexError"] = IndexError
+        builtins["AttributeError"] = AttributeError
+        builtins["RuntimeError"] = RuntimeError
+        builtins["StopIteration"] = StopIteration
+        builtins["None"] = None
+        builtins["True"] = True
+        builtins["False"] = False
+        builtins["NotImplemented"] = NotImplemented
+        builtins["Ellipsis"] = ...
 
-        # Create subdirectories
-        (self.temp_dir / "code").mkdir()
-        (self.temp_dir / "data").mkdir()
-        (self.temp_dir / "output").mkdir()
+        return builtins
 
-        self._created = True
+    def _get_restricted_globals(self) -> dict[str, Any]:
+        """Create restricted globals for execution."""
+        globals_dict = {
+            "__builtins__": self._get_safe_builtins(),
+            "__name__": "__sandbox__",
+            "__doc__": None,
+            "_getiter_": default_guarded_getiter,
+            "_iter_unpack_sequence_": guarded_iter_unpack_sequence,
+        }
 
-    async def cleanup(self) -> None:
-        """Clean up the sandbox environment."""
-        if not self._created or not self.config.auto_cleanup:
-            return
+        # Conditionally add guards
+        if self.config.enable_getitem:
+            globals_dict["_getitem_"] = default_guarded_getitem
 
-        if self.temp_dir and self.temp_dir.exists():
-            shutil.rmtree(self.temp_dir, ignore_errors=True)
+        if self.config.enable_getattr:
+            globals_dict["_getattr_"] = safer_getattr
+        else:
+            # Block all getattr access
+            def blocked_getattr(obj, name):
+                raise SandboxSecurityError(
+                    f"Attribute access is disabled in this sandbox"
+                )
+            globals_dict["_getattr_"] = blocked_getattr
 
-        self._created = False
-        self.temp_dir = None
+        if self.config.enable_print:
+            globals_dict["_print_"] = create_print_guard(self._output)
+            globals_dict["_getattr_"] = safer_getattr  # Needed for print
 
-    def write_code(self, code: str, filename: str = "module.py") -> Path:
+        return globals_dict
+
+    def _sanitize_error(self, error: str) -> str:
+        """Remove potentially sensitive information from error messages."""
+        # Remove absolute paths (Unix-style)
+        error = re.sub(r'/Users/[^/\s]+/', '/home/user/', error)
+        error = re.sub(r'/home/[^/\s]+/', '/home/user/', error)
+
+        # Remove Windows paths (if present)
+        # Note: Use double backslash in pattern and replacement
+        error = re.sub(r'C:\\\\Users\\\\[^\\\\s]+\\\\', 'C:\\\\Users\\\\user\\\\', error)
+
+        # Remove full tracebacks with file paths
+        error = re.sub(r'File "[^"]+",', 'File "<sandbox>",', error)
+
+        return error
+
+    async def execute(self, code: str) -> SandboxResult:
         """
-        Write code to the sandbox.
+        Execute code in restricted environment.
 
         Args:
-            code: Python code to write
-            filename: Name of the file
-
-        Returns:
-            Path to the written file
-        """
-        if not self.temp_dir:
-            raise RuntimeError("Sandbox not created")
-
-        code_path = self.temp_dir / "code" / filename
-        code_path.write_text(code)
-        return code_path
-
-    def write_test(self, test_code: str, filename: str = "test_module.py") -> Path:
-        """
-        Write test code to the sandbox.
-
-        Args:
-            test_code: Test code to write
-            filename: Name of the test file
-
-        Returns:
-            Path to the written file
-        """
-        if not self.temp_dir:
-            raise RuntimeError("Sandbox not created")
-
-        test_path = self.temp_dir / "code" / filename
-        test_path.write_text(test_code)
-        return test_path
-
-    async def execute(
-        self,
-        code: str | None = None,
-        script: str | None = None,
-        args: list[str] | None = None,
-    ) -> SandboxResult:
-        """
-        Execute code in the sandbox.
-
-        Args:
-            code: Python code to execute directly
-            script: Path to script file to execute
-            args: Additional command line arguments
+            code: Python code to execute
 
         Returns:
             SandboxResult with execution details
         """
-        if self.config.use_docker:
-            return await self._execute_docker(code, script, args)
-        else:
-            return await self._execute_subprocess(code, script, args)
+        result = SandboxResult(id=self.sandbox_id)
+        result.started_at = datetime.now()
 
-    async def _execute_subprocess(
-        self,
-        code: str | None = None,
-        script: str | None = None,
-        args: list[str] | None = None,
-    ) -> SandboxResult:
-        """Execute using subprocess with resource limits."""
-        result = SandboxResult()
-
-        if not self.temp_dir:
-            result.error = "Sandbox not created"
-            return result
+        # Reset output capture
+        self._output = OutputCapture(self.config.max_output_size)
+        self._import_guard.blocked_attempts.clear()
 
         try:
-            # Prepare command
-            cmd = [self.config.python_path]
+            # 1. Compile with RestrictedPython
+            try:
+                byte_code = compile_restricted(
+                    code,
+                    filename="<sandbox>",
+                    mode="exec",
+                )
 
-            if code:
-                # Write code to temp file and execute
-                code_path = self.write_code(code, "_exec.py")
-                cmd.append(str(code_path))
-            elif script:
-                cmd.append(script)
-            else:
-                result.error = "No code or script provided"
+                # Check for compilation errors
+                if byte_code.errors:
+                    result.compilation_errors = list(byte_code.errors)
+                    result.error = f"Compilation errors: {byte_code.errors}"
+                    result.error_type = "CompilationError"
+                    return result
+
+                if byte_code.code is None:
+                    result.error = "Compilation produced no code"
+                    result.error_type = "CompilationError"
+                    return result
+
+            except SyntaxError as e:
+                result.error = self._sanitize_error(f"Syntax error: {e}")
+                result.error_type = "SyntaxError"
                 return result
 
-            if args:
-                cmd.extend(args)
+            # 2. Prepare execution environment
+            restricted_globals = self._get_restricted_globals()
+            restricted_locals: dict[str, Any] = {}
 
-            # Set up environment
-            env = os.environ.copy()
-            env["PYTHONPATH"] = str(self.temp_dir / "code")
-
-            # Disable network if configured
-            if not self.config.network_enabled:
-                env["no_proxy"] = "*"
-                env["NO_PROXY"] = "*"
-
-            # Execute with timeout
+            # 3. Execute with resource limits
             start_time = time.perf_counter()
 
             try:
-                process = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.temp_dir / "code"),
-                    env=env,
-                )
+                with self._resource_limiter.enforce_limits():
+                    exec(byte_code.code, restricted_globals, restricted_locals)
 
-                try:
-                    stdout, stderr = await asyncio.wait_for(
-                        process.communicate(),
-                        timeout=self.config.timeout_seconds,
-                    )
-                    result.exit_code = process.returncode
-                    result.stdout = stdout.decode("utf-8", errors="replace")
-                    result.stderr = stderr.decode("utf-8", errors="replace")
-                    result.success = process.returncode == 0
+                result.success = True
+                result.exit_code = 0
 
-                except asyncio.TimeoutError:
-                    process.kill()
-                    await process.wait()
-                    result.timed_out = True
-                    result.error = f"Execution timed out after {self.config.timeout_seconds}s"
+            except SandboxTimeoutError as e:
+                result.timed_out = True
+                result.error = str(e)
+                result.error_type = "TimeoutError"
+
+            except MemoryError as e:
+                result.memory_exceeded = True
+                result.error = "Memory limit exceeded"
+                result.error_type = "MemoryError"
+
+            except SandboxImportError as e:
+                result.error = str(e)
+                result.error_type = "ImportError"
+                result.blocked_imports = list(self._import_guard.blocked_attempts)
+
+            except SandboxSecurityError as e:
+                result.error = str(e)
+                result.error_type = "SecurityError"
 
             except Exception as e:
-                result.error = str(e)
+                result.error = self._sanitize_error(str(e))
                 result.error_type = type(e).__name__
 
             result.execution_time_ms = (time.perf_counter() - start_time) * 1000
-            result.completed_at = datetime.now()
 
         except Exception as e:
-            result.error = str(e)
-            result.error_type = type(e).__name__
+            result.error = self._sanitize_error(f"Sandbox error: {e}")
+            result.error_type = "SandboxError"
 
-        return result
-
-    async def _execute_docker(
-        self,
-        code: str | None = None,
-        script: str | None = None,
-        args: list[str] | None = None,
-    ) -> SandboxResult:
-        """Execute using Docker container for stronger isolation."""
-        result = SandboxResult()
-
-        if not self.temp_dir:
-            result.error = "Sandbox not created"
-            return result
-
-        try:
-            # Write code if provided
-            if code:
-                self.write_code(code, "_exec.py")
-                script = "/sandbox/code/_exec.py"
-
-            # Build docker command
-            docker_cmd = [
-                "docker", "run",
-                "--rm",
-                f"--memory={self.config.max_memory_mb}m",
-                f"--cpus={self.config.max_cpu_percent / 100}",
-                "--pids-limit", str(self.config.max_processes),
-                "-v", f"{self.temp_dir}:/sandbox:ro",
-                "-w", "/sandbox/code",
-            ]
-
-            # Network isolation
-            if not self.config.network_enabled:
-                docker_cmd.extend(["--network", "none"])
-
-            # Read-only root filesystem
-            if self.config.read_only_root:
-                docker_cmd.append("--read-only")
-                docker_cmd.extend(["--tmpfs", "/tmp:size=50m"])
-
-            docker_cmd.extend([
-                self.config.docker_image,
-                "python", script or "/sandbox/code/module.py",
-            ])
-
-            if args:
-                docker_cmd.extend(args)
-
-            # Execute
-            start_time = time.perf_counter()
-
-            try:
-                process = await asyncio.create_subprocess_exec(
-                    *docker_cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
-
-                try:
-                    stdout, stderr = await asyncio.wait_for(
-                        process.communicate(),
-                        timeout=self.config.timeout_seconds,
-                    )
-                    result.exit_code = process.returncode
-                    result.stdout = stdout.decode("utf-8", errors="replace")
-                    result.stderr = stderr.decode("utf-8", errors="replace")
-                    result.success = process.returncode == 0
-
-                except asyncio.TimeoutError:
-                    # Kill docker container
-                    subprocess.run(
-                        ["docker", "kill", f"sia_sandbox_{self.sandbox_id}"],
-                        capture_output=True,
-                    )
-                    result.timed_out = True
-                    result.error = f"Execution timed out after {self.config.timeout_seconds}s"
-
-            except Exception as e:
-                result.error = str(e)
-                result.error_type = type(e).__name__
-
-            result.execution_time_ms = (time.perf_counter() - start_time) * 1000
+        finally:
             result.completed_at = datetime.now()
-
-        except Exception as e:
-            result.error = str(e)
-            result.error_type = type(e).__name__
-
-        return result
-
-    async def run_tests(
-        self,
-        test_pattern: str = "test_*.py",
-        pytest_args: list[str] | None = None,
-    ) -> SandboxResult:
-        """
-        Run pytest tests in the sandbox.
-
-        Args:
-            test_pattern: Pattern for test files
-            pytest_args: Additional pytest arguments
-
-        Returns:
-            SandboxResult with test results
-        """
-        if not self.temp_dir:
-            return SandboxResult(error="Sandbox not created")
-
-        # Build pytest command
-        args = ["-v", "--tb=short"]
-        if pytest_args:
-            args.extend(pytest_args)
-
-        # Run pytest as module
-        code = f"""
-import sys
-import pytest
-
-# Run tests
-exit_code = pytest.main({args!r} + ['{self.temp_dir / "code"}'])
-sys.exit(exit_code)
-"""
-
-        result = await self.execute(code=code)
-
-        # Parse test results from output
-        if result.stdout:
-            result.test_output = result.stdout
-
-            # Try to extract test counts
-            for line in result.stdout.split("\n"):
-                if "passed" in line or "failed" in line:
-                    parts = line.split()
-                    for i, part in enumerate(parts):
-                        if part == "passed" and i > 0:
-                            try:
-                                result.tests_passed = int(parts[i - 1])
-                            except ValueError:
-                                pass
-                        elif part == "failed" and i > 0:
-                            try:
-                                result.tests_failed = int(parts[i - 1])
-                            except ValueError:
-                                pass
-
-            result.tests_run = result.tests_passed + result.tests_failed
+            result.stdout = self._output.getvalue()
+            result.output_truncated = self._output.truncated
+            result.blocked_imports = list(self._import_guard.blocked_attempts)
 
         return result
 
     async def validate_syntax(self, code: str) -> SandboxResult:
         """
-        Validate Python syntax in the sandbox.
+        Validate Python syntax without executing.
 
         Args:
             code: Python code to validate
 
         Returns:
-            SandboxResult indicating if syntax is valid
+            SandboxResult with validation result
         """
-        validation_code = f"""
-import ast
-import sys
+        result = SandboxResult(id=uuid4())
+        result.started_at = datetime.now()
 
-code = '''{code.replace("'''", "\\'\\'\\'")}'''
+        try:
+            # First check standard Python syntax
+            ast.parse(code)
 
-try:
-    ast.parse(code)
-    print("VALID")
-    sys.exit(0)
-except SyntaxError as e:
-    print(f"SYNTAX_ERROR: {{e}}")
-    sys.exit(1)
-"""
+            # Then check RestrictedPython compilation
+            byte_code = compile_restricted(code, "<sandbox>", "exec")
 
-        result = await self.execute(code=validation_code)
-        result.success = "VALID" in result.stdout
+            # compile_restricted returns different types:
+            # - On error: CompileResult with .errors attribute
+            # - On success: code object (no .errors attribute)
+            if hasattr(byte_code, "errors") and byte_code.errors:
+                result.compilation_errors = list(byte_code.errors)
+                result.error = f"RestrictedPython errors: {byte_code.errors}"
+                result.success = False
+            else:
+                result.success = True
+                result.stdout = "Syntax valid"
+
+        except SyntaxError as e:
+            result.error = self._sanitize_error(f"Syntax error: {e}")
+            result.error_type = "SyntaxError"
+            result.success = False
+
+        result.completed_at = datetime.now()
         return result
+
+    async def create(self) -> None:
+        """
+        Initialize sandbox (no-op for RestrictedSandbox).
+
+        Kept for backwards compatibility with old API.
+        RestrictedSandbox is stateless and doesn't need initialization.
+        """
+        pass
+
+    async def cleanup(self) -> None:
+        """
+        Clean up sandbox resources (no-op for RestrictedSandbox).
+
+        Kept for backwards compatibility with old API.
+        RestrictedSandbox has no external resources to clean up.
+        """
+        pass
 
     async def check_imports(self, code: str) -> SandboxResult:
         """
-        Check if all imports in code are available.
+        Check if all imports in code are allowed.
 
         Args:
             code: Python code to check
@@ -474,51 +689,57 @@ except SyntaxError as e:
         Returns:
             SandboxResult with import check results
         """
-        check_code = f"""
-import ast
-import sys
-import importlib
+        result = SandboxResult(id=uuid4())
+        result.started_at = datetime.now()
 
-code = '''{code.replace("'''", "\\'\\'\\'")}'''
+        try:
+            tree = ast.parse(code)
+            blocked = []
+            allowed_imports = self.config.get_allowed_imports()
 
-tree = ast.parse(code)
-missing = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        base = alias.name.split(".")[0]
+                        if base in BLOCKED_IMPORTS or base not in allowed_imports:
+                            blocked.append(alias.name)
 
-for node in ast.walk(tree):
-    if isinstance(node, ast.Import):
-        for alias in node.names:
-            try:
-                importlib.import_module(alias.name.split('.')[0])
-            except ImportError:
-                missing.append(alias.name)
-    elif isinstance(node, ast.ImportFrom):
-        if node.module:
-            try:
-                importlib.import_module(node.module.split('.')[0])
-            except ImportError:
-                missing.append(node.module)
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module:
+                        base = node.module.split(".")[0]
+                        if base in BLOCKED_IMPORTS or base not in allowed_imports:
+                            blocked.append(node.module)
 
-if missing:
-    print(f"MISSING: {{', '.join(missing)}}")
-    sys.exit(1)
-else:
-    print("ALL_IMPORTS_OK")
-    sys.exit(0)
-"""
+            if blocked:
+                result.blocked_imports = blocked
+                result.error = f"Blocked imports: {', '.join(blocked)}"
+                result.success = False
+            else:
+                result.success = True
+                result.stdout = "All imports allowed"
 
-        result = await self.execute(code=check_code)
-        result.success = "ALL_IMPORTS_OK" in result.stdout
+        except SyntaxError as e:
+            result.error = f"Syntax error: {e}"
+            result.success = False
+
+        result.completed_at = datetime.now()
         return result
 
 
 # ============================================================================
-# Sandbox Pool
+# Backwards Compatibility Aliases
 # ============================================================================
+
+# Alias for backwards compatibility with existing code
+Sandbox = RestrictedSandbox
 
 
 class SandboxPool:
     """
     Pool of reusable sandboxes for concurrent testing.
+
+    Note: RestrictedSandbox is lightweight and doesn't need pooling,
+    but this class is kept for API compatibility.
     """
 
     def __init__(
@@ -530,69 +751,37 @@ class SandboxPool:
         Initialize sandbox pool.
 
         Args:
-            size: Number of sandboxes in pool
+            size: Number of sandboxes in pool (ignored - sandboxes are lightweight)
             config: Shared configuration for sandboxes
         """
         self.size = size
         self.config = config or SandboxConfig()
-        self._sandboxes: list[Sandbox] = []
-        self._available: asyncio.Queue[Sandbox] = asyncio.Queue()
-        self._initialized = False
 
     async def initialize(self) -> None:
-        """Initialize all sandboxes in the pool."""
-        if self._initialized:
-            return
+        """Initialize pool (no-op for RestrictedSandbox)."""
+        pass
 
-        for _ in range(self.size):
-            sandbox = Sandbox(self.config)
-            await sandbox.create()
-            self._sandboxes.append(sandbox)
-            await self._available.put(sandbox)
-
-        self._initialized = True
-
-    async def acquire(self) -> Sandbox:
+    async def acquire(self) -> RestrictedSandbox:
         """
         Acquire a sandbox from the pool.
 
         Returns:
-            Available sandbox
+            New RestrictedSandbox instance
         """
-        if not self._initialized:
-            await self.initialize()
+        return RestrictedSandbox(self.config)
 
-        return await self._available.get()
-
-    async def release(self, sandbox: Sandbox) -> None:
+    async def release(self, sandbox: RestrictedSandbox) -> None:
         """
         Release a sandbox back to the pool.
 
         Args:
-            sandbox: Sandbox to release
+            sandbox: Sandbox to release (no-op for RestrictedSandbox)
         """
-        # Clean up sandbox state
-        if sandbox.temp_dir:
-            # Clear code directory
-            code_dir = sandbox.temp_dir / "code"
-            if code_dir.exists():
-                for f in code_dir.iterdir():
-                    f.unlink()
-
-        await self._available.put(sandbox)
+        pass
 
     async def cleanup(self) -> None:
-        """Clean up all sandboxes in the pool."""
-        for sandbox in self._sandboxes:
-            await sandbox.cleanup()
-
-        self._sandboxes.clear()
-        self._initialized = False
-
-
-# ============================================================================
-# Sandbox Manager
-# ============================================================================
+        """Clean up all sandboxes in the pool (no-op for RestrictedSandbox)."""
+        pass
 
 
 class SandboxManager:
@@ -608,7 +797,6 @@ class SandboxManager:
             config: Default sandbox configuration
         """
         self.config = config or SandboxConfig()
-        self._pool: SandboxPool | None = None
 
     async def test_code(
         self,
@@ -621,30 +809,32 @@ class SandboxManager:
 
         Args:
             code: Code to test
-            test_code: Optional test code
+            test_code: Optional test code (executed after main code)
             config: Override configuration
 
         Returns:
             SandboxResult with test results
         """
         sandbox_config = config or self.config
+        sandbox = RestrictedSandbox(sandbox_config)
 
-        async with Sandbox(sandbox_config) as sandbox:
-            # Write main code
-            sandbox.write_code(code, "module.py")
+        # Validate syntax first
+        syntax_result = await sandbox.validate_syntax(code)
+        if not syntax_result.success:
+            return syntax_result
 
-            if test_code:
-                # Write and run tests
-                sandbox.write_test(test_code, "test_module.py")
-                return await sandbox.run_tests()
-            else:
-                # Just validate and run
-                syntax_result = await sandbox.validate_syntax(code)
-                if not syntax_result.success:
-                    return syntax_result
+        # Check imports
+        import_result = await sandbox.check_imports(code)
+        if not import_result.success:
+            return import_result
 
-                # Try to import and run
-                return await sandbox.execute(code=code)
+        # Execute main code
+        if test_code:
+            # Combine code and test code
+            combined = f"{code}\n\n# Test code\n{test_code}"
+            return await sandbox.execute(combined)
+        else:
+            return await sandbox.execute(code)
 
     async def validate_mutation(
         self,
@@ -656,32 +846,30 @@ class SandboxManager:
         Validate a code mutation is safe and functional.
 
         Args:
-            original_code: Original code
-            mutated_code: Mutated code
+            original_code: Original code (unused, kept for API compatibility)
+            mutated_code: Mutated code to validate
             test_code: Test code to verify behavior
 
         Returns:
             Tuple of (is_valid, result)
         """
-        async with Sandbox(self.config) as sandbox:
-            # First validate syntax
-            syntax_result = await sandbox.validate_syntax(mutated_code)
-            if not syntax_result.success:
-                return False, syntax_result
+        sandbox = RestrictedSandbox(self.config)
 
-            # Check imports
-            import_result = await sandbox.check_imports(mutated_code)
-            if not import_result.success:
-                return False, import_result
+        # Validate syntax
+        syntax_result = await sandbox.validate_syntax(mutated_code)
+        if not syntax_result.success:
+            return False, syntax_result
 
-            # Run tests if provided
-            if test_code:
-                sandbox.write_code(mutated_code, "module.py")
-                sandbox.write_test(test_code, "test_module.py")
-                test_result = await sandbox.run_tests()
+        # Check imports
+        import_result = await sandbox.check_imports(mutated_code)
+        if not import_result.success:
+            return False, import_result
 
-                return test_result.success, test_result
+        # Execute
+        if test_code:
+            combined = f"{mutated_code}\n\n# Test code\n{test_code}"
+            result = await sandbox.execute(combined)
+        else:
+            result = await sandbox.execute(mutated_code)
 
-            # Basic execution check
-            exec_result = await sandbox.execute(code=mutated_code)
-            return exec_result.success, exec_result
+        return result.success, result

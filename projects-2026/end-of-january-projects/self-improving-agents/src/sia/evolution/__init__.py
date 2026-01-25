@@ -20,15 +20,22 @@ from sia.evolution.orchestrator import (
 )
 from sia.evolution.rollback import (
     CodeSnapshot,
+    IntegrityError,
     RollbackManager,
     RollbackResult,
 )
 from sia.evolution.sandbox import (
+    RestrictedSandbox,
     Sandbox,
     SandboxConfig,
+    SandboxError,
+    SandboxImportError,
     SandboxManager,
+    SandboxMemoryError,
     SandboxPool,
     SandboxResult,
+    SandboxSecurityError,
+    SandboxTimeoutError,
 )
 from sia.evolution.strategies import (
     CrossoverCandidate,
@@ -57,10 +64,17 @@ from sia.evolution.validator import (
 __all__ = [
     # Sandbox
     "Sandbox",
+    "RestrictedSandbox",
     "SandboxConfig",
     "SandboxResult",
     "SandboxPool",
     "SandboxManager",
+    # Sandbox Exceptions
+    "SandboxError",
+    "SandboxSecurityError",
+    "SandboxTimeoutError",
+    "SandboxMemoryError",
+    "SandboxImportError",
     # Mutator
     "CodeMutator",
     "Mutation",
@@ -90,6 +104,7 @@ __all__ = [
     "RollbackManager",
     "RollbackResult",
     "CodeSnapshot",
+    "IntegrityError",
     # Orchestrator
     "EvolutionOrchestrator",
     "EvolutionConfig",

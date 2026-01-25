@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 
 from sia.evolution.mutator import CodeMutator, Mutation, MutationResult
 from sia.evolution.rollback import CodeSnapshot, RollbackManager, RollbackResult
-from sia.evolution.sandbox import Sandbox, SandboxConfig, SandboxResult
+from sia.evolution.sandbox import RestrictedSandbox, SandboxConfig, SandboxResult
 from sia.evolution.strategies import (
     CrossoverStrategy,
     EvolutionaryStrategy,
@@ -39,6 +39,7 @@ class EvolutionStatus(str, Enum):
     PROPOSED = "proposed"
     TESTING = "testing"
     VALIDATING = "validating"
+    PENDING_APPROVAL = "pending_approval"  # Awaiting human approval
     APPROVED = "approved"
     REJECTED = "rejected"
     DEPLOYED = "deployed"
@@ -272,21 +273,30 @@ class EvolutionOrchestrator:
                 except Exception as e:
                     logger.warning(f"Fitness evaluation failed: {e}")
 
-            # 6. Make decision
-            decision = self._make_decision(attempt)
-            attempt.approved = decision
-            attempt.status = (
-                EvolutionStatus.APPROVED if decision else EvolutionStatus.REJECTED
-            )
+            # 6. Make decision (or wait for human approval)
+            if self.config.require_human_approval:
+                # Human approval required - don't auto-approve
+                attempt.status = EvolutionStatus.PENDING_APPROVAL
+                attempt.decided_by = ""  # Not decided yet
+                logger.info(f"Evolution {attempt.id} awaiting human approval")
+            else:
+                # Automated decision
+                decision = self._make_decision(attempt)
+                attempt.approved = decision
+                attempt.decided_by = "automated"
+                attempt.status = (
+                    EvolutionStatus.APPROVED if decision else EvolutionStatus.REJECTED
+                )
 
-            if not decision:
-                attempt.rejection_reason = self._get_rejection_reason(attempt)
+                if not decision:
+                    attempt.rejection_reason = self._get_rejection_reason(attempt)
 
             if self._on_decision:
                 self._on_decision(attempt)
 
-            # 7. Deploy if auto-deploy enabled and approved
-            if decision and self.config.auto_deploy and not self.config.require_human_approval:
+            # 7. Deploy if auto-deploy enabled and approved (and not requiring human approval)
+            if (attempt.approved and self.config.auto_deploy
+                    and not self.config.require_human_approval):
                 await self.deploy(attempt)
 
             attempt.completed_at = datetime.now()
@@ -426,39 +436,32 @@ class EvolutionOrchestrator:
         return "; ".join(reasons) if reasons else "validation failed"
 
     async def _run_sandbox_tests(self, code: str) -> SandboxResult:
-        """Run code in sandbox environment."""
+        """Run code in sandbox environment using RestrictedPython."""
         config = SandboxConfig(
-            timeout=self.config.sandbox_timeout,
+            timeout_seconds=self.config.sandbox_timeout,
             max_memory_mb=self.config.max_memory_mb,
-            network_disabled=True,
+            security_mode="high",
         )
 
-        sandbox = Sandbox(config)
+        sandbox = RestrictedSandbox(config)
 
-        try:
-            # Validate syntax in sandbox
-            result = await sandbox.validate_syntax(code)
-            if not result.success:
-                return result
+        # Set status to TESTING before running tests
+        if self.current_attempt:
+            self.current_attempt.status = EvolutionStatus.TESTING
 
-            # Check imports
-            result = await sandbox.check_imports(code)
-            if not result.success:
-                return result
-
-            # Run basic execution test
-            test_script = """
-import sys
-# Basic import test
-exec(open(sys.argv[1]).read())
-print("OK")
-"""
-            result = await sandbox.execute(code, test_script)
-
+        # Validate syntax first (fast check)
+        result = await sandbox.validate_syntax(code)
+        if not result.success:
             return result
 
-        finally:
-            await sandbox.cleanup()
+        # Check imports against whitelist
+        result = await sandbox.check_imports(code)
+        if not result.success:
+            return result
+
+        # Execute code in restricted environment
+        result = await sandbox.execute(code)
+        return result
 
     def _make_decision(self, attempt: EvolutionAttempt) -> bool:
         """Make automated approval decision."""
@@ -582,17 +585,38 @@ print("OK")
         return result
 
     def approve_manually(self, attempt_id: UUID, approver: str = "human") -> bool:
-        """Manually approve an evolution attempt."""
+        """
+        Manually approve an evolution attempt.
+
+        Can approve attempts in PENDING_APPROVAL or VALIDATING status.
+        """
         for attempt in self.attempts:
             if attempt.id == attempt_id:
                 if attempt.status == EvolutionStatus.APPROVED:
                     return True
 
+                if attempt.status not in (
+                    EvolutionStatus.PENDING_APPROVAL,
+                    EvolutionStatus.VALIDATING,
+                ):
+                    logger.warning(
+                        f"Cannot approve attempt {attempt_id} in status {attempt.status}"
+                    )
+                    return False
+
                 attempt.approved = True
                 attempt.status = EvolutionStatus.APPROVED
                 attempt.decided_by = f"human:{approver}"
+                logger.info(f"Evolution {attempt_id} approved by {approver}")
                 return True
 
+        return False
+
+    def is_pending_approval(self, attempt_id: UUID) -> bool:
+        """Check if an attempt is awaiting human approval."""
+        for attempt in self.attempts:
+            if attempt.id == attempt_id:
+                return attempt.status == EvolutionStatus.PENDING_APPROVAL
         return False
 
     def reject_manually(

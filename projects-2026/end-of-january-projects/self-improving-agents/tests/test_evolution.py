@@ -165,20 +165,22 @@ class TestSandboxConfig:
     def test_default_config(self):
         """Test default configuration values."""
         config = SandboxConfig()
-        assert config.timeout_seconds == 60
-        assert config.max_memory_mb == 512
-        assert config.network_enabled is False
+        assert config.timeout_seconds == 30  # RestrictedPython default
+        assert config.max_memory_mb == 256  # RestrictedPython default
+        assert config.security_mode == "high"  # Default security mode
+        assert config.enable_print is True
+        assert config.enable_getattr is False  # Disabled by default for security
 
     def test_custom_config(self):
         """Test custom configuration."""
         config = SandboxConfig(
             timeout_seconds=120,
             max_memory_mb=1024,
-            network_enabled=True,
+            security_mode="strict",
         )
         assert config.timeout_seconds == 120
         assert config.max_memory_mb == 1024
-        assert config.network_enabled is True
+        assert config.security_mode == "strict"
 
 
 # ============================================================================

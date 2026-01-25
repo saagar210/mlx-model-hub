@@ -45,6 +45,8 @@ dependencies = [
     "tenacity>=8.0",  # Retry logic
     "aiofiles>=24.0",
     "orjson>=3.10",  # Fast JSON
+    # Sandbox (pure-Python code isolation)
+    "RestrictedPython>=7.0",
 ]
 
 [project.optional-dependencies]
