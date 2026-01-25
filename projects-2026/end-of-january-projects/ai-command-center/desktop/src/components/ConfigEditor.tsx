@@ -291,6 +291,58 @@ export function ConfigEditor() {
               />
               <p className="text-xs text-gray-500 mt-1">Higher values detect more potential secrets</p>
             </div>
+
+            {/* PII Patterns */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-gray-400">PII Detection Patterns (regex)</label>
+                <button
+                  onClick={() => {
+                    const newPolicy = {
+                      ...policy,
+                      privacy: {
+                        ...policy.privacy,
+                        pii_regexes: [...policy.privacy.pii_regexes, '(?i)new_pattern'],
+                      },
+                    };
+                    setPolicy(newPolicy);
+                    setDirty(true);
+                  }}
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  + Add Pattern
+                </button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {policy.privacy.pii_regexes.map((pattern, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={pattern}
+                      onChange={(e) => {
+                        const newPatterns = [...policy.privacy.pii_regexes];
+                        newPatterns[index] = e.target.value;
+                        const newPolicy = { ...policy, privacy: { ...policy.privacy, pii_regexes: newPatterns } };
+                        setPolicy(newPolicy);
+                        setDirty(true);
+                      }}
+                      className="flex-1 bg-gray-700 px-3 py-2 rounded-lg font-mono text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={() => {
+                        const newPatterns = policy.privacy.pii_regexes.filter((_, i) => i !== index);
+                        const newPolicy = { ...policy, privacy: { ...policy.privacy, pii_regexes: newPatterns } };
+                        setPolicy(newPolicy);
+                        setDirty(true);
+                      }}
+                      className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Complexity Settings */}
@@ -375,6 +427,58 @@ export function ConfigEditor() {
               Block requests on injection detection
             </label>
             <p className="text-xs text-gray-500">When enabled, suspected injection attempts will be blocked instead of just logged</p>
+
+            {/* Injection Patterns */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-gray-400">Injection Patterns (regex)</label>
+                <button
+                  onClick={() => {
+                    const newPolicy = {
+                      ...policy,
+                      injection: {
+                        ...policy.injection,
+                        patterns: [...policy.injection.patterns, '(?i)new_pattern'],
+                      },
+                    };
+                    setPolicy(newPolicy);
+                    setDirty(true);
+                  }}
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  + Add Pattern
+                </button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {policy.injection.patterns.map((pattern, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={pattern}
+                      onChange={(e) => {
+                        const newPatterns = [...policy.injection.patterns];
+                        newPatterns[index] = e.target.value;
+                        const newPolicy = { ...policy, injection: { ...policy.injection, patterns: newPatterns } };
+                        setPolicy(newPolicy);
+                        setDirty(true);
+                      }}
+                      className="flex-1 bg-gray-700 px-3 py-2 rounded-lg font-mono text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={() => {
+                        const newPatterns = policy.injection.patterns.filter((_, i) => i !== index);
+                        const newPolicy = { ...policy, injection: { ...policy.injection, patterns: newPatterns } };
+                        setPolicy(newPolicy);
+                        setDirty(true);
+                      }}
+                      className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}

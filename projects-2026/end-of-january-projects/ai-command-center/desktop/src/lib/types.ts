@@ -34,6 +34,7 @@ export interface RoutingPolicy {
     enabled: boolean;
     pii_regexes: string[];
     entropy_threshold: number;
+    min_token_length: number;
     sensitive_model: string;
   };
   complexity: {

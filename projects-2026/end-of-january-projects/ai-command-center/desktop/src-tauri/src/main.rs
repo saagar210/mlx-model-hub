@@ -92,6 +92,8 @@ pub struct PrivacyPolicy {
     #[serde(default)]
     pub entropy_threshold: f64,
     #[serde(default)]
+    pub min_token_length: u32,
+    #[serde(default)]
     pub sensitive_model: String,
 }
 
