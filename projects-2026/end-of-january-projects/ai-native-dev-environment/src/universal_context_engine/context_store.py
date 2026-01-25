@@ -9,6 +9,7 @@ from chromadb.config import Settings as ChromaSettings
 
 from .config import settings
 from .embedding import embedding_client
+from .logging import log_exception, log_operation, logger
 from .models import ContextItem, ContextType, SearchResult
 
 
@@ -189,8 +190,9 @@ class ContextStore:
                             score=score,
                             distance=distance,
                         ))
-            except Exception:
+            except Exception as e:
                 # Collection might be empty or not exist yet
+                log_exception("context_store", "search", e, {"collection": collection.name})
                 continue
 
         # Sort by score and limit
@@ -261,7 +263,8 @@ class ContextStore:
                                     if k.startswith("meta_")
                                 },
                             ))
-            except Exception:
+            except Exception as e:
+                log_exception("context_store", "get_recent", e, {"context_type": str(ct)})
                 continue
 
         # Sort by timestamp descending and limit
@@ -282,7 +285,8 @@ class ContextStore:
             collection = self._get_collection(context_type)
             collection.delete(ids=[item_id])
             return True
-        except Exception:
+        except Exception as e:
+            log_exception("context_store", "delete", e, {"item_id": item_id})
             return False
 
     def get_stats(self) -> dict[str, int]:
@@ -296,7 +300,8 @@ class ContextStore:
             try:
                 collection = self._get_collection(context_type)
                 stats[context_type.value] = collection.count()
-            except Exception:
+            except Exception as e:
+                log_exception("context_store", "get_stats", e, {"context_type": context_type.value})
                 stats[context_type.value] = 0
         return stats
 

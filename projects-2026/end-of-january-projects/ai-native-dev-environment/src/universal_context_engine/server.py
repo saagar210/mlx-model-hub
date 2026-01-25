@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 from .config import settings
 from .context_store import context_store
 from .embedding import embedding_client, generate_client
+from .logging import with_error_boundary, log_exception, logger
 from .models import ContextItem, ContextType, SearchResult
 
 # Initialize FastMCP server
@@ -51,6 +52,7 @@ def get_git_info() -> tuple[str | None, str | None]:
 
 
 @mcp.tool()
+@with_error_boundary("save_context")
 async def save_context(
     content: str,
     context_type: str = "context",
@@ -105,6 +107,7 @@ async def save_context(
 
 
 @mcp.tool()
+@with_error_boundary("search_context")
 async def search_context(
     query: str,
     type_filter: str | None = None,
@@ -158,6 +161,7 @@ async def search_context(
 
 
 @mcp.tool()
+@with_error_boundary("get_recent")
 async def get_recent(
     project: str | None = None,
     hours: int = 24,
@@ -211,6 +215,7 @@ async def get_recent(
 
 
 @mcp.tool()
+@with_error_boundary("recall_work")
 async def recall_work(project: str | None = None) -> dict:
     """Recall what you were working on - summarizes recent context.
 
@@ -286,6 +291,7 @@ async def recall_work(project: str | None = None) -> dict:
 
 
 @mcp.tool()
+@with_error_boundary("context_stats")
 async def context_stats() -> dict:
     """Get statistics about stored context.
 
@@ -310,6 +316,7 @@ from .session import session_manager
 
 
 @mcp.tool()
+@with_error_boundary("start_session")
 async def start_session(project: str | None = None) -> dict:
     """Start a new development session with context loading.
 
@@ -328,6 +335,7 @@ async def start_session(project: str | None = None) -> dict:
 
 
 @mcp.tool()
+@with_error_boundary("end_session")
 async def end_session(
     conversation_excerpt: str = "",
     files_modified: list[str] | None = None,
@@ -353,6 +361,7 @@ async def end_session(
 
 
 @mcp.tool()
+@with_error_boundary("capture_decision")
 async def capture_decision(
     decision: str,
     category: str | None = None,
@@ -382,6 +391,7 @@ async def capture_decision(
 
 
 @mcp.tool()
+@with_error_boundary("capture_blocker")
 async def capture_blocker(
     description: str,
     severity: str = "medium",
@@ -411,6 +421,7 @@ async def capture_blocker(
 
 
 @mcp.tool()
+@with_error_boundary("get_blockers")
 async def get_blockers(
     project: str | None = None,
     include_resolved: bool = False,
@@ -441,6 +452,7 @@ from .embedding import embedding_client
 
 
 @mcp.tool()
+@with_error_boundary("unified_search")
 async def unified_search(
     query: str,
     sources: list[str] | None = None,
@@ -497,6 +509,7 @@ async def unified_search(
 
 
 @mcp.tool()
+@with_error_boundary("research")
 async def research(
     topic: str,
     depth: str = "medium",
@@ -529,6 +542,7 @@ async def research(
 
 
 @mcp.tool()
+@with_error_boundary("decompose_task")
 async def decompose_task(
     task: str,
     context: str | None = None,
@@ -567,6 +581,7 @@ async def decompose_task(
 
 
 @mcp.tool()
+@with_error_boundary("ingest_to_kas")
 async def ingest_to_kas(
     content: str,
     title: str,
@@ -607,6 +622,7 @@ async def ingest_to_kas(
 
 
 @mcp.tool()
+@with_error_boundary("service_status")
 async def service_status() -> dict:
     """Check health of all connected services.
 
@@ -675,6 +691,7 @@ from .router import classify_intent, handle_intent
 
 
 @mcp.tool()
+@with_error_boundary("smart_request")
 async def smart_request(request: str) -> dict:
     """Automatically route a natural language request.
 
@@ -706,6 +723,7 @@ async def smart_request(request: str) -> dict:
 
 
 @mcp.tool()
+@with_error_boundary("explain_routing")
 async def explain_routing(request: str) -> dict:
     """Explain how a request would be routed without executing it.
 
@@ -750,6 +768,7 @@ from .feedback import feedback_tracker, get_metrics, export_training_data as _ex
 
 
 @mcp.tool()
+@with_error_boundary("feedback_helpful")
 async def feedback_helpful(interaction_id: str | None = None) -> dict:
     """Mark the last interaction (or a specific one) as helpful.
 
@@ -771,6 +790,7 @@ async def feedback_helpful(interaction_id: str | None = None) -> dict:
 
 
 @mcp.tool()
+@with_error_boundary("feedback_not_helpful")
 async def feedback_not_helpful(
     interaction_id: str | None = None,
     reason: str | None = None,
@@ -796,6 +816,7 @@ async def feedback_not_helpful(
 
 
 @mcp.tool()
+@with_error_boundary("quality_stats")
 async def quality_stats() -> dict:
     """Get quality metrics and feedback statistics.
 
@@ -826,6 +847,7 @@ async def quality_stats() -> dict:
 
 
 @mcp.tool()
+@with_error_boundary("export_feedback_data")
 async def export_feedback_data(
     tool: str | None = None,
     min_examples: int = 10,
